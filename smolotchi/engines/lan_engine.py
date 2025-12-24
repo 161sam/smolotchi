@@ -205,6 +205,7 @@ class LanEngine:
                 "changed_hosts_count": res.get("diff_changed_hosts_count", 0),
                 "changed_hosts": res.get("diff_changed_hosts", []),
             },
+            "diff_badges": res.get("diff_badges") or {},
         }
         bmeta = self.artifacts.put_json(
             kind="lan_bundle",

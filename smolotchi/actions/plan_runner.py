@@ -35,6 +35,7 @@ from smolotchi.reports.diff import (
     diff_host_summaries,
     resolve_baseline_host_summary,
 )
+from smolotchi.reports.diff_links import index_host_actions
 from smolotchi.reports.diff_export import diff_html, diff_json, diff_markdown
 from smolotchi.reports.export import build_report_json, build_report_markdown
 from smolotchi.reports.findings_aggregate import build_host_findings
@@ -659,7 +660,15 @@ class PlanRunner:
                 prev["artifact_id"] = prev_id
                 cur["artifact_id"] = smeta.id
 
-                diff = diff_host_summaries(prev, cur, max_hosts=max_hosts)
+                prev_idx = index_host_actions(self.artifacts, prev)
+                cur_idx = index_host_actions(self.artifacts, cur)
+                diff = diff_host_summaries(
+                    prev,
+                    cur,
+                    max_hosts=max_hosts,
+                    prev_links=prev_idx,
+                    cur_links=cur_idx,
+                )
                 diff["prev_host_summary_id"] = prev_id
                 diff["cur_host_summary_id"] = smeta.id
                 diff["ts_prev"] = float(prev.get("ts", 0) or 0)
@@ -667,6 +676,21 @@ class PlanRunner:
                 diff_changed_hosts = diff.get("changed_hosts", [])
                 result["diff_changed_hosts"] = diff_changed_hosts
                 result["diff_changed_hosts_count"] = len(diff_changed_hosts)
+                transitions = {}
+                per = diff.get("per_host") or {}
+                for host, hdiff in per.items():
+                    sc = hdiff.get("severity_counts") or {}
+                    prev_high = str(sc.get("prev_highest", "info"))
+                    cur_high = str(sc.get("cur_highest", "info"))
+                    if prev_high == cur_high:
+                        continue
+                    key = f"{prev_high}->{cur_high}"
+                    transitions[key] = int(transitions.get(key, 0)) + 1
+                diff["badges"] = {
+                    "changed_hosts": len(diff.get("changed_hosts") or []),
+                    "transitions": transitions,
+                }
+                result["diff_badges"] = diff.get("badges", {})
 
                 diff_html_meta = self.artifacts.put_file(
                     kind="lan_diff",

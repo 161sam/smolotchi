@@ -4,6 +4,10 @@
 
 {% block content %}
 <section class="card">
+  {% include "partials/back_to_lan.html" %}
+</section>
+
+<section class="card">
   <h3 style="margin:0 0 10px 0">Latest bundles</h3>
   <div class="events">
     {% for a in items %}
