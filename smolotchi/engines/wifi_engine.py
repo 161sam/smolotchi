@@ -39,12 +39,33 @@ class WifiEngine:
         if not w.enabled:
             return
 
+        iface = w.iface or "wlan0"
+        ui_evts = self.bus.tail(limit=20, topic_prefix="ui.wifi.")
+        req = next((e for e in ui_evts if e.topic == "ui.wifi.connect"), None)
+        if req and req.payload:
+            ssid = (req.payload.get("ssid") or "").strip()
+            iface_req = (req.payload.get("iface") or iface).strip()
+            creds = w.credentials or {}
+            allow = set(w.allow_ssids or [])
+            if ssid and ssid in creds and ((not allow) or ssid in allow):
+                ok, out = connect_wpa_psk(iface_req, ssid, creds[ssid])
+                self.bus.publish(
+                    "wifi.connect",
+                    {
+                        "iface": iface_req,
+                        "ssid": ssid,
+                        "ok": ok,
+                        "note": out[-500:],
+                    },
+                )
+                if ok:
+                    self._connected_ssid = ssid
+
         now = time.time()
         if now - self._last_scan < w.scan_interval_sec:
             return
         self._last_scan = now
 
-        iface = w.iface or "wlan0"
         aps = scan_iw(iface)
 
         self.bus.publish(
