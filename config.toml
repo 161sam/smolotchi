@@ -104,6 +104,7 @@ force_tag = { "vulners" = "info" }
 enabled = true
 compare_window_seconds = 86400
 max_hosts = 50
+baseline_host_summary_id = ""
 
 [invalidation]
 enabled = true

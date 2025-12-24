@@ -30,9 +30,14 @@ from smolotchi.actions.throttle import (
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.reports.aggregate import build_aggregate_model, build_aggregate_report
-from smolotchi.reports.diff import find_previous_host_summary, diff_host_summaries
+from smolotchi.reports.badges import summarize_host_findings
+from smolotchi.reports.diff import (
+    diff_host_summaries,
+    resolve_baseline_host_summary,
+)
 from smolotchi.reports.diff_export import diff_html, diff_json, diff_markdown
 from smolotchi.reports.export import build_report_json, build_report_markdown
+from smolotchi.reports.findings_aggregate import build_host_findings
 
 
 class PlanRunner:
@@ -566,7 +571,20 @@ class PlanRunner:
             title=f"Plan run • {plan.get('id')}",
             payload=result,
         )
-        summary = build_host_summary(result, latest_fp_payload_by_host)
+        summary_base = build_host_summary(result, latest_fp_payload_by_host)
+        host_findings = build_host_findings(
+            self.artifacts, summary_base, cfg=report_cfg or {}
+        )
+        host_sev = {}
+        for host, findings in host_findings.items():
+            badge = summarize_host_findings(findings, top_n=3)
+            host_sev[host] = {
+                "sev_counts": badge.get("counts", {}),
+                "sev_highest": badge.get("highest", "info"),
+            }
+        summary = build_host_summary(
+            result, latest_fp_payload_by_host, host_sev=host_sev
+        )
         smeta = self.artifacts.put_json(
             kind="host_summary",
             title=f"Host Summary • {plan.get('id')}",
@@ -623,12 +641,17 @@ class PlanRunner:
                 "json": rmeta_json.id,
             },
         )
-        diff_cfg = report_cfg.get("diff") if isinstance(report_cfg.get("diff"), dict) else {}
+        diff_cfg = (
+            report_cfg.get("diff") if isinstance(report_cfg.get("diff"), dict) else {}
+        )
         if diff_cfg.get("enabled", True):
             window_s = int(diff_cfg.get("compare_window_seconds", 86400))
             max_hosts = int(diff_cfg.get("max_hosts", 50))
-            prev_id = find_previous_host_summary(
-                self.artifacts, current_id=smeta.id, window_s=window_s
+            prev_id = resolve_baseline_host_summary(
+                self.artifacts,
+                current_id=smeta.id,
+                window_s=window_s,
+                baseline_id=diff_cfg.get("baseline_host_summary_id"),
             )
             if prev_id:
                 prev = self.artifacts.get_json(prev_id) or {}

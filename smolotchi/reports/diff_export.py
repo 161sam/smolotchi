@@ -44,6 +44,15 @@ def diff_markdown(diff: Dict[str, Any]) -> str:
                 for key, value in (change.get("changes") or {}).items()
             ]
             lines.append(f"- **{change['host']}** fp: " + ", ".join(parts))
+        elif change["type"] == "severity_counts":
+            lines.append(
+                f"- **{change['host']}** severity: {change['prev_highest']}→{change['cur_highest']} "
+                f"(C {change['prev']['critical']}→{change['cur']['critical']}, "
+                f"H {change['prev']['high']}→{change['cur']['high']}, "
+                f"M {change['prev']['medium']}→{change['cur']['medium']}, "
+                f"L {change['prev']['low']}→{change['cur']['low']}, "
+                f"I {change['prev']['info']}→{change['cur']['info']})"
+            )
     if not diff.get("changes"):
         lines.append("_No changes detected._")
     lines.append("")
