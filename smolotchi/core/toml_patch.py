@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import List
+from typing import Dict, List
 
 
 def _toml_list(xs: List[str]) -> str:
@@ -125,3 +125,64 @@ def patch_baseline_remove(toml_text: str, scope: str, finding_id: str) -> str:
     block = rx.sub(repl, block, count=1)
 
     return toml_text[:start] + block + toml_text[end:]
+
+
+def _parse_baseline_scopes_block(block: str) -> Dict[str, List[str]]:
+    """
+    Parse lines like:
+      "10.0.10.0/24" = ["a", "b"]
+    Returns dict scope -> list(ids)
+    """
+    scopes: Dict[str, List[str]] = {}
+    line_rx = re.compile(r'^\s*"([^"]+)"\s*=\s*\[(.*?)\]\s*$', flags=re.MULTILINE)
+
+    for match in line_rx.finditer(block):
+        scope = match.group(1).strip()
+        inner = (match.group(2) or "").strip()
+        ids = re.findall(r'"([^"]+)"', inner) if inner else []
+        scopes[scope] = ids
+
+    return scopes
+
+
+def _render_baseline_scopes_block(scopes: Dict[str, List[str]]) -> str:
+    """
+    Renders a normalized block for [baseline.scopes] with sorted keys and values.
+    """
+    lines: List[str] = []
+    for scope in sorted(scopes.keys()):
+        ids = scopes[scope]
+        norm = sorted({x.strip() for x in ids if x and x.strip()})
+        if not norm:
+            continue
+        joined = ", ".join([f'"{x}"' for x in norm])
+        lines.append(f'"{scope}" = [{joined}]')
+    if not lines:
+        return ""
+    return "\n" + "\n".join(lines) + "\n"
+
+
+def cleanup_baseline_scopes(toml_text: str) -> str:
+    """
+    Cleans only the [baseline.scopes] section:
+      - remove scopes with []
+      - sort scope keys
+      - dedup + sort ids
+      - keep the [baseline.scopes] header
+    If the section becomes empty, it will keep just the header (no entries).
+    """
+    match = re.search(r"^\[baseline\.scopes\]\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+
+    block = toml_text[start:end]
+    scopes = _parse_baseline_scopes_block(block)
+    new_block = _render_baseline_scopes_block(scopes)
+    if new_block == "":
+        new_block = "\n"
+
+    return toml_text[:start] + new_block + toml_text[end:]

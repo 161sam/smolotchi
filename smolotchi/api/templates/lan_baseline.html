@@ -8,6 +8,9 @@
     <a class="pill" href="{{ url_for('lan_results') }}">LAN Results</a>
     <a class="pill" href="/lan/summary">Executive Summary</a>
     <a class="pill" href="{{ url_for('lan_baseline_diff_latest') }}">Baseline Diff (latest)</a>
+    <form method="post" action="/lan/baseline/cleanup" style="display:inline">
+      <button class="secondary" type="submit">Cleanup baseline</button>
+    </form>
   </div>
 </section>
 
