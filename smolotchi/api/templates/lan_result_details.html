@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block page_title %}Result Details{% endblock %}
+{% block page_sub %}Job {{ bundle.job_id }} • {{ bundle.kind }} • {{ bundle.scope }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Links</h3>
+  <div class="row">
+    {% if result_json_id %}
+      <a href="{{ url_for('artifact_download', artifact_id=result_json_id) }}"
+         style="color:var(--accent); text-decoration:none; font-weight:900;">Download result JSON</a>
+      <a href="{{ url_for('artifact_view', artifact_id=result_json_id) }}"
+         style="color:var(--accent); text-decoration:none; font-weight:900;">View result JSON</a>
+    {% endif %}
+
+    {% if report_id %}
+      <a href="{{ url_for('report_view', artifact_id=report_id) }}"
+         style="color:var(--accent); text-decoration:none; font-weight:900;">Open report (HTML)</a>
+      <a href="{{ url_for('artifact_file_download', artifact_id=report_id) }}"
+         style="color:var(--accent); text-decoration:none; font-weight:900;">Download report</a>
+    {% else %}
+      <span class="muted">No report generated (reports disabled).</span>
+    {% endif %}
+
+    <a href="{{ url_for('artifact_download', artifact_id=bundle_id) }}"
+       style="color:var(--accent); text-decoration:none; font-weight:900;">Download bundle JSON</a>
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Bundle metadata</h3>
+  <div class="evt"><pre>{{ bundle }}</pre></div>
+</section>
+
+{% if result_json %}
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Result JSON (preview)</h3>
+  <div class="evt"><pre>{{ result_json }}</pre></div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Job events (latest)</h3>
+  <div class="events">
+    {% for e in events %}
+      <div class="evt">
+        <div class="evt-top">{{ e.topic }}</div>
+        <pre>{{ e.payload }}</pre>
+      </div>
+    {% else %}
+      <div class="muted">No matching events found.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

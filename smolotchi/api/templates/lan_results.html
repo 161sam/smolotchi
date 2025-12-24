@@ -1,21 +1,24 @@
 {% extends "layout.html" %}
 {% block page_title %}LAN Results{% endblock %}
-{% block page_sub %}Artifacts from /var/lib/smolotchi/artifacts{% endblock %}
+{% block page_sub %}Bundles (JSON + optional HTML report){% endblock %}
 
 {% block content %}
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Latest artifacts</h3>
+  <h3 style="margin:0 0 10px 0">Latest bundles</h3>
   <div class="events">
     {% for a in items %}
       <div class="evt">
         <div class="evt-top">{{ a.title }}</div>
-        <div class="muted">id: {{ a.id }} • kind: {{ a.kind }} • ts: {{ a.created_ts|round(0) }}</div>
-        <div style="margin-top:10px">
-          <a href="{{ url_for('artifact_view', artifact_id=a.id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Open</a>
+        <div class="muted">bundle_id: {{ a.id }}</div>
+        <div style="margin-top:10px" class="row">
+          <a href="{{ url_for('lan_result_details', bundle_id=a.id) }}"
+             style="color:var(--accent); text-decoration:none; font-weight:900;">Open details</a>
+          <a href="{{ url_for('artifact_download', artifact_id=a.id) }}"
+             style="color:var(--accent); text-decoration:none; font-weight:900;">Download bundle JSON</a>
         </div>
       </div>
     {% else %}
-      <div class="muted">No artifacts yet. Enqueue a LAN job first.</div>
+      <div class="muted">No results yet. Enqueue a LAN job first.</div>
     {% endfor %}
   </div>
 </section>
