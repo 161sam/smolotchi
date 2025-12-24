@@ -167,6 +167,11 @@ class LanEngine:
             "created_ts": time.time(),
             "plan_artifact_id": plan_id,
             "plan_run_artifact_id": res.get("artifact_id"),
+            "host_summary_artifact_id": res.get("host_summary_artifact_id"),
+            "report_html": {
+                "artifact_id": res.get("aggregate_report_artifact_id"),
+                "title": f"Aggregate Report • {plan.get('id')}",
+            },
         }
         bmeta = self.artifacts.put_json(
             kind="lan_bundle",

@@ -28,6 +28,7 @@ from smolotchi.actions.throttle import (
 )
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
+from smolotchi.reports.aggregate import build_aggregate_report
 
 
 class PlanRunner:
@@ -569,10 +570,28 @@ class PlanRunner:
             "host.summary.created",
             {"plan_id": plan.get("id"), "artifact_id": smeta.id},
         )
+        html = build_aggregate_report(
+            artifacts=self.artifacts,
+            host_summary_artifact_id=smeta.id,
+            title="Smolotchi • Aggregate Report",
+            bundle_id=None,
+        )
+        rmeta = self.artifacts.put_file(
+            kind="lan_report",
+            title=f"Aggregate Report • {plan.get('id')}",
+            filename="report.html",
+            content=html.encode("utf-8"),
+            mimetype="text/html; charset=utf-8",
+        )
+        self.bus.publish(
+            "report.aggregate.created",
+            {"plan_id": plan.get("id"), "artifact_id": rmeta.id},
+        )
         self.bus.publish(
             "plan.finished",
             {"id": plan.get("id"), "artifact_id": meta.id, "ok": all(s["ok"] for s in out_steps)},
         )
         result["artifact_id"] = meta.id
         result["host_summary_artifact_id"] = smeta.id
+        result["aggregate_report_artifact_id"] = rmeta.id
         return result
