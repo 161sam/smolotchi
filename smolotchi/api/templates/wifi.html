@@ -105,7 +105,7 @@
     <textarea name="creds" spellcheck="false"
       style="width:100%; min-height:24vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,monospace; font-size:12px; line-height:1.4;"
     >{% if app_cfg and app_cfg.wifi and app_cfg.wifi.credentials %}
-{% for k,v in (app_cfg.wifi.credentials or {}).items()|dictsort %}
+{% for k,v in (app_cfg.wifi.credentials or {})|dictsort %}
 {{ k }}={{ v }}
 {% endfor %}
 {% endif %}</textarea>
