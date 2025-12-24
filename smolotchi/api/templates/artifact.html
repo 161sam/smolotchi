@@ -6,7 +6,13 @@
 <section class="card">
   <div class="row" style="justify-content:space-between">
     <div class="muted">JSON payload</div>
-    <a href="{{ url_for('lan_results') }}" style="color:var(--accent); text-decoration:none; font-weight:900;">← Back to results</a>
+    <div class="row">
+      <a href="{{ url_for('artifact_download', artifact_id=artifact_id) }}"
+         style="color:var(--accent); text-decoration:none; font-weight:900; margin-right:12px;">
+        Download JSON
+      </a>
+      <a href="{{ url_for('lan_results') }}" style="color:var(--accent); text-decoration:none; font-weight:900;">← Back to results</a>
+    </div>
   </div>
   <div class="evt" style="margin-top:12px">
     <pre>{{ data }}</pre>

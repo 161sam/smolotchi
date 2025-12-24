@@ -95,19 +95,19 @@ class SmolotchiCore:
             if lan:
                 safe_stop(lan)
 
-    def _coerce_lan_job(self, payload: Optional[dict]) -> Optional[object]:
-        if not payload:
+    def _coerce_lan_job(self, payload: Optional[dict]) -> Optional[dict]:
+        if not payload or not isinstance(payload, dict):
             return None
-        try:
-            from smolotchi.engines.lan_engine import LanJob
-        except Exception:
+        required = ("id", "kind", "scope")
+        if not all(key in payload for key in required):
             return None
-        if isinstance(payload, LanJob):
-            return payload
-        try:
-            return LanJob(**payload)
-        except TypeError:
-            return None
+        return {
+            "id": str(payload["id"]),
+            "kind": str(payload["kind"]),
+            "scope": str(payload["scope"]),
+            "note": str(payload.get("note", "")),
+            "created_ts": float(payload.get("created_ts", time.time())),
+        }
 
     def tick(self) -> None:
         events = self.bus.tail(limit=20)
