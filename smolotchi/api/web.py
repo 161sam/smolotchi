@@ -19,7 +19,11 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
-from smolotchi.core.toml_patch import patch_baseline_add, patch_lan_lists
+from smolotchi.core.toml_patch import (
+    patch_baseline_add,
+    patch_baseline_remove,
+    patch_lan_lists,
+)
 from smolotchi.reports.exec_summary import (
     build_exec_summary,
     render_exec_summary_html,
@@ -260,11 +264,22 @@ def create_app(config_path: str = "config.toml") -> Flask:
         default_scope = (getattr(getattr(cfg, "lan", None), "default_scope", "") or "")
         return default_scope.strip() or "default"
 
+    def _baseline_scopes(cfg) -> list[str]:
+        baseline = getattr(cfg, "baseline", None)
+        scopes = getattr(baseline, "scopes", None) if baseline else None
+        if isinstance(scopes, dict):
+            return sorted([str(key) for key in scopes.keys()])
+        return []
+
     @app.get("/lan/baseline")
     def lan_baseline_overview():
         cfg = store.get()
         bundles = _load_recent_bundles(limit=200)
-        scope = _pick_scope(cfg, bundles)
+        scopes = _baseline_scopes(cfg)
+        scope_q = (request.args.get("scope") or "").strip()
+        scope = scope_q or _pick_scope(cfg, bundles)
+        if scopes and scope not in scopes:
+            scope = scopes[0]
         expected = expected_findings_for_scope(cfg, scope)
 
         window = int(request.args.get("window", "50") or "50")
@@ -276,6 +291,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         return render_template(
             "lan_baseline.html",
             scope=scope,
+            scopes=scopes,
             window=window,
             expected_count=len(expected),
             diff=diff,
@@ -285,7 +301,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def lan_baseline_diff_latest():
         cfg = store.get()
         bundles = _load_recent_bundles(limit=50)
-        scope = _pick_scope(cfg, bundles)
+        scopes = _baseline_scopes(cfg)
+        scope_q = (request.args.get("scope") or "").strip()
+        scope = scope_q or _pick_scope(cfg, bundles)
+        if scopes and scope not in scopes:
+            scope = scopes[0]
         expected = expected_findings_for_scope(cfg, scope)
 
         latest = bundles[0] if bundles else {}
@@ -294,6 +314,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         return render_template(
             "lan_baseline_diff.html",
             scope=scope,
+            scopes=scopes,
             bundle_id=(latest.get("id") if latest else None),
             diff=diff,
         )
@@ -320,6 +341,29 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if back:
             return redirect(back)
         return redirect(url_for("lan_baseline_overview"))
+
+    @app.post("/lan/baseline/remove")
+    def lan_baseline_remove():
+        cfg = store.get()
+        bundles = _load_recent_bundles(limit=50)
+        scope = (request.form.get("scope") or "").strip() or _pick_scope(cfg, bundles)
+        fid = (request.form.get("fid") or "").strip()
+
+        if not fid or "\n" in fid or "\r" in fid or len(fid) > 200:
+            abort(400)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_baseline_remove(text, scope=scope, finding_id=fid)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish(
+            "ui.baseline.removed", {"scope": scope, "fid": fid, "ts": time.time()}
+        )
+
+        back = request.form.get("back") or ""
+        return redirect(back or url_for("lan_baseline_overview"))
 
     @app.get("/lan/finding/<fid>/jump")
     def lan_finding_jump(fid: str):
