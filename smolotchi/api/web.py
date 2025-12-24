@@ -18,6 +18,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
+from smolotchi.reports.host_diff import host_diff_html, host_diff_markdown
 
 
 def pretty(obj) -> str:
@@ -94,6 +95,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
             report_md = reports.get("md") or {}
             report_json = reports.get("json") or {}
             rep_id = report_html.get("artifact_id")
+            diff_report = reports.get("diff") or {}
+            diff_summary = bundle.get("diff_summary") or {}
             return {
                 "bundle_id": bundle_id,
                 "bundle": bundle,
@@ -101,6 +104,12 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 "report_id": rep_id,
                 "report_md_id": report_md.get("artifact_id"),
                 "report_json_id": report_json.get("artifact_id"),
+                "diff_html_id": (diff_report.get("html") or {}).get("artifact_id"),
+                "diff_md_id": (diff_report.get("md") or {}).get("artifact_id"),
+                "diff_json_id": (diff_report.get("json") or {}).get("artifact_id")
+                or diff_summary.get("artifact_id"),
+                "diff_changed_hosts": diff_summary.get("changed_hosts", []),
+                "diff_changed_hosts_count": diff_summary.get("changed_hosts_count"),
             }
 
         idx = artifacts.list(limit=300)
@@ -126,6 +135,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "report_id": report_id,
             "report_md_id": None,
             "report_json_id": None,
+            "diff_html_id": None,
+            "diff_md_id": None,
+            "diff_json_id": None,
+            "diff_changed_hosts": [],
+            "diff_changed_hosts_count": None,
         }
 
     @app.get("/lan/result/<bundle_id>")
@@ -139,6 +153,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
         report_md = reports.get("md") or {}
         report_json = reports.get("json") or {}
         report_id = report.get("artifact_id")
+        diff_report = reports.get("diff") or {}
+        diff_summary = bundle.get("diff_summary") or {}
         resolved = {
             "bundle_id": bundle_id,
             "bundle": bundle,
@@ -146,6 +162,12 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "report_id": report_id,
             "report_md_id": report_md.get("artifact_id"),
             "report_json_id": report_json.get("artifact_id"),
+            "diff_html_id": (diff_report.get("html") or {}).get("artifact_id"),
+            "diff_md_id": (diff_report.get("md") or {}).get("artifact_id"),
+            "diff_json_id": (diff_report.get("json") or {}).get("artifact_id")
+            or diff_summary.get("artifact_id"),
+            "diff_changed_hosts": diff_summary.get("changed_hosts", []),
+            "diff_changed_hosts_count": diff_summary.get("changed_hosts_count"),
         }
         return _render_result_details(resolved, job_id=bundle.get("job_id"))
 
@@ -164,6 +186,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
         report_id = resolved.get("report_id")
         report_md_id = resolved.get("report_md_id")
         report_json_id = resolved.get("report_json_id")
+        diff_html_id = resolved.get("diff_html_id")
+        diff_md_id = resolved.get("diff_md_id")
+        diff_json_id = resolved.get("diff_json_id")
+        diff_changed_hosts = resolved.get("diff_changed_hosts") or []
+        diff_changed_hosts_count = resolved.get("diff_changed_hosts_count")
+        if diff_changed_hosts_count is None and diff_changed_hosts:
+            diff_changed_hosts_count = len(diff_changed_hosts)
 
         result_json = artifacts.get_json(json_id) if json_id else None
         bundle_pretty = pretty(bundle) if bundle else ""
@@ -188,6 +217,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
             report_id=report_id,
             report_md_id=report_md_id,
             report_json_id=report_json_id,
+            diff_html_id=diff_html_id,
+            diff_md_id=diff_md_id,
+            diff_json_id=diff_json_id,
+            diff_changed_hosts=diff_changed_hosts,
+            diff_changed_hosts_count=diff_changed_hosts_count,
             events=evts,
         )
 
@@ -195,6 +229,49 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def lan_reports():
         items = artifacts.list(limit=50, kind="lan_report")
         return render_template("lan_reports.html", items=items)
+
+    def _resolve_bundle(bundle_id: str):
+        bundle = artifacts.get_json(bundle_id)
+        if bundle:
+            return bundle_id, bundle
+        bundle_id = artifacts.find_bundle_by_job_id(bundle_id)
+        if not bundle_id:
+            return None, None
+        return bundle_id, artifacts.get_json(bundle_id)
+
+    @app.get("/lan/diff/host/<bundle_id>/<host>")
+    def lan_host_diff(bundle_id: str, host: str):
+        bundle_id, bundle = _resolve_bundle(bundle_id)
+        if not bundle:
+            abort(404)
+        reports = bundle.get("reports") or {}
+        diff_report = reports.get("diff") or {}
+        diff_summary = bundle.get("diff_summary") or {}
+        diff_json_id = (diff_report.get("json") or {}).get("artifact_id") or diff_summary.get(
+            "artifact_id"
+        )
+        if not diff_json_id:
+            abort(404)
+        diff = artifacts.get_json(diff_json_id) or {}
+        html = host_diff_html(diff, host)
+        return Response(html, mimetype="text/html")
+
+    @app.get("/lan/diff/host/<bundle_id>/<host>.md")
+    def lan_host_diff_md(bundle_id: str, host: str):
+        bundle_id, bundle = _resolve_bundle(bundle_id)
+        if not bundle:
+            abort(404)
+        reports = bundle.get("reports") or {}
+        diff_report = reports.get("diff") or {}
+        diff_summary = bundle.get("diff_summary") or {}
+        diff_json_id = (diff_report.get("json") or {}).get("artifact_id") or diff_summary.get(
+            "artifact_id"
+        )
+        if not diff_json_id:
+            abort(404)
+        diff = artifacts.get_json(diff_json_id) or {}
+        md = host_diff_markdown(diff, host)
+        return Response(md, mimetype="text/markdown; charset=utf-8")
 
     @app.get("/artifact/<artifact_id>")
     def artifact_view(artifact_id: str):

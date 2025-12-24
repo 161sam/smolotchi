@@ -74,7 +74,13 @@ def diff_host_summaries(
 
     added = [h for h in all_hosts if h not in prev_hosts and h in cur_hosts]
     removed = [h for h in all_hosts if h in prev_hosts and h not in cur_hosts]
-    changed = []
+    per_host: Dict[str, dict] = {}
+
+    def _touch(host: str) -> None:
+        per_host.setdefault(
+            host,
+            {"ports": None, "fingerprints": None, "severity_counts": None},
+        )
 
     for host in all_hosts:
         if host not in prev_hosts or host not in cur_hosts:
@@ -85,9 +91,8 @@ def diff_host_summaries(
         prev_ports = _ports_union(prev_host)
         cur_ports = _ports_union(cur_host)
         if prev_ports != cur_ports:
-            changed.append(
-                {"host": host, "type": "ports", "prev": prev_ports, "cur": cur_ports}
-            )
+            _touch(host)
+            per_host[host]["ports"] = {"prev": prev_ports, "cur": cur_ports}
 
         prev_fp = prev_host.get("fp_by_key") or {}
         cur_fp = cur_host.get("fp_by_key") or {}
@@ -99,7 +104,8 @@ def diff_host_summaries(
                     "cur": str(cur_fp.get(key, ""))[:8],
                 }
         if fp_changes:
-            changed.append({"host": host, "type": "fingerprints", "changes": fp_changes})
+            _touch(host)
+            per_host[host]["fingerprints"] = fp_changes
 
         prev_sev = prev_host.get("sev_counts") or {}
         cur_sev = cur_host.get("sev_counts") or {}
@@ -107,17 +113,15 @@ def diff_host_summaries(
         prev_norm = {key: int(prev_sev.get(key, 0) or 0) for key in keys}
         cur_norm = {key: int(cur_sev.get(key, 0) or 0) for key in keys}
         if prev_norm != cur_norm:
-            changed.append(
-                {
-                    "host": host,
-                    "type": "severity_counts",
-                    "prev": prev_norm,
-                    "cur": cur_norm,
-                    "prev_highest": str(prev_host.get("sev_highest", "info")),
-                    "cur_highest": str(cur_host.get("sev_highest", "info")),
-                }
-            )
+            _touch(host)
+            per_host[host]["severity_counts"] = {
+                "prev": prev_norm,
+                "cur": cur_norm,
+                "prev_highest": str(prev_host.get("sev_highest", "info")),
+                "cur_highest": str(cur_host.get("sev_highest", "info")),
+            }
 
+    changed_hosts = sorted(list(per_host.keys()))
     return {
         "prev_id": prev.get("artifact_id"),
         "cur_id": cur.get("artifact_id"),
@@ -125,5 +129,6 @@ def diff_host_summaries(
         "ts_cur": cur.get("ts"),
         "hosts_added": added,
         "hosts_removed": removed,
-        "changes": changed,
+        "changed_hosts": changed_hosts,
+        "per_host": per_host,
     }

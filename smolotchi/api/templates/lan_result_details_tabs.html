@@ -32,6 +32,32 @@
 
   <div class="hr"></div>
 
+  {% if diff_html_id or diff_md_id or diff_json_id %}
+    <div class="btn-row">
+      {% if diff_html_id %}
+        <a class="btn" href="{{ url_for('report_view', artifact_id=diff_html_id) }}">Host Diff (HTML)</a>
+      {% endif %}
+      {% if diff_md_id %}
+        <a class="btn" href="{{ url_for('artifact_file_download', artifact_id=diff_md_id) }}">Host Diff (MD)</a>
+      {% endif %}
+      {% if diff_json_id %}
+        <a class="btn" href="{{ url_for('artifact_file_download', artifact_id=diff_json_id) }}">Host Diff (JSON)</a>
+      {% endif %}
+      {% if diff_changed_hosts_count is not none %}
+        <span class="pill">Changed hosts: {{ diff_changed_hosts_count }}</span>
+      {% endif %}
+    </div>
+    {% if diff_changed_hosts and bundle_id %}
+      <div class="small" style="margin-top:10px">Changed hosts</div>
+      <div class="btn-row" style="flex-wrap:wrap">
+        {% for host in diff_changed_hosts %}
+          <a class="btn" href="{{ url_for('lan_host_diff', bundle_id=bundle_id, host=host) }}">{{ host }}</a>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div class="hr"></div>
+  {% endif %}
+
   <div data-tabs data-tabs-key="result-details-tabs" data-default-tab="meta">
     <div class="tabs">
       <button class="tab-btn" type="button" data-tab="meta">Meta</button>
