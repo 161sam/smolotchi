@@ -20,6 +20,26 @@
           <a href="{{ url_for('artifact_download', artifact_id=a.id) }}"
              style="color:var(--accent); text-decoration:none; font-weight:900;">Download bundle JSON</a>
         </div>
+
+        {% if a.diff_badges %}
+          <div class="row" style="gap:10px; margin-top:10px; flex-wrap:wrap;">
+            <span class="pill">Changed: {{ a.diff_badges.changed_hosts or 0 }}</span>
+            {% for k,v in (a.diff_badges.transitions or {}).items() %}
+              <span class="pill">{{ k }}: {{ v }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if a.diff_summary and a.diff_summary.changed_hosts %}
+          <div style="margin-top:10px">
+            <div class="muted">Changed hosts</div>
+            <div class="row" style="gap:10px; margin-top:6px; flex-wrap:wrap;">
+              {% for h in a.diff_summary.changed_hosts %}
+                <a class="pill" href="/lan/diff/host/{{ a.id }}/{{ h }}">{{ h }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
       </div>
     {% else %}
       <div class="muted">No results yet. Enqueue a LAN job first.</div>

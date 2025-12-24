@@ -1,30 +1,66 @@
 {% extends "layout.html" %}
 {% block page_title %}Config{% endblock %}
-{% block page_sub %}{{ config_path }} • read-only view + reload{% endblock %}
+{% block page_sub %}{{ config_path }} • edit + reload{% endblock %}
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between">
+  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
     <div>
-      <div class="muted">Aktive Konfiguration</div>
+      <div class="muted">config.toml bearbeiten (Save schreibt Datei). Danach optional “Reload config”.</div>
     </div>
-    <form method="post" action="/config/reload">
-      <button type="submit" class="secondary">Reload config</button>
-    </form>
+
+    <div class="row" style="gap:10px; flex-wrap:wrap;">
+      <form method="post" action="{{ url_for('config_save') }}">
+        <button type="submit" class="btn">Save</button>
+      </form>
+      <form method="post" action="{{ url_for('config_reload') }}">
+        <button type="submit" class="secondary">Reload config</button>
+      </form>
+    </div>
   </div>
+
+  {% if msg %}
+    <div class="events" style="margin-top:12px">
+      <div class="evt">
+        <div class="evt-top">{{ msg.title }}</div>
+        <pre>{{ msg.text }}</pre>
+      </div>
+    </div>
+  {% endif %}
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">core</h3>
+  <h3 style="margin:0 0 10px 0">config.toml (editable)</h3>
+  <form method="post" action="{{ url_for('config_save') }}">
+    <textarea name="content" spellcheck="false"
+      style="width:100%; min-height:52vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace; font-size:12px; line-height:1.4;"
+    >{{ content }}</textarea>
+
+    <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
+      <button type="submit" class="btn">Save</button>
+      <button type="submit" formaction="{{ url_for('config_reload') }}" formmethod="post" class="secondary">Reload config</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Aktive Konfiguration (parsed)</h3>
+
+  <h3 style="margin:14px 0 10px 0">core</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.core.__dict__ }}</pre></div></div>
+
   <h3 style="margin:14px 0 10px 0">policy</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.policy.__dict__ }}</pre></div></div>
+
   <h3 style="margin:14px 0 10px 0">wifi</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.wifi.__dict__ }}</pre></div></div>
+
   <h3 style="margin:14px 0 10px 0">lan</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.lan.__dict__ }}</pre></div></div>
+
   <h3 style="margin:14px 0 10px 0">ui</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.ui.__dict__ }}</pre></div></div>
+
   <h3 style="margin:14px 0 10px 0">theme</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.theme.__dict__ }}</pre></div></div>
 </section>
