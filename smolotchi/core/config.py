@@ -45,6 +45,12 @@ class PolicyCfg:
 class WifiCfg:
     enabled: bool = True
     safe_mode: bool = True
+    iface: str = "wlan0"
+    scan_interval_sec: int = 30
+    allow_ssids: List[str] = field(default_factory=list)
+    auto_connect: bool = True
+    preferred_ssid: str = ""
+    credentials: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -303,6 +309,12 @@ class ConfigStore:
             wifi=WifiCfg(
                 enabled=bool(wifi.get("enabled", True)),
                 safe_mode=bool(wifi.get("safe_mode", True)),
+                iface=str(wifi.get("iface", "wlan0")),
+                scan_interval_sec=int(wifi.get("scan_interval_sec", 30)),
+                allow_ssids=list(wifi.get("allow_ssids", []) or []),
+                auto_connect=bool(wifi.get("auto_connect", True)),
+                preferred_ssid=str(wifi.get("preferred_ssid", "")),
+                credentials=dict(wifi.get("credentials", {}) or {}),
             ),
             lan=LanCfg(
                 enabled=bool(lan.get("enabled", True)),

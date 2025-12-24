@@ -49,7 +49,7 @@ def cmd_core(args) -> int:
     from smolotchi.core.resources import ResourceManager
     from smolotchi.core.watchdog import JobWatchdog
     from smolotchi.engines.lan_engine import LanConfig, LanEngine
-    from smolotchi.engines.wifi_engine import WifiConfig, WifiEngine
+    from smolotchi.engines.wifi_engine import WifiEngine
 
     store = ConfigStore(args.config)
     cfg = store.load()
@@ -81,10 +81,7 @@ def cmd_core(args) -> int:
     reg.register(
         WifiEngine(
             bus,
-            WifiConfig(
-                enabled=cfg.wifi.enabled,
-                safe_mode=cfg.wifi.safe_mode,
-            ),
+            store,
         )
     )
     from smolotchi.actions.plan_runner import PlanRunner
@@ -192,11 +189,7 @@ def cmd_core(args) -> int:
     try:
         while True:
             new_cfg = store.get()
-            wifi = reg.get("wifi")
             lan = reg.get("lan")
-            if wifi:
-                wifi.cfg.enabled = new_cfg.wifi.enabled
-                wifi.cfg.safe_mode = new_cfg.wifi.safe_mode
             if lan:
                 lan.cfg.enabled = new_cfg.lan.enabled
                 lan.cfg.safe_mode = new_cfg.lan.safe_mode
@@ -343,6 +336,44 @@ def cmd_events(args) -> int:
     for e in reversed(evts):
         print(f"{e.ts:.0f}  {e.topic}  {e.payload}")
     return 0
+
+
+def cmd_wifi_scan(args) -> int:
+    from smolotchi.core.config import ConfigStore
+    from smolotchi.engines.wifi_scan import scan_iw
+
+    store = ConfigStore(args.config)
+    cfg = store.load()
+    iface = args.iface or cfg.wifi.iface
+    aps = scan_iw(iface)
+    print(f"iface={iface} count={len(aps)}")
+    print(f"{'SSID':32} {'BSSID':18} {'FREQ':6} {'SIGNAL':7} {'SEC':8}")
+    for ap in aps[: args.limit]:
+        print(
+            f"{ap.ssid[:32]:32} {ap.bssid:18} "
+            f"{ap.freq_mhz or '-':6} {ap.signal_dbm or '-':7} {ap.security or '-':8}"
+        )
+    return 0
+
+
+def cmd_wifi_connect(args) -> int:
+    from smolotchi.core.config import ConfigStore
+    from smolotchi.engines.wifi_connect import connect_wpa_psk
+
+    store = ConfigStore(args.config)
+    cfg = store.load()
+    iface = args.iface or cfg.wifi.iface
+    creds = cfg.wifi.credentials or {}
+    allow = set(cfg.wifi.allow_ssids or [])
+    if allow and args.ssid not in allow:
+        print(f"error: ssid '{args.ssid}' not in allowlist")
+        return 2
+    if args.ssid not in creds:
+        print(f"error: no credential for ssid '{args.ssid}'")
+        return 2
+    ok, out = connect_wpa_psk(iface, args.ssid, creds[args.ssid])
+    print(out.strip())
+    return 0 if ok else 1
 
 
 def cmd_jobs(args) -> int:
@@ -570,6 +601,21 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--limit", type=int, default=50)
     s.add_argument("--topic-prefix", default=None)
     s.set_defaults(fn=cmd_events)
+
+    wifi = sub.add_parser("wifi", help="WiFi utilities")
+    wifi_sub = wifi.add_subparsers(dest="wifi_cmd", required=True)
+
+    s = wifi_sub.add_parser("scan", help="Scan nearby WiFi networks")
+    s.add_argument("--iface", default=None)
+    s.add_argument("--limit", type=int, default=50)
+    s.set_defaults(fn=cmd_wifi_scan)
+
+    s = wifi_sub.add_parser(
+        "connect", help="Connect to WiFi using config credentials"
+    )
+    s.add_argument("ssid")
+    s.add_argument("--iface", default=None)
+    s.set_defaults(fn=cmd_wifi_connect)
 
     s = sub.add_parser("jobs", help="List jobs")
     s.add_argument("--status", default=None)
