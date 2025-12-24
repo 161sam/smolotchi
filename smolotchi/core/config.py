@@ -52,6 +52,7 @@ class LanCfg:
     enabled: bool = True
     safe_mode: bool = True
     max_jobs_per_tick: int = 1
+    default_scope: str = "10.0.10.0/24"
     noisy_scripts: List[str] = field(default_factory=list)
     allowlist_scripts: List[str] = field(default_factory=list)
 
@@ -177,6 +178,12 @@ class InvalidationCfg:
 
 
 @dataclass
+class BaselineCfg:
+    enabled: bool = False
+    scopes: Dict[str, List[str]] = field(default_factory=dict)
+
+
+@dataclass
 class AppConfig:
     core: CoreCfg
     policy: PolicyCfg
@@ -192,6 +199,7 @@ class AppConfig:
     report_normalize: ReportNormalizeCfg
     report_diff: ReportDiffCfg
     invalidation: InvalidationCfg
+    baseline: BaselineCfg
 
 
 class ConfigStore:
@@ -220,6 +228,7 @@ class ConfigStore:
         rn = report.get("normalize", {}) if isinstance(report.get("normalize"), dict) else {}
         rd = report.get("diff", {}) if isinstance(report.get("diff"), dict) else {}
         inv = d.get("invalidation", {}) if isinstance(d.get("invalidation"), dict) else {}
+        baseline = d.get("baseline", {}) if isinstance(d.get("baseline"), dict) else {}
         aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
         aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
         athrottle = (
@@ -299,6 +308,7 @@ class ConfigStore:
                 enabled=bool(lan.get("enabled", True)),
                 safe_mode=bool(lan.get("safe_mode", True)),
                 max_jobs_per_tick=int(lan.get("max_jobs_per_tick", 1)),
+                default_scope=str(lan.get("default_scope", "10.0.10.0/24")),
                 noisy_scripts=list(lan.get("noisy_scripts", [])),
                 allowlist_scripts=list(lan.get("allowlist_scripts", [])),
             ),
@@ -370,6 +380,10 @@ class ConfigStore:
                 invalidate_on_port_change=bool(
                     inv.get("invalidate_on_port_change", True)
                 ),
+            ),
+            baseline=BaselineCfg(
+                enabled=bool(baseline.get("enabled", False)),
+                scopes=dict(baseline.get("scopes", {}) or {}),
             ),
         )
 

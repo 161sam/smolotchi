@@ -42,6 +42,14 @@
              style="color:var(--accent); text-decoration:none; font-weight:900;">
             {{ f.title }}
           </a>
+          {% if f.baseline_expected is not none %}
+            {% if f.baseline_expected %}
+              <span class="pill">baseline</span>
+            {% else %}
+              <span class="pill sev-high">unexpected</span>
+            {% endif %}
+          {% endif %}
+          <a class="pill" href="{{ url_for('lan_finding_timeline', fid=f.id) }}">Timeline</a>
           {% if f.suppressed_count and f.suppressed_count > 0 %}
             <span class="muted">·</span>
             <a href="{{ url_for('lan_finding_jump', fid=f.id) }}?include_suppressed=1"

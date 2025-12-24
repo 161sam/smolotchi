@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 def aggregate_top_findings(
     bundles: List[Dict[str, Any]],
     limit: int = 6,
+    expected: set[str] | None = None,
 ) -> List[Dict[str, Any]]:
     """
     Returns:
@@ -47,6 +48,7 @@ def aggregate_top_findings(
     for entry in agg.values():
         hosts = sorted(entry["hosts"])
         suppressed_hosts = sorted(entry["suppressed_hosts"])
+        baseline_expected = None if expected is None else entry["id"] in expected
         out.append(
             {
                 "id": entry["id"],
@@ -56,6 +58,7 @@ def aggregate_top_findings(
                 "count": len(hosts),
                 "suppressed_hosts": suppressed_hosts,
                 "suppressed_count": len(suppressed_hosts),
+                "baseline_expected": baseline_expected,
             }
         )
 
