@@ -5,6 +5,10 @@ import time
 
 from smolotchi.actions.cache import find_fresh_discovery
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
+from smolotchi.actions.parse_services import (
+    parse_nmap_xml_services,
+    summarize_service_keys,
+)
 from smolotchi.actions.registry import ActionRegistry
 from smolotchi.actions.runner import ActionRunner
 from smolotchi.actions.throttle import (
@@ -66,8 +70,15 @@ class PlanRunner:
         discovery_ttl_s: int = 600,
         batch_strategy: str = "phases",
         throttle_cfg: dict | None = None,
+        service_map: dict | None = None,
     ) -> Dict[str, Any]:
         throttle_cfg = throttle_cfg or {}
+        if service_map is None:
+            service_map = {
+                "http": ["vuln.http_basic"],
+                "ssh": ["vuln.ssh_basic"],
+                "smb": ["vuln.smb_basic"],
+            }
         t0 = time.time()
         out_steps: List[Dict[str, Any]] = []
         self.bus.publish("plan.started", {"id": plan.get("id"), "mode": mode})
@@ -102,6 +113,7 @@ class PlanRunner:
                     break
                 steps.append(step)
 
+        already_injected = set()
         i = 0
         last_host = None
         while i < len(steps):
@@ -176,6 +188,40 @@ class PlanRunner:
                     "meta": res.meta or {},
                 }
             )
+
+            if aid == "net.port_scan" and res and res.artifact_id:
+                art = self.artifacts.get_json(res.artifact_id) or {}
+                stdout = str(art.get("stdout") or "")
+                svc_by_host = parse_nmap_xml_services(stdout)
+
+                host = str(payload.get("target") or "")
+                host_services = svc_by_host.get(host, [])
+                keys = summarize_service_keys(host_services)
+
+                injected: List[Dict[str, Any]] = []
+                for key in sorted(keys):
+                    for act in service_map.get(key, []):
+                        mark = (host, key, act)
+                        if mark in already_injected:
+                            continue
+                        already_injected.add(mark)
+                        injected.append({"action_id": act, "payload": {"target": host}})
+
+                if injected:
+                    insert_at = i + 1
+                    for injected_step in reversed(injected):
+                        if len(steps) >= max_steps:
+                            break
+                        steps.insert(insert_at, injected_step)
+                    self.bus.publish(
+                        "plan.expand.services",
+                        {
+                            "plan_id": plan.get("id"),
+                            "host": host,
+                            "keys": sorted(list(keys)),
+                            "injected": [x["action_id"] for x in injected],
+                        },
+                    )
 
             if expand_hosts and aid == "net.host_discovery" and res.artifact_id:
                 if not discovered_hosts:

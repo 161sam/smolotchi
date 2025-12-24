@@ -93,8 +93,7 @@ class LanEngine:
             "steps": [{"action_id": s.action_id, "payload": s.payload} for s in plan.steps],
             "note": plan.note,
             "expand_hosts": True,
-            "per_host_actions": ["net.port_scan"]
-            + (["vuln.assess_basic"] if self.ai_include_vuln else []),
+            "per_host_actions": ["net.port_scan"],
         }
         meta = self.artifacts.put_json(
             kind="ai_plan",
@@ -129,6 +128,13 @@ class LanEngine:
             discovery_ttl_s=int(self.ai_cache.get("discovery_ttl_seconds", 600)),
             batch_strategy=self.ai_batch_strategy,
             throttle_cfg=self.ai_throttle,
+            service_map={
+                "http": ["vuln.http_basic"],
+                "ssh": ["vuln.ssh_basic"],
+                "smb": ["vuln.smb_basic"],
+            }
+            if self.ai_include_vuln
+            else {},
         )
         bundle = {
             "job_id": f"ai-{plan.get('id')}",

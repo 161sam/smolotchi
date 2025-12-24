@@ -57,7 +57,7 @@ class LanCfg:
 @dataclass
 class AiExecCfg:
     concurrency: int = 1
-    batch_strategy: str = "phases"
+    batch_strategy: str = "per_host"
     cooldown_between_actions_ms: int = 250
     cooldown_between_hosts_ms: int = 800
     max_retries: int = 1
@@ -182,7 +182,7 @@ class ConfigStore:
         )
         ai_cfg.exec = AiExecCfg(
             concurrency=int(aiexec.get("concurrency", 1)),
-            batch_strategy=str(aiexec.get("batch_strategy", "phases")),
+            batch_strategy=str(aiexec.get("batch_strategy", "per_host")),
             cooldown_between_actions_ms=int(aiexec.get("cooldown_between_actions_ms", 250)),
             cooldown_between_hosts_ms=int(aiexec.get("cooldown_between_hosts_ms", 800)),
             max_retries=int(aiexec.get("max_retries", 1)),

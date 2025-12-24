@@ -12,9 +12,9 @@ actions:
       scope: {type: string, required: true}
 
   - id: net.port_scan
-    name: Port Scan
+    name: Port Scan (XML)
     category: network_scan
-    description: TCP port scan + service detection (read-only)
+    description: TCP scan + service detection, XML on stdout
     driver: command
     command: ["nmap", "-sV", "-Pn", "-oX", "-", "{target}"]
     timeout_s: 300
@@ -24,12 +24,84 @@ actions:
       target: {type: string, required: true}
 
   - id: vuln.assess_basic
-    name: Vulnerability Assessment (basic)
+    name: Vulnerability Assessment (basic, XML)
     category: vuln_assess
-    description: Non-exploitative NSE/metadata assessment
+    description: Non-exploitative NSE vuln scripts (broad), XML on stdout
     driver: command
     command: ["nmap", "--script", "vuln", "-sV", "-Pn", "-oX", "-", "{target}"]
     timeout_s: 600
+    risk: caution
+    allow_autonomous: true
+    inputs_schema:
+      target: {type: string, required: true}
+
+  - id: vuln.http_basic
+    name: HTTP Assessment (safe)
+    category: vuln_assess
+    description: Safe HTTP info/NSE checks (non-exploit)
+    driver: command
+    command:
+      [
+        "nmap",
+        "-sV",
+        "-Pn",
+        "-p",
+        "80,81,443,8080,8443",
+        "--script",
+        "http-title,http-headers,http-methods,http-server-header",
+        "-oX",
+        "-",
+        "{target}",
+      ]
+    timeout_s: 450
+    risk: safe
+    allow_autonomous: true
+    inputs_schema:
+      target: {type: string, required: true}
+
+  - id: vuln.ssh_basic
+    name: SSH Assessment (safe)
+    category: vuln_assess
+    description: Safe SSH info checks (non-exploit)
+    driver: command
+    command:
+      [
+        "nmap",
+        "-sV",
+        "-Pn",
+        "-p",
+        "22",
+        "--script",
+        "ssh2-enum-algos,ssh-hostkey",
+        "-oX",
+        "-",
+        "{target}",
+      ]
+    timeout_s: 300
+    risk: safe
+    allow_autonomous: true
+    inputs_schema:
+      target: {type: string, required: true}
+
+  - id: vuln.smb_basic
+    name: SMB Assessment (safe)
+    category: vuln_assess
+    description: Safe SMB enumeration (non-exploit)
+    driver: command
+    command:
+      [
+        "nmap",
+        "-sV",
+        "-Pn",
+        "-p",
+        "139,445",
+        "--script",
+        "smb2-security-mode,smb2-time,smb2-capabilities",
+        "-oX",
+        "-",
+        "{target}",
+      ]
+    timeout_s: 450
     risk: caution
     allow_autonomous: true
     inputs_schema:
