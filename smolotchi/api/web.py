@@ -120,6 +120,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         creds = getattr(w, "credentials", None) or {}
         auto_connect = bool(getattr(w, "auto_connect", False)) if w else False
         preferred = (getattr(w, "preferred_ssid", "") or "").strip() if w else ""
+        sessions = artifacts.list(limit=10, kind="wifi_session")
 
         for ap in aps:
             ssid = (ap.get("ssid") or "").strip()
@@ -140,6 +141,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             auto_connect=auto_connect,
             preferred_ssid=preferred,
             lan_locked=lan_locked,
+            sessions=sessions,
         )
 
     @app.post("/wifi/connect")

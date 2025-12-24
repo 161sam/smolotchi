@@ -139,6 +139,24 @@
 </section>
 
 <section class="card">
+  <h3 style="margin:0 0 10px 0">Recent WiFi sessions</h3>
+  <div class="events">
+    {% for s in sessions %}
+      <div class="evt">
+        <div class="evt-top">{{ s.title }}</div>
+        <div class="muted">id: {{ s.id }}</div>
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <a class="pill" href="{{ url_for('artifact_view', artifact_id=s.id) }}">Open JSON</a>
+          <a class="pill" href="{{ url_for('artifact_download', artifact_id=s.id) }}">Download</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="muted">none yet</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
   <h3 style="margin:0 0 10px 0">Recent WiFi events</h3>
   <div class="events">
     {% for e in events[:25] %}
