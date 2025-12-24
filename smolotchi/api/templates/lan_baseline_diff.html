@@ -15,6 +15,18 @@
 
 <section class="card">
   <h3 style="margin:0 0 10px 0">Scope: {{ scope }}</h3>
+  <form method="get" action="{{ url_for('lan_baseline_diff_latest') }}" class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="muted">Scope</div>
+    <select name="scope" style="background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:8px 10px;">
+      {% for s in scopes %}
+        <option value="{{ s }}" {% if s == scope %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+      {% if not scopes %}
+        <option value="{{ scope }}" selected>{{ scope }}</option>
+      {% endif %}
+    </select>
+    <button class="secondary" type="submit">Apply</button>
+  </form>
 
   <div class="events">
     <div class="evt">
@@ -23,6 +35,12 @@
         <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
           {% for fid in diff.missing_expected|sort %}
             <span class="pill">{{ fid }}</span>
+            <form method="post" action="{{ url_for('lan_baseline_remove') }}" style="display:inline">
+              <input type="hidden" name="scope" value="{{ scope }}">
+              <input type="hidden" name="fid" value="{{ fid }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <button class="secondary" type="submit">Remove</button>
+            </form>
           {% endfor %}
         </div>
       {% else %}<div class="muted">none</div>{% endif %}

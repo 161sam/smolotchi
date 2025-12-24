@@ -90,3 +90,38 @@ def patch_baseline_add(toml_text: str, scope: str, finding_id: str) -> str:
         block = block + f'{key} = ["{finding_id}"]\n'
 
     return toml_text[:start] + block + toml_text[end:]
+
+
+def patch_baseline_remove(toml_text: str, scope: str, finding_id: str) -> str:
+    scope = scope.strip()
+    finding_id = finding_id.strip()
+    if not scope or not finding_id:
+        return toml_text
+
+    match = re.search(r"^\[baseline\.scopes\]\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+
+    block = toml_text[start:end]
+    key = f'"{scope}"'
+    rx = re.compile(
+        rf"^\s*{re.escape(key)}\s*=\s*\[(.*?)\]\s*$", flags=re.MULTILINE
+    )
+
+    if not rx.search(block):
+        return toml_text
+
+    def repl(match: re.Match) -> str:
+        inner = match.group(1).strip()
+        items = re.findall(r'"([^"]+)"', inner) if inner else []
+        items = [x for x in items if x != finding_id]
+        joined = ", ".join([f'"{x}"' for x in items])
+        return f"{key} = [{joined}]"
+
+    block = rx.sub(repl, block, count=1)
+
+    return toml_text[:start] + block + toml_text[end:]
