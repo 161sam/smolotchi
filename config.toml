@@ -25,7 +25,7 @@ autonomous_include_vuln_assess = true
 
 [ai.exec]
 concurrency = 1
-batch_strategy = "phases"
+batch_strategy = "per_host"
 cooldown_between_actions_ms = 250
 cooldown_between_hosts_ms = 800
 max_retries = 1
