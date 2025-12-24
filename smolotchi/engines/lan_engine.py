@@ -126,6 +126,8 @@ class LanEngine:
             retry_backoff_ms=int(self.ai_exec.get("retry_backoff_ms", 800)),
             use_cached_discovery=bool(self.ai_cache.get("use_cached_discovery", True)),
             discovery_ttl_s=int(self.ai_cache.get("discovery_ttl_seconds", 600)),
+            use_cached_portscan=bool(self.ai_cache.get("use_cached_portscan", True)),
+            portscan_ttl_s=int(self.ai_cache.get("portscan_ttl_seconds", 900)),
             batch_strategy=self.ai_batch_strategy,
             throttle_cfg=self.ai_throttle,
             service_map={

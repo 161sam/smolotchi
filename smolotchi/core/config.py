@@ -68,6 +68,8 @@ class AiExecCfg:
 class AiCacheCfg:
     discovery_ttl_seconds: int = 600
     use_cached_discovery: bool = True
+    use_cached_portscan: bool = True
+    portscan_ttl_seconds: int = 900
 
 
 @dataclass
@@ -191,6 +193,8 @@ class ConfigStore:
         ai_cfg.cache = AiCacheCfg(
             discovery_ttl_seconds=int(aicache.get("discovery_ttl_seconds", 600)),
             use_cached_discovery=bool(aicache.get("use_cached_discovery", True)),
+            use_cached_portscan=bool(aicache.get("use_cached_portscan", True)),
+            portscan_ttl_seconds=int(aicache.get("portscan_ttl_seconds", 900)),
         )
         ai_cfg.throttle = AiThrottleCfg(
             enabled=bool(athrottle.get("enabled", True)),

@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 import time
 
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
+from smolotchi.actions.parse_services import parse_nmap_xml_services
 from smolotchi.core.artifacts import ArtifactStore
 
 
@@ -29,4 +30,36 @@ def find_fresh_discovery(
         stdout = data.get("stdout", "") or ""
         hosts = parse_nmap_xml_up_hosts(stdout)
         return {"artifact_id": meta.id, "hosts": hosts, "ts": ts}
+    return None
+
+
+def find_fresh_portscan_for_host(
+    artifacts: ArtifactStore, host: str, ttl_s: int
+) -> Optional[Dict[str, Any]]:
+    """
+    Find newest action_run for net.port_scan with payload.target==host within ttl.
+    Returns {artifact_id, services, ts}.
+    """
+    now = time.time()
+    items = artifacts.list(limit=400, kind="action_run")
+    for meta in items:
+        data = artifacts.get_json(meta.id) or {}
+        spec = data.get("spec") or {}
+        if spec.get("id") != "net.port_scan":
+            continue
+
+        payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
+        tgt = str((payload or {}).get("target", ""))
+        if tgt != host:
+            continue
+
+        ts = float(data.get("ts", meta.created_ts) or meta.created_ts)
+        if now - ts > ttl_s:
+            continue
+
+        stdout = (data.get("stdout") or "")
+        svc_by_host = parse_nmap_xml_services(stdout)
+        services = svc_by_host.get(host, [])
+        return {"artifact_id": meta.id, "services": services, "ts": ts}
+
     return None

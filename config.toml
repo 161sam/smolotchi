@@ -34,6 +34,8 @@ retry_backoff_ms = 800
 [ai.cache]
 discovery_ttl_seconds = 600
 use_cached_discovery = true
+use_cached_portscan = true
+portscan_ttl_seconds = 900
 
 [ai.throttle]
 enabled = true

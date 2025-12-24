@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, List
 import time
 
-from smolotchi.actions.cache import find_fresh_discovery
+from smolotchi.actions.cache import (
+    find_fresh_discovery,
+    find_fresh_portscan_for_host,
+)
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
 from smolotchi.actions.parse_services import (
     parse_nmap_xml_services,
@@ -68,6 +71,8 @@ class PlanRunner:
         retry_backoff_ms: int = 800,
         use_cached_discovery: bool = True,
         discovery_ttl_s: int = 600,
+        use_cached_portscan: bool = True,
+        portscan_ttl_s: int = 900,
         batch_strategy: str = "phases",
         throttle_cfg: dict | None = None,
         service_map: dict | None = None,
@@ -167,6 +172,69 @@ class PlanRunner:
                 time.sleep(max(0, effective_host_ms) / 1000.0)
             last_host = current_host if current_host else last_host
 
+            cache_portscan = None
+            if aid == "net.port_scan" and use_cached_portscan:
+                host = str(payload.get("target") or "")
+                if host:
+                    cache_portscan = find_fresh_portscan_for_host(
+                        self.artifacts,
+                        host=host,
+                        ttl_s=portscan_ttl_s,
+                    )
+                    if cache_portscan:
+                        self.bus.publish(
+                            "plan.cache.portscan_hit",
+                            {
+                                "plan_id": plan.get("id"),
+                                "host": host,
+                                "artifact_id": cache_portscan["artifact_id"],
+                                "age_s": int(time.time() - float(cache_portscan["ts"])),
+                            },
+                        )
+
+                        out_steps.append(
+                            {
+                                "action_id": aid,
+                                "ok": True,
+                                "artifact_id": cache_portscan["artifact_id"],
+                                "summary": "cache_hit",
+                                "meta": {"cache": True},
+                            }
+                        )
+
+                        keys = summarize_service_keys(cache_portscan.get("services", []))
+                        injected: List[Dict[str, Any]] = []
+                        for key in sorted(keys):
+                            for act in service_map.get(key, []):
+                                mark = (host, key, act)
+                                if mark in already_injected:
+                                    continue
+                                already_injected.add(mark)
+                                injected.append(
+                                    {"action_id": act, "payload": {"target": host}}
+                                )
+
+                        if injected:
+                            insert_at = i + 1
+                            for injected_step in reversed(injected):
+                                if len(steps) >= max_steps:
+                                    break
+                                steps.insert(insert_at, injected_step)
+                            self.bus.publish(
+                                "plan.expand.services",
+                                {
+                                    "plan_id": plan.get("id"),
+                                    "host": host,
+                                    "keys": sorted(list(keys)),
+                                    "injected": [x["action_id"] for x in injected],
+                                    "source": "portscan_cache",
+                                },
+                            )
+
+                        time.sleep(max(0, effective_action_ms) / 1000.0)
+                        i += 1
+                        continue
+
             attempt = 0
             res = None
             while True:
@@ -216,12 +284,13 @@ class PlanRunner:
                     self.bus.publish(
                         "plan.expand.services",
                         {
-                            "plan_id": plan.get("id"),
-                            "host": host,
-                            "keys": sorted(list(keys)),
-                            "injected": [x["action_id"] for x in injected],
-                        },
-                    )
+                        "plan_id": plan.get("id"),
+                        "host": host,
+                        "keys": sorted(list(keys)),
+                        "injected": [x["action_id"] for x in injected],
+                        "source": "live_portscan",
+                    },
+                )
 
             if expand_hosts and aid == "net.host_discovery" and res.artifact_id:
                 if not discovered_hosts:
