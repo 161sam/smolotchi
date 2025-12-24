@@ -21,3 +21,16 @@ port = 8080
 [theme]
 # optional: wenn gesetzt, lädt UI/Display tokens aus JSON
 json_path = "theme.json"
+
+[retention]
+events_keep_last = 5000
+events_older_than_days = 30
+
+jobs_done_failed_older_than_days = 14
+jobs_keep_last = 1000
+
+artifacts_older_than_days = 30
+artifacts_keep_last = 500
+artifact_kinds_keep_last = ["lan_result"]
+
+vacuum_after_prune = false

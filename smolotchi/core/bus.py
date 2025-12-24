@@ -42,6 +42,10 @@ class SQLiteBus:
             con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts)")
             con.execute("CREATE INDEX IF NOT EXISTS idx_events_topic ON events(topic)")
 
+    @property
+    def db_path_value(self) -> str:
+        return self.db_path
+
     def publish(self, topic: str, payload: Dict[str, Any]) -> None:
         evt = Event(ts=time.time(), topic=topic, payload=payload)
         with self._conn() as con:
@@ -64,3 +68,28 @@ class SQLiteBus:
             for ts, topic, payload in con.execute(q, params):
                 out.append(Event(ts=float(ts), topic=str(topic), payload=json.loads(payload)))
         return out
+
+    def prune(
+        self, keep_last: int = 5000, older_than_days: int = 30, vacuum: bool = False
+    ) -> int:
+        """
+        Keep last N events AND delete events older than days.
+        Returns number deleted.
+        """
+        deleted = 0
+        cutoff = time.time() - (older_than_days * 86400)
+
+        with self._conn() as con:
+            cur = con.execute("DELETE FROM events WHERE ts < ?", (cutoff,))
+            deleted += cur.rowcount
+
+            cur = con.execute(
+                "DELETE FROM events WHERE id IN (SELECT id FROM events ORDER BY id DESC LIMIT -1 OFFSET ?)",
+                (keep_last,),
+            )
+            deleted += cur.rowcount
+
+            if vacuum:
+                con.execute("VACUUM")
+
+        return deleted

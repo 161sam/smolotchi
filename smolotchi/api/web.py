@@ -100,6 +100,24 @@ def create_app(config_path: str = "config.toml") -> Flask:
             failed=failed,
         )
 
+    @app.post("/lan/job/<job_id>/cancel")
+    def lan_job_cancel(job_id: str):
+        ok = jobstore.cancel(job_id)
+        bus.publish("ui.job.cancel", {"id": job_id, "ok": ok})
+        return redirect(url_for("lan_jobs"))
+
+    @app.post("/lan/job/<job_id>/reset")
+    def lan_job_reset(job_id: str):
+        ok = jobstore.reset_running(job_id)
+        bus.publish("ui.job.reset", {"id": job_id, "ok": ok})
+        return redirect(url_for("lan_jobs"))
+
+    @app.post("/lan/job/<job_id>/delete")
+    def lan_job_delete(job_id: str):
+        ok = jobstore.delete(job_id)
+        bus.publish("ui.job.delete", {"id": job_id, "ok": ok})
+        return redirect(url_for("lan_jobs"))
+
     @app.get("/config")
     def config():
         cfg = store.get()

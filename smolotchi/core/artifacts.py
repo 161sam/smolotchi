@@ -98,3 +98,64 @@ class ArtifactStore:
             return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             return None
+
+    def prune(
+        self, keep_last: int = 500, older_than_days: int = 30, kinds_keep_last=None
+    ) -> int:
+        """
+        Deletes old artifacts + caps index.
+        - older_than_days: delete artifacts older than cutoff based on meta.created_ts
+        - keep_last: cap global index length
+        - kinds_keep_last: list of kinds to additionally cap per kind (keep_last per kind)
+        Returns number of deleted entries.
+        """
+        kinds_keep_last = kinds_keep_last or []
+        idx = self._load_index()
+        cutoff = time.time() - (older_than_days * 86400)
+
+        deleted = 0
+
+        new_idx = []
+        for row in idx:
+            ts = float(row.get("created_ts", 0))
+            if ts and ts < cutoff:
+                try:
+                    Path(str(row.get("path"))).unlink(missing_ok=True)
+                except TypeError:
+                    path = Path(str(row.get("path")))
+                    if path.exists():
+                        path.unlink()
+                deleted += 1
+            else:
+                new_idx.append(row)
+
+        idx = new_idx
+
+        if kinds_keep_last:
+            by_kind: Dict[str, List[Dict[str, Any]]] = {}
+            for row in idx:
+                by_kind.setdefault(str(row.get("kind")), []).append(row)
+
+            kept: List[Dict[str, Any]] = []
+            for kind, rows in by_kind.items():
+                if kind in kinds_keep_last:
+                    kept.extend(rows[:keep_last])
+                else:
+                    kept.extend(rows)
+
+            keep_set = {r.get("id") for r in kept}
+            idx = [r for r in idx if r.get("id") in keep_set]
+
+        if len(idx) > keep_last:
+            for row in idx[keep_last:]:
+                try:
+                    Path(str(row.get("path"))).unlink(missing_ok=True)
+                except TypeError:
+                    path = Path(str(row.get("path")))
+                    if path.exists():
+                        path.unlink()
+                deleted += 1
+            idx = idx[:keep_last]
+
+        self._save_index(idx)
+        return deleted

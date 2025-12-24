@@ -56,6 +56,18 @@ class ThemeCfg:
 
 
 @dataclass
+class RetentionCfg:
+    events_keep_last: int = 5000
+    events_older_than_days: int = 30
+    jobs_done_failed_older_than_days: int = 14
+    jobs_keep_last: int = 1000
+    artifacts_older_than_days: int = 30
+    artifacts_keep_last: int = 500
+    artifact_kinds_keep_last: List[str] = field(default_factory=lambda: ["lan_result"])
+    vacuum_after_prune: bool = False
+
+
+@dataclass
 class AppConfig:
     core: CoreCfg
     policy: PolicyCfg
@@ -63,6 +75,7 @@ class AppConfig:
     lan: LanCfg
     ui: UiCfg
     theme: ThemeCfg
+    retention: RetentionCfg
 
 
 class ConfigStore:
@@ -82,6 +95,7 @@ class ConfigStore:
         lan = d.get("lan", {})
         ui = d.get("ui", {})
         theme = d.get("theme", {})
+        retention = d.get("retention", {})
 
         return AppConfig(
             core=CoreCfg(
@@ -106,6 +120,22 @@ class ConfigStore:
             ),
             theme=ThemeCfg(
                 json_path=str(theme.get("json_path", "theme.json")),
+            ),
+            retention=RetentionCfg(
+                events_keep_last=int(retention.get("events_keep_last", 5000)),
+                events_older_than_days=int(retention.get("events_older_than_days", 30)),
+                jobs_done_failed_older_than_days=int(
+                    retention.get("jobs_done_failed_older_than_days", 14)
+                ),
+                jobs_keep_last=int(retention.get("jobs_keep_last", 1000)),
+                artifacts_older_than_days=int(
+                    retention.get("artifacts_older_than_days", 30)
+                ),
+                artifacts_keep_last=int(retention.get("artifacts_keep_last", 500)),
+                artifact_kinds_keep_last=list(
+                    retention.get("artifact_kinds_keep_last", ["lan_result"])
+                ),
+                vacuum_after_prune=bool(retention.get("vacuum_after_prune", False)),
             ),
         )
 
