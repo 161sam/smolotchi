@@ -72,8 +72,40 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     @app.get("/lan/results")
     def lan_results():
-        items = artifacts.list(limit=50, kind="lan_result")
+        items = artifacts.list(limit=50, kind="lan_bundle")
         return render_template("lan_results.html", items=items)
+
+    @app.get("/lan/result/<bundle_id>")
+    def lan_result_details(bundle_id: str):
+        bundle = artifacts.get_json(bundle_id)
+        if not bundle:
+            abort(404)
+
+        json_id = (bundle.get("result_json") or {}).get("artifact_id")
+        report = bundle.get("report_html") or {}
+        report_id = report.get("artifact_id")
+
+        result_json = artifacts.get_json(json_id) if json_id else None
+
+        job_id = bundle.get("job_id")
+        evts = []
+        if job_id:
+            raw = bus.tail(limit=200)
+            for e in raw:
+                p = e.payload or {}
+                if p.get("id") == job_id or p.get("job", {}).get("id") == job_id:
+                    evts.append(e)
+            evts = evts[:50]
+
+        return render_template(
+            "lan_result_details.html",
+            bundle_id=bundle_id,
+            bundle=bundle,
+            result_json_id=json_id,
+            result_json=result_json,
+            report_id=report_id,
+            events=evts,
+        )
 
     @app.get("/lan/reports")
     def lan_reports():

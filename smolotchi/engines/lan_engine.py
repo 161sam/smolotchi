@@ -84,7 +84,7 @@ class LanEngine:
                     "ts": time.time(),
                 }
 
-                meta = self.artifacts.put_json(
+                meta_json = self.artifacts.put_json(
                     kind="lan_result",
                     title=f"LAN {self._active.kind} • {self._active.scope}",
                     payload=result,
@@ -103,6 +103,30 @@ class LanEngine:
                         mimetype="text/html; charset=utf-8",
                     )
 
+                bundle = {
+                    "job_id": self._active.id,
+                    "kind": self._active.kind,
+                    "scope": self._active.scope,
+                    "note": self._active.note,
+                    "created_ts": time.time(),
+                    "result_json": {
+                        "artifact_id": meta_json.id,
+                        "path": meta_json.path,
+                    },
+                    "report_html": {
+                        "artifact_id": report_meta.id,
+                        "path": report_meta.path,
+                    }
+                    if report_meta
+                    else None,
+                }
+
+                bundle_meta = self.artifacts.put_json(
+                    kind="lan_bundle",
+                    title=f"Bundle • {self._active.id}",
+                    payload=bundle,
+                )
+
                 self.bus.publish(
                     "lan.job.progress", {"id": self._active.id, "pct": 100}
                 )
@@ -111,10 +135,11 @@ class LanEngine:
                     {
                         "id": self._active.id,
                         "result": {
-                            "artifact_id": meta.id,
-                            "artifact_path": meta.path,
+                            "artifact_id": meta_json.id,
+                            "artifact_path": meta_json.path,
                             "report_artifact_id": report_meta.id if report_meta else None,
                             "report_path": report_meta.path if report_meta else None,
+                            "bundle_artifact_id": bundle_meta.id,
                         },
                     },
                 )

@@ -138,6 +138,20 @@ class ArtifactStore:
         except Exception:
             return None
 
+    def find_bundle_by_job_id(self, job_id: str) -> Optional[str]:
+        """
+        Returns artifact_id of newest lan_bundle for job_id.
+        """
+        idx = self._load_index()
+        for row in idx:
+            if row.get("kind") != "lan_bundle":
+                continue
+            aid = str(row.get("id"))
+            data = self.get_json(aid)
+            if data and str(data.get("job_id")) == job_id:
+                return aid
+        return None
+
     def prune(
         self, keep_last: int = 500, older_than_days: int = 30, kinds_keep_last=None
     ) -> int:
