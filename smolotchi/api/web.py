@@ -26,6 +26,7 @@ from smolotchi.reports.exec_summary import (
     render_exec_summary_md,
 )
 from smolotchi.reports.host_diff import host_diff_html, host_diff_markdown
+from smolotchi.reports.baseline import expected_findings_for_scope
 from smolotchi.reports.top_findings import aggregate_top_findings
 
 
@@ -132,18 +133,14 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "%Y-%m-%d %H:%M:%S UTC"
         )
 
-    def _baseline_expected_set() -> set[str] | None:
+    def _expected_findings_for_bundles(bundles: list[dict]) -> set[str]:
         cfg = store.get()
-        baseline = getattr(cfg, "baseline", None)
-        if baseline and getattr(baseline, "enabled", False):
-            scopes = getattr(baseline, "scopes", {}) or {}
-            scope = getattr(getattr(cfg, "lan", None), "default_scope", "") or ""
-            if not scope and isinstance(scopes, dict) and scopes:
-                scope = next(iter(scopes.keys()))
-            if scope and isinstance(scopes, dict):
-                return set(scopes.get(scope, []) or [])
-            return set()
-        return None
+        scope = None
+        if bundles:
+            scope = bundles[0].get("scope")
+        if not scope:
+            scope = getattr(getattr(cfg, "lan", None), "default_scope", None)
+        return expected_findings_for_scope(cfg, scope)
 
     @app.get("/lan/results")
     def lan_results():
@@ -180,12 +177,16 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
             bundles.append(bundle)
 
-        top_findings = aggregate_top_findings(
+        all_items = (
             bundles
             if not fid
-            else [artifacts.get_json(meta.id) or {} for meta in metas],
+            else [artifacts.get_json(meta.id) or {} for meta in metas]
+        )
+        expected = _expected_findings_for_bundles(bundles)
+        top_findings = aggregate_top_findings(
+            all_items,
             limit=6,
-            expected=_baseline_expected_set(),
+            expected=expected,
         )
         return render_template(
             "lan_results.html",
@@ -277,8 +278,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/summary")
     def lan_exec_summary():
         bundles = _load_recent_bundles(limit=50)
+        expected = _expected_findings_for_bundles(bundles)
         top_findings = aggregate_top_findings(
-            bundles, limit=10, expected=_baseline_expected_set()
+            bundles, limit=10, expected=expected
         )
         summary = build_exec_summary(bundles, top_findings)
         html = render_exec_summary_html(summary)
@@ -287,8 +289,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/summary.md")
     def lan_exec_summary_md():
         bundles = _load_recent_bundles(limit=50)
+        expected = _expected_findings_for_bundles(bundles)
         top_findings = aggregate_top_findings(
-            bundles, limit=10, expected=_baseline_expected_set()
+            bundles, limit=10, expected=expected
         )
         summary = build_exec_summary(bundles, top_findings)
         md = render_exec_summary_md(summary)
@@ -297,8 +300,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/summary.json")
     def lan_exec_summary_json():
         bundles = _load_recent_bundles(limit=50)
+        expected = _expected_findings_for_bundles(bundles)
         top_findings = aggregate_top_findings(
-            bundles, limit=10, expected=_baseline_expected_set()
+            bundles, limit=10, expected=expected
         )
         summary = build_exec_summary(bundles, top_findings)
         return Response(
