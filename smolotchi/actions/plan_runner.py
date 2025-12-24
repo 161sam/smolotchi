@@ -7,7 +7,9 @@ from smolotchi.actions.cache import (
     find_fresh_discovery,
     find_fresh_portscan_for_host,
     find_fresh_vuln_for_host_action,
+    put_service_fingerprint,
 )
+from smolotchi.actions.fingerprint import service_fingerprint
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
 from smolotchi.actions.parse_services import (
     parse_nmap_xml_services,
@@ -122,6 +124,8 @@ class PlanRunner:
                 steps.append(step)
 
         already_injected = set()
+        current_services_by_host: dict[str, list] = {}
+        current_fp_by_host: dict[str, str] = {}
         i = 0
         last_host = None
         while i < len(steps):
@@ -205,7 +209,28 @@ class PlanRunner:
                             }
                         )
 
-                        keys = summarize_service_keys(cache_portscan.get("services", []))
+                        services = cache_portscan.get("services", []) or []
+                        current_services_by_host[host] = services
+                        fp = service_fingerprint(services)
+                        current_fp_by_host[host] = fp
+
+                        fp_art_id = put_service_fingerprint(
+                            self.artifacts,
+                            host=host,
+                            services=services,
+                            source="portscan_cache",
+                        )
+                        self.bus.publish(
+                            "svc.fp.updated",
+                            {
+                                "host": host,
+                                "fp": fp,
+                                "source": "portscan_cache",
+                                "artifact_id": fp_art_id,
+                            },
+                        )
+
+                        keys = summarize_service_keys(services)
                         injected: List[Dict[str, Any]] = []
                         for key in sorted(keys):
                             for act in service_map.get(key, []):
@@ -214,7 +239,7 @@ class PlanRunner:
                                     continue
                                 already_injected.add(mark)
                                 injected.append(
-                                    {"action_id": act, "payload": {"target": host}}
+                                    {"action_id": act, "payload": {"target": host, "_svc_fp": fp}}
                                 )
 
                         if injected:
@@ -241,12 +266,19 @@ class PlanRunner:
             if use_cached_vuln and spec.category == "vuln_assess":
                 host = str(payload.get("target") or "")
                 if host:
-                    cache_vuln = find_fresh_vuln_for_host_action(
-                        self.artifacts,
-                        host=host,
-                        action_id=spec.id,
-                        ttl_s=vuln_ttl_s,
+                    expected_fp = current_fp_by_host.get(host) or str(
+                        payload.get("_svc_fp") or ""
                     )
+                    if expected_fp:
+                        cache_vuln = find_fresh_vuln_for_host_action(
+                            self.artifacts,
+                            host=host,
+                            action_id=spec.id,
+                            ttl_s=vuln_ttl_s,
+                            expected_fp=expected_fp,
+                        )
+                    else:
+                        cache_vuln = None
                     if cache_vuln:
                         self.bus.publish(
                             "plan.cache.vuln_hit",
@@ -274,6 +306,15 @@ class PlanRunner:
                         time.sleep(max(0, effective_action_ms) / 1000.0)
                         i += 1
                         continue
+                    if expected_fp and not cache_vuln:
+                        self.bus.publish(
+                            "plan.cache.vuln_miss_fp",
+                            {
+                                "plan_id": plan.get("id"),
+                                "host": host,
+                                "action_id": spec.id,
+                            },
+                        )
 
             attempt = 0
             res = None
@@ -306,6 +347,26 @@ class PlanRunner:
                 host_services = svc_by_host.get(host, [])
                 keys = summarize_service_keys(host_services)
 
+                current_services_by_host[host] = host_services
+                fp = service_fingerprint(host_services)
+                current_fp_by_host[host] = fp
+
+                fp_art_id = put_service_fingerprint(
+                    self.artifacts,
+                    host=host,
+                    services=host_services,
+                    source="live_portscan",
+                )
+                self.bus.publish(
+                    "svc.fp.updated",
+                    {
+                        "host": host,
+                        "fp": fp,
+                        "source": "live_portscan",
+                        "artifact_id": fp_art_id,
+                    },
+                )
+
                 injected: List[Dict[str, Any]] = []
                 for key in sorted(keys):
                     for act in service_map.get(key, []):
@@ -313,7 +374,9 @@ class PlanRunner:
                         if mark in already_injected:
                             continue
                         already_injected.add(mark)
-                        injected.append({"action_id": act, "payload": {"target": host}})
+                        injected.append(
+                            {"action_id": act, "payload": {"target": host, "_svc_fp": fp}}
+                        )
 
                 if injected:
                     insert_at = i + 1
@@ -324,13 +387,13 @@ class PlanRunner:
                     self.bus.publish(
                         "plan.expand.services",
                         {
-                        "plan_id": plan.get("id"),
-                        "host": host,
-                        "keys": sorted(list(keys)),
-                        "injected": [x["action_id"] for x in injected],
-                        "source": "live_portscan",
-                    },
-                )
+                            "plan_id": plan.get("id"),
+                            "host": host,
+                            "keys": sorted(list(keys)),
+                            "injected": [x["action_id"] for x in injected],
+                            "source": "live_portscan",
+                        },
+                    )
 
             if expand_hosts and aid == "net.host_discovery" and res.artifact_id:
                 if not discovered_hosts:
