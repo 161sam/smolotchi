@@ -422,6 +422,45 @@ def create_app(config_path: str = "config.toml") -> Flask:
             msg=msg,
         )
 
+    @app.post("/config/save_reload")
+    def config_save_reload():
+        cfg_file = Path(config_path)
+        content = request.form.get("content", "")
+        msg = None
+
+        try:
+            if not isinstance(content, str):
+                raise ValueError("Invalid content")
+
+            _atomic_write_text(cfg_file, content)
+            store.reload()
+
+            bus.publish(
+                "ui.config.saved_reloaded",
+                {"path": str(cfg_file), "ts": time.time()},
+            )
+
+            msg = {
+                "title": "Saved & Reloaded",
+                "text": f"{cfg_file} updated and reloaded successfully.",
+            }
+        except Exception as exc:
+            msg = {"title": "Error", "text": f"Save+Reload failed: {exc}"}
+
+        cfg = store.get()
+        try:
+            content = cfg_file.read_text(encoding="utf-8")
+        except Exception:
+            pass
+
+        return render_template(
+            "config.html",
+            cfg=cfg,
+            config_path=str(cfg_file),
+            content=content,
+            msg=msg,
+        )
+
     @app.post("/config/reload")
     def config_reload():
         store.reload()
