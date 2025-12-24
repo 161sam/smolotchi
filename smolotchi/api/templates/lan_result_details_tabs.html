@@ -11,6 +11,12 @@
     {% else %}
       <span class="small">No report available.</span>
     {% endif %}
+    {% if report_md_id %}
+      <a class="btn" href="{{ url_for('artifact_file_download', artifact_id=report_md_id) }}">Download report (MD)</a>
+    {% endif %}
+    {% if report_json_id %}
+      <a class="btn" href="{{ url_for('artifact_file_download', artifact_id=report_json_id) }}">Download report (JSON)</a>
+    {% endif %}
 
     {% if result_json_id %}
       <a class="btn primary" href="{{ url_for('artifact_view', artifact_id=result_json_id) }}">View result JSON</a>

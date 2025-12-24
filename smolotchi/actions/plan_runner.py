@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+import json
 import time
 
 from smolotchi.actions.cache import (
@@ -28,7 +29,8 @@ from smolotchi.actions.throttle import (
 )
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
-from smolotchi.reports.aggregate import build_aggregate_report
+from smolotchi.reports.aggregate import build_aggregate_model, build_aggregate_report
+from smolotchi.reports.export import build_report_json, build_report_markdown
 
 
 class PlanRunner:
@@ -88,10 +90,12 @@ class PlanRunner:
         service_map: dict | None = None,
         cache_cfg: dict | None = None,
         invalidation_cfg: dict | None = None,
+        report_cfg: dict | None = None,
     ) -> Dict[str, Any]:
         throttle_cfg = throttle_cfg or {}
         cache_cfg = cache_cfg or {}
         invalidation_cfg = invalidation_cfg or {}
+        report_cfg = report_cfg or {}
         if service_map is None:
             service_map = {
                 "http": ["vuln.http_basic"],
@@ -570,12 +574,21 @@ class PlanRunner:
             "host.summary.created",
             {"plan_id": plan.get("id"), "artifact_id": smeta.id},
         )
+        model = build_aggregate_model(
+            artifacts=self.artifacts,
+            host_summary_artifact_id=smeta.id,
+            title="Smolotchi • Aggregate Report",
+            report_cfg=report_cfg,
+        )
         html = build_aggregate_report(
             artifacts=self.artifacts,
             host_summary_artifact_id=smeta.id,
             title="Smolotchi • Aggregate Report",
             bundle_id=None,
+            report_cfg=report_cfg,
         )
+        md = build_report_markdown(model)
+        json_payload = build_report_json(model)
         rmeta = self.artifacts.put_file(
             kind="lan_report",
             title=f"Aggregate Report • {plan.get('id')}",
@@ -583,9 +596,30 @@ class PlanRunner:
             content=html.encode("utf-8"),
             mimetype="text/html; charset=utf-8",
         )
+        rmeta_md = self.artifacts.put_file(
+            kind="lan_report_md",
+            title=f"Aggregate Report (MD) • {plan.get('id')}",
+            filename="report.md",
+            content=md.encode("utf-8"),
+            mimetype="text/markdown; charset=utf-8",
+        )
+        rmeta_json = self.artifacts.put_file(
+            kind="lan_report_json",
+            title=f"Aggregate Report (JSON) • {plan.get('id')}",
+            filename="report.json",
+            content=json.dumps(json_payload, ensure_ascii=False, indent=2).encode(
+                "utf-8"
+            ),
+            mimetype="application/json; charset=utf-8",
+        )
         self.bus.publish(
             "report.aggregate.created",
-            {"plan_id": plan.get("id"), "artifact_id": rmeta.id},
+            {
+                "plan_id": plan.get("id"),
+                "html": rmeta.id,
+                "md": rmeta_md.id,
+                "json": rmeta_json.id,
+            },
         )
         self.bus.publish(
             "plan.finished",
@@ -594,4 +628,6 @@ class PlanRunner:
         result["artifact_id"] = meta.id
         result["host_summary_artifact_id"] = smeta.id
         result["aggregate_report_artifact_id"] = rmeta.id
+        result["aggregate_report_md_artifact_id"] = rmeta_md.id
+        result["aggregate_report_json_artifact_id"] = rmeta_json.id
         return result

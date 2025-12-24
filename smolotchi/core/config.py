@@ -140,6 +140,17 @@ class ReportsCfg:
 
 
 @dataclass
+class ReportFindingsCfg:
+    enabled: bool = True
+    allowlist: List[str] = field(default_factory=list)
+    denylist: List[str] = field(default_factory=list)
+    deny_contains: List[str] = field(default_factory=list)
+    max_findings_per_host: int = 12
+    max_output_chars: int = 600
+    max_output_lines: int = 6
+
+
+@dataclass
 class InvalidationCfg:
     enabled: bool = True
     invalidate_on_port_change: bool = True
@@ -157,6 +168,7 @@ class AppConfig:
     retention: RetentionCfg
     watchdog: WatchdogCfg
     reports: ReportsCfg
+    report_findings: ReportFindingsCfg
     invalidation: InvalidationCfg
 
 
@@ -181,6 +193,7 @@ class ConfigStore:
         retention = d.get("retention", {})
         watchdog = d.get("watchdog", {})
         reports = d.get("reports", {})
+        rf = d.get("report", {}).get("findings", {}) if isinstance(d.get("report", {}), dict) else {}
         inv = d.get("invalidation", {}) if isinstance(d.get("invalidation"), dict) else {}
         aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
         aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
@@ -298,6 +311,15 @@ class ConfigStore:
                 templates_dir=str(
                     reports.get("templates_dir", "smolotchi/api/templates/reports")
                 ),
+            ),
+            report_findings=ReportFindingsCfg(
+                enabled=bool(rf.get("enabled", True)),
+                allowlist=list(rf.get("allowlist", []) or []),
+                denylist=list(rf.get("denylist", []) or []),
+                deny_contains=list(rf.get("deny_contains", []) or []),
+                max_findings_per_host=int(rf.get("max_findings_per_host", 12)),
+                max_output_chars=int(rf.get("max_output_chars", 600)),
+                max_output_lines=int(rf.get("max_output_lines", 6)),
             ),
             invalidation=InvalidationCfg(
                 enabled=bool(inv.get("enabled", True)),
