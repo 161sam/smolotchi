@@ -5,6 +5,10 @@
 {% block content %}
 <section class="card">
   {% include "partials/back_to_lan.html" %}
+  <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px;">
+    <a class="pill" href="{{ url_for('lan_baseline_overview') }}">Baseline</a>
+    <a class="pill" href="{{ url_for('lan_baseline_diff_latest') }}">Baseline Diff</a>
+  </div>
 </section>
 
 {% if finding_filter %}
@@ -50,6 +54,12 @@
             {% endif %}
           {% endif %}
           <a class="pill" href="{{ url_for('lan_finding_timeline', fid=f.id) }}">Timeline</a>
+          <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
+            <input type="hidden" name="scope" value="{{ app_cfg.lan.default_scope if app_cfg and app_cfg.lan else '' }}">
+            <input type="hidden" name="fid" value="{{ f.id }}">
+            <input type="hidden" name="back" value="{{ request.full_path }}">
+            <button class="secondary" type="submit">Add to baseline</button>
+          </form>
           {% if f.suppressed_count and f.suppressed_count > 0 %}
             <span class="muted">·</span>
             <a href="{{ url_for('lan_finding_jump', fid=f.id) }}?include_suppressed=1"
