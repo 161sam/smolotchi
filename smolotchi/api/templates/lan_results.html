@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block page_title %}LAN Results{% endblock %}
+{% block page_sub %}Artifacts from /var/lib/smolotchi/artifacts{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Latest artifacts</h3>
+  <div class="events">
+    {% for a in items %}
+      <div class="evt">
+        <div class="evt-top">{{ a.title }}</div>
+        <div class="muted">id: {{ a.id }} • kind: {{ a.kind }} • ts: {{ a.created_ts|round(0) }}</div>
+        <div style="margin-top:10px">
+          <a href="{{ url_for('artifact_view', artifact_id=a.id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Open</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="muted">No artifacts yet. Enqueue a LAN job first.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

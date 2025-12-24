@@ -3,6 +3,12 @@
 {% block page_sub %}Jobs, Results & Reports (placeholder v0.0.2){% endblock %}
 
 {% block content %}
+<div class="row" style="justify-content:space-between">
+  <div class="muted">Jobs & Events</div>
+  <a class="nav-item" href="{{ url_for('lan_results') }}" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; text-decoration:none; color:var(--text);">
+    Results
+  </a>
+</div>
 <section class="card">
   <form method="post" action="/lan_done" class="row">
     <button type="submit">LAN done → WIFI_OBSERVE</button>

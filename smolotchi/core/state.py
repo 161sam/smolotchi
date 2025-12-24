@@ -5,6 +5,7 @@ from typing import Literal, Optional
 from .bus import SQLiteBus
 from .engines import EngineRegistry
 from .policy import Policy
+from .resources import ResourceManager
 
 State = Literal["WIFI_OBSERVE", "HANDOFF_PREPARE", "LAN_OPS", "IDLE"]
 
@@ -17,10 +18,17 @@ class CoreStatus:
 
 
 class SmolotchiCore:
-    def __init__(self, bus: SQLiteBus, policy: Policy, engines: EngineRegistry):
+    def __init__(
+        self,
+        bus: SQLiteBus,
+        policy: Policy,
+        engines: EngineRegistry,
+        resources: ResourceManager,
+    ):
         self.bus = bus
         self.policy = policy
         self.engines = engines
+        self.resources = resources
         self.status = CoreStatus(state="WIFI_OBSERVE", since=time.time(), note="boot")
 
         self._apply_state_engines()
@@ -35,6 +43,7 @@ class SmolotchiCore:
     def _apply_state_engines(self) -> None:
         wifi = self.engines.get("wifi")
         lan = self.engines.get("lan")
+        owner = f"core:{self.status.state}"
 
         def safe_stop(engine) -> None:
             try:
@@ -53,6 +62,22 @@ class SmolotchiCore:
                     "core.engine.error",
                     {"engine": getattr(engine, "name", "?"), "op": "start", "err": str(ex)},
                 )
+
+        if self.status.state in ("WIFI_OBSERVE", "LAN_OPS"):
+            ok = self.resources.acquire("wifi", owner=owner, ttl=20.0)
+            if not ok:
+                self.bus.publish(
+                    "core.resource.denied", {"resource": "wifi", "owner": owner}
+                )
+                if wifi:
+                    safe_stop(wifi)
+                if lan:
+                    safe_stop(lan)
+                self.status.note = "wifi resource denied"
+                return
+            self.bus.publish(
+                "core.resource.acquired", {"resource": "wifi", "owner": owner}
+            )
 
         if self.status.state == "WIFI_OBSERVE":
             if lan:
@@ -119,3 +144,4 @@ class SmolotchiCore:
         self.bus.publish(
             "core.health", {"engines": [h.__dict__ for h in self.engines.health_all()]}
         )
+        self.bus.publish("core.resources", {"leases": self.resources.snapshot()})
