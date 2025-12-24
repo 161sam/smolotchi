@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 import time
 
-from smolotchi.actions.fingerprint import service_fingerprint
+from smolotchi.actions.fingerprint import (
+    service_fingerprint,
+    service_fingerprint_by_key,
+)
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
 from smolotchi.actions.parse_services import parse_nmap_xml_services
 from smolotchi.core.artifacts import ArtifactStore
@@ -104,13 +107,15 @@ def find_fresh_vuln_for_host_action(
 def put_service_fingerprint(
     artifacts: ArtifactStore, host: str, services: list, source: str
 ) -> str:
-    fp = service_fingerprint(services)
+    fp_all = service_fingerprint(services)
+    fp_map = service_fingerprint_by_key(services)
     meta = artifacts.put_json(
         kind="svc_fingerprint",
         title=f"FP • {host}",
         payload={
             "host": host,
-            "fp": fp,
+            "fp": fp_all,
+            "fp_by_key": fp_map,
             "count": len(services or []),
             "services": services,
             "source": source,

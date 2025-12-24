@@ -9,7 +9,10 @@ from smolotchi.actions.cache import (
     find_fresh_vuln_for_host_action,
     put_service_fingerprint,
 )
-from smolotchi.actions.fingerprint import service_fingerprint
+from smolotchi.actions.fingerprint import (
+    service_fingerprint,
+    service_fingerprint_by_key,
+)
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
 from smolotchi.actions.parse_services import (
     parse_nmap_xml_services,
@@ -125,7 +128,8 @@ class PlanRunner:
 
         already_injected = set()
         current_services_by_host: dict[str, list] = {}
-        current_fp_by_host: dict[str, str] = {}
+        current_fp_all_by_host: dict[str, str] = {}
+        current_fp_bykey_by_host: dict[str, dict[str, str]] = {}
         i = 0
         last_host = None
         while i < len(steps):
@@ -211,8 +215,10 @@ class PlanRunner:
 
                         services = cache_portscan.get("services", []) or []
                         current_services_by_host[host] = services
-                        fp = service_fingerprint(services)
-                        current_fp_by_host[host] = fp
+                        fp_all = service_fingerprint(services)
+                        fp_map = service_fingerprint_by_key(services)
+                        current_fp_all_by_host[host] = fp_all
+                        current_fp_bykey_by_host[host] = fp_map
 
                         fp_art_id = put_service_fingerprint(
                             self.artifacts,
@@ -224,7 +230,8 @@ class PlanRunner:
                             "svc.fp.updated",
                             {
                                 "host": host,
-                                "fp": fp,
+                                "fp": fp_all,
+                                "fp_by_key": fp_map,
                                 "source": "portscan_cache",
                                 "artifact_id": fp_art_id,
                             },
@@ -238,8 +245,19 @@ class PlanRunner:
                                 if mark in already_injected:
                                     continue
                                 already_injected.add(mark)
+                                fp_map = current_fp_bykey_by_host.get(host, {})
+                                fp_key = (
+                                    fp_map.get(key) or current_fp_all_by_host.get(host) or ""
+                                )
                                 injected.append(
-                                    {"action_id": act, "payload": {"target": host, "_svc_fp": fp}}
+                                    {
+                                        "action_id": act,
+                                        "payload": {
+                                            "target": host,
+                                            "_svc_key": key,
+                                            "_svc_fp": fp_key,
+                                        },
+                                    }
                                 )
 
                         if injected:
@@ -266,7 +284,7 @@ class PlanRunner:
             if use_cached_vuln and spec.category == "vuln_assess":
                 host = str(payload.get("target") or "")
                 if host:
-                    expected_fp = current_fp_by_host.get(host) or str(
+                    expected_fp = current_fp_all_by_host.get(host) or str(
                         payload.get("_svc_fp") or ""
                     )
                     if expected_fp:
@@ -348,8 +366,10 @@ class PlanRunner:
                 keys = summarize_service_keys(host_services)
 
                 current_services_by_host[host] = host_services
-                fp = service_fingerprint(host_services)
-                current_fp_by_host[host] = fp
+                fp_all = service_fingerprint(host_services)
+                fp_map = service_fingerprint_by_key(host_services)
+                current_fp_all_by_host[host] = fp_all
+                current_fp_bykey_by_host[host] = fp_map
 
                 fp_art_id = put_service_fingerprint(
                     self.artifacts,
@@ -361,7 +381,8 @@ class PlanRunner:
                     "svc.fp.updated",
                     {
                         "host": host,
-                        "fp": fp,
+                        "fp": fp_all,
+                        "fp_by_key": fp_map,
                         "source": "live_portscan",
                         "artifact_id": fp_art_id,
                     },
@@ -374,8 +395,16 @@ class PlanRunner:
                         if mark in already_injected:
                             continue
                         already_injected.add(mark)
+                        fp_key = fp_map.get(key) or fp_all
                         injected.append(
-                            {"action_id": act, "payload": {"target": host, "_svc_fp": fp}}
+                            {
+                                "action_id": act,
+                                "payload": {
+                                    "target": host,
+                                    "_svc_key": key,
+                                    "_svc_fp": fp_key,
+                                },
+                            }
                         )
 
                 if injected:
