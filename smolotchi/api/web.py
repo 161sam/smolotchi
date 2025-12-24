@@ -131,10 +131,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 state = _bundle_finding_state(bundle, fid)
                 if state is None:
                     continue
-                if only_suppressed:
-                    if state != "suppressed":
-                        continue
-                elif not include_suppressed and state == "suppressed":
+                if only_suppressed and state != "suppressed":
+                    continue
+                if not include_suppressed and state == "suppressed":
                     continue
 
                 bundle["_finding_state"] = state
@@ -157,16 +156,49 @@ def create_app(config_path: str = "config.toml") -> Flask:
             only_suppressed=only_suppressed,
         )
 
-    def _find_latest_bundle_for_finding(fid: str) -> str | None:
-        metas = artifacts.list(limit=200, kind="lan_bundle")
+    def _bundle_has_finding(bundle: dict, fid: str):
+        summary = bundle.get("host_summary") or {}
+        for finding in (summary.get("findings") or []):
+            finding_id = str(finding.get("id") or finding.get("title") or "")
+            if finding_id != fid:
+                continue
+            suppressed = bool(
+                finding.get("suppressed") or finding.get("suppressed_by_policy")
+            )
+            return True, suppressed
+        return False, False
+
+    def _find_latest_bundle_for_finding(
+        fid: str, include_suppressed: bool, only_suppressed: bool
+    ) -> str | None:
+        metas = artifacts.list(limit=300, kind="lan_bundle")
+        best_unsuppressed = None
+        best_suppressed = None
+
         for meta in metas:
             bundle = artifacts.get_json(meta.id) or {}
-            summary = bundle.get("host_summary") or {}
-            findings = summary.get("findings") or []
-            for finding in findings:
-                finding_id = finding.get("id") or finding.get("title")
-                if str(finding_id) == fid:
-                    return meta.id
+            ok, suppressed = _bundle_has_finding(bundle, fid)
+            if not ok:
+                continue
+
+            if suppressed:
+                if best_suppressed is None:
+                    best_suppressed = meta.id
+            else:
+                if best_unsuppressed is None:
+                    best_unsuppressed = meta.id
+
+            if not only_suppressed and best_unsuppressed is not None:
+                break
+            if only_suppressed and best_suppressed is not None:
+                break
+
+        if only_suppressed:
+            return best_suppressed
+        if best_unsuppressed:
+            return best_unsuppressed
+        if include_suppressed:
+            return best_suppressed
         return None
 
     def _load_recent_bundles(limit: int = 50) -> list[dict]:
@@ -183,7 +215,21 @@ def create_app(config_path: str = "config.toml") -> Flask:
         fid = fid.strip()
         if not fid:
             abort(400)
-        bundle_id = _find_latest_bundle_for_finding(fid)
+        include_suppressed = request.args.get("include_suppressed", "0") in (
+            "1",
+            "true",
+            "yes",
+        )
+        only_suppressed = request.args.get("only_suppressed", "0") in (
+            "1",
+            "true",
+            "yes",
+        )
+        bundle_id = _find_latest_bundle_for_finding(
+            fid,
+            include_suppressed=include_suppressed,
+            only_suppressed=only_suppressed,
+        )
         if not bundle_id:
             return redirect(url_for("lan_results") + f"?finding={fid}")
         return redirect(url_for("lan_result_details", bundle_id=bundle_id))

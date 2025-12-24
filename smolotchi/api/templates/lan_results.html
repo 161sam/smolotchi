@@ -42,6 +42,13 @@
              style="color:var(--accent); text-decoration:none; font-weight:900;">
             {{ f.title }}
           </a>
+          {% if f.suppressed_count and f.suppressed_count > 0 %}
+            <span class="muted">·</span>
+            <a href="{{ url_for('lan_finding_jump', fid=f.id) }}?include_suppressed=1"
+               class="pill">include suppressed</a>
+            <a href="{{ url_for('lan_finding_jump', fid=f.id) }}?only_suppressed=1"
+               class="pill">only suppressed</a>
+          {% endif %}
         </div>
         <div class="muted">
           affected hosts: {{ f.count }}
