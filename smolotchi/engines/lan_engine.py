@@ -128,6 +128,8 @@ class LanEngine:
             discovery_ttl_s=int(self.ai_cache.get("discovery_ttl_seconds", 600)),
             use_cached_portscan=bool(self.ai_cache.get("use_cached_portscan", True)),
             portscan_ttl_s=int(self.ai_cache.get("portscan_ttl_seconds", 900)),
+            use_cached_vuln=bool(self.ai_cache.get("use_cached_vuln", True)),
+            vuln_ttl_s=int(self.ai_cache.get("vuln_ttl_seconds", 1800)),
             batch_strategy=self.ai_batch_strategy,
             throttle_cfg=self.ai_throttle,
             service_map={

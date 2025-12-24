@@ -63,3 +63,31 @@ def find_fresh_portscan_for_host(
         return {"artifact_id": meta.id, "services": services, "ts": ts}
 
     return None
+
+
+def find_fresh_vuln_for_host_action(
+    artifacts: ArtifactStore, host: str, action_id: str, ttl_s: int
+) -> Optional[Dict[str, Any]]:
+    """
+    Find newest action_run for vuln_* action with payload.target==host within ttl.
+    Returns {artifact_id, ts}.
+    """
+    now = time.time()
+    items = artifacts.list(limit=600, kind="action_run")
+    for meta in items:
+        data = artifacts.get_json(meta.id) or {}
+        spec = data.get("spec") or {}
+        if spec.get("id") != action_id:
+            continue
+
+        payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
+        tgt = str((payload or {}).get("target", ""))
+        if tgt != host:
+            continue
+
+        ts = float(data.get("ts", meta.created_ts) or meta.created_ts)
+        if now - ts > ttl_s:
+            continue
+
+        return {"artifact_id": meta.id, "ts": ts}
+    return None
