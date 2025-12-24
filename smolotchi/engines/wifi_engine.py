@@ -6,8 +6,7 @@ from typing import Optional
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.engines import EngineHealth
-from smolotchi.core.jobs import JobStore
-from smolotchi.core.lan_state import lan_is_busy
+from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.engines.net_detect import detect_scope_for_iface
 from smolotchi.engines.net_health import health_check
 from smolotchi.engines.wifi_connect import connect_wpa_psk, disconnect_wpa
@@ -17,46 +16,20 @@ from smolotchi.engines.wifi_scan import scan_iw
 class WifiEngine:
     name = "wifi"
 
-    def __init__(self, bus: SQLiteBus, config: ConfigStore, jobstore: JobStore):
+    def __init__(self, bus: SQLiteBus, config: ConfigStore, artifacts: ArtifactStore):
         self.bus = bus
         self.config = config
-        self.jobstore = jobstore
+        self.artifacts = artifacts
         self._running = False
         self._last_scan = 0.0
         self._last_health = 0.0
         self._last_health_ok = None
         self._connected_ssid: Optional[str] = None
+        self._session_started_ts = None
+        self._session_id = None
+        self._lan_busy = False
         self._lan_locked = False
-        self._lan_was_busy = False
-        self._last_lan_done_ts = 0.0
-
-    def _maybe_disconnect_after_lan(
-        self, busy: bool, lan_was_busy: bool, iface: str, w
-    ) -> None:
-        if (
-            self._connected_ssid
-            and (not busy)
-            and lan_was_busy
-            and w.disconnect_after_lan
-        ):
-            ok, out = disconnect_wpa(iface)
-            self.bus.publish(
-                "wifi.disconnect",
-                {"iface": iface, "ssid": self._connected_ssid, "ok": ok, "note": out},
-            )
-            self._connected_ssid = None
-
-    def _lan_done_event_since_last(self) -> bool:
-        for evt in self.bus.tail(limit=40, topic_prefix="lan."):
-            if evt.topic in ("lan.done", "lan.job.done") and evt.ts > self._last_lan_done_ts:
-                self._last_lan_done_ts = evt.ts
-                return True
-
-        for evt in self.bus.tail(limit=40, topic_prefix="ui.lan."):
-            if evt.topic == "ui.lan.done" and evt.ts > self._last_lan_done_ts:
-                self._last_lan_done_ts = evt.ts
-                return True
-        return False
+        self._last_lan_evt_ts = 0.0
 
     def start(self) -> None:
         self._running = True
@@ -67,6 +40,60 @@ class WifiEngine:
         self._running = False
         self.bus.publish("wifi.engine.stopped", {})
 
+    def _tail_since(self, topic_prefix: str, last_ts: float, limit: int = 80):
+        evts = self.bus.tail(limit=limit, topic_prefix=topic_prefix)
+        out = []
+        for e in evts:
+            ts = getattr(e, "ts", 0.0) or 0.0
+            if ts and ts > last_ts:
+                out.append(e)
+        out.sort(key=lambda e: getattr(e, "ts", 0.0) or 0.0)
+        return out
+
+    def _start_session(self, iface: str, ssid: str) -> None:
+        self._connected_ssid = ssid
+        self._session_started_ts = time.time()
+        self._session_id = f"wifi-{int(self._session_started_ts)}"
+        self.bus.publish(
+            "wifi.session.start",
+            {"id": self._session_id, "ssid": ssid, "iface": iface},
+        )
+
+    def _end_session(self, iface: str, reason: str) -> None:
+        end_ts = time.time()
+        start_ts = self._session_started_ts or end_ts
+        duration = max(0.0, end_ts - start_ts)
+        scope = detect_scope_for_iface(iface)
+        if not self._session_id:
+            self._session_id = f"wifi-{int(start_ts)}"
+        payload = {
+            "id": self._session_id,
+            "iface": iface,
+            "ssid": self._connected_ssid,
+            "ts_start": start_ts,
+            "ts_end": end_ts,
+            "duration_sec": round(duration, 2),
+            "scope": scope,
+            "reason": reason,
+        }
+
+        try:
+            art = self.artifacts.put_json(
+                kind="wifi_session",
+                title=f"wifi session {self._session_id}",
+                payload=payload,
+            )
+            self.bus.publish(
+                "wifi.session.saved", {"id": self._session_id, "artifact_id": art.id}
+            )
+        except Exception as ex:
+            self.bus.publish(
+                "wifi.session.save_failed", {"id": self._session_id, "err": str(ex)}
+            )
+
+        self._session_started_ts = None
+        self._session_id = None
+
     def tick(self) -> None:
         if not self._running:
             return
@@ -76,10 +103,34 @@ class WifiEngine:
         if not w.enabled:
             return
 
-        busy = lan_is_busy(self.jobstore)
-        lan_was_busy = self._lan_was_busy
-        self._lan_was_busy = busy
-        if busy and w.lock_during_lan:
+        iface = w.iface or "wlan0"
+        now = time.time()
+
+        evts = []
+        evts += self._tail_since("ui.lan.", self._last_lan_evt_ts, limit=80)
+        evts += self._tail_since("lan.", self._last_lan_evt_ts, limit=80)
+
+        saw_lan_done = False
+        for e in evts:
+            self._last_lan_evt_ts = max(
+                self._last_lan_evt_ts, getattr(e, "ts", 0.0) or 0.0
+            )
+
+            if e.topic == "ui.lan.enqueue":
+                if not self._lan_busy:
+                    self._lan_busy = True
+                    self.bus.publish("wifi.lan.busy", {"reason": "ui.lan.enqueue"})
+            elif e.topic in ("lan.job.started", "lan.job.running"):
+                if not self._lan_busy:
+                    self._lan_busy = True
+                    self.bus.publish("wifi.lan.busy", {"reason": e.topic})
+            elif e.topic in ("lan.done", "lan.job.done"):
+                saw_lan_done = True
+                if self._lan_busy:
+                    self._lan_busy = False
+                    self.bus.publish("wifi.lan.idle", {"reason": e.topic})
+
+        if self._lan_busy and w.lock_during_lan:
             if not self._lan_locked:
                 self.bus.publish("wifi.lock", {"reason": "lan_busy"})
             self._lan_locked = True
@@ -88,7 +139,25 @@ class WifiEngine:
                 self.bus.publish("wifi.unlock", {"reason": "lan_idle"})
             self._lan_locked = False
 
-        iface = w.iface or "wlan0"
+        if (
+            saw_lan_done
+            and getattr(w, "disconnect_after_lan", False)
+            and self._connected_ssid
+            and (not self._lan_locked)
+        ):
+            ok, out = disconnect_wpa(iface)
+            self.bus.publish(
+                "wifi.disconnect",
+                {
+                    "iface": iface,
+                    "ssid": self._connected_ssid,
+                    "ok": ok,
+                    "reason": "lan_done",
+                    "note": out,
+                },
+            )
+            self._end_session(iface, "lan_done")
+            self._connected_ssid = None
 
         ui_evts = self.bus.tail(limit=20, topic_prefix="ui.wifi.")
         req = next((e for e in ui_evts if e.topic == "ui.wifi.connect"), None)
@@ -109,7 +178,7 @@ class WifiEngine:
                     },
                 )
                 if ok:
-                    self._connected_ssid = ssid
+                    self._start_session(iface_req, ssid)
 
         dis = next((e for e in ui_evts if e.topic == "ui.wifi.disconnect"), None)
         if dis and dis.payload:
@@ -135,22 +204,7 @@ class WifiEngine:
                         "note": out,
                     },
                 )
-                if ok:
-                    self._connected_ssid = None
-
-        if self._connected_ssid and getattr(w, "disconnect_after_lan", False):
-            if (not self._lan_locked) and self._lan_done_event_since_last():
-                ok, out = disconnect_wpa(iface)
-                self.bus.publish(
-                    "wifi.disconnect",
-                    {
-                        "iface": iface,
-                        "ssid": self._connected_ssid,
-                        "ok": ok,
-                        "reason": "lan_done",
-                        "note": out,
-                    },
-                )
+                self._end_session(iface, "ui_request")
                 self._connected_ssid = None
 
         if self._connected_ssid and getattr(w, "health_enabled", True):
@@ -181,6 +235,7 @@ class WifiEngine:
                             "reason": "health_failed",
                         },
                     )
+                    self._end_session(iface, "health_failed")
                     self._connected_ssid = None
 
                     if bool(getattr(w, "auto_reconnect_on_broken", False)):
@@ -197,14 +252,12 @@ class WifiEngine:
                                 },
                             )
                             if ok2:
-                                self._connected_ssid = ssid
+                                self._start_session(iface, ssid)
 
         if self._lan_locked and self._connected_ssid:
             return
 
-        now = time.time()
         if now - self._last_scan < w.scan_interval_sec:
-            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
         self._last_scan = now
 
@@ -229,10 +282,8 @@ class WifiEngine:
         )
 
         if not w.auto_connect:
-            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
         if self._lan_locked:
-            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         allow = set(w.allow_ssids or [])
@@ -252,11 +303,9 @@ class WifiEngine:
                 chosen = chosen or ap.ssid
 
         if not chosen:
-            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         if self._connected_ssid == chosen:
-            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         ok, out = connect_wpa_psk(iface, chosen, creds[chosen])
@@ -265,10 +314,9 @@ class WifiEngine:
             {"iface": iface, "ssid": chosen, "ok": ok, "note": out[-500:]},
         )
         if not ok:
-            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
-        self._connected_ssid = chosen
+        self._start_session(iface, chosen)
         scope_map = getattr(w, "scope_map", None) or {}
         mapped = (
             (scope_map.get(chosen) or "").strip()
@@ -289,7 +337,6 @@ class WifiEngine:
                 }
             },
         )
-        self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
 
     def health(self) -> EngineHealth:
         cfg = self.config.get()

@@ -82,7 +82,7 @@ def cmd_core(args) -> int:
         WifiEngine(
             bus,
             store,
-            jobs,
+            artifacts,
         )
     )
     from smolotchi.actions.plan_runner import PlanRunner
