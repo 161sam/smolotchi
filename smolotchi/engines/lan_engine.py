@@ -6,6 +6,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.engines import EngineHealth
 from smolotchi.core.jobs import JobRow, JobStore
+from smolotchi.core.reports import ReportRenderer
 
 
 @dataclass
@@ -19,12 +20,18 @@ class LanEngine:
     name = "lan"
 
     def __init__(
-        self, bus: SQLiteBus, cfg: LanConfig, artifacts: ArtifactStore, jobs: JobStore
+        self,
+        bus: SQLiteBus,
+        cfg: LanConfig,
+        artifacts: ArtifactStore,
+        jobs: JobStore,
+        report_renderer: Optional[ReportRenderer] = None,
     ):
         self.bus = bus
         self.cfg = cfg
         self.artifacts = artifacts
         self.jobs = jobs
+        self.report_renderer = report_renderer
         self._running = False
         self._active: Optional[JobRow] = None
 
@@ -82,6 +89,19 @@ class LanEngine:
                     title=f"LAN {self._active.kind} • {self._active.scope}",
                     payload=result,
                 )
+                report_meta = None
+                if self.report_renderer is not None:
+                    html_bytes = self.report_renderer.render_lan_result(
+                        title=f"LAN {self._active.kind} • {self._active.scope}",
+                        result=result,
+                    )
+                    report_meta = self.artifacts.put_file(
+                        kind="lan_report",
+                        title=f"Report • {self._active.id}",
+                        filename="report.html",
+                        content=html_bytes,
+                        mimetype="text/html; charset=utf-8",
+                    )
 
                 self.bus.publish(
                     "lan.job.progress", {"id": self._active.id, "pct": 100}
@@ -93,6 +113,8 @@ class LanEngine:
                         "result": {
                             "artifact_id": meta.id,
                             "artifact_path": meta.path,
+                            "report_artifact_id": report_meta.id if report_meta else None,
+                            "report_path": report_meta.path if report_meta else None,
                         },
                     },
                 )

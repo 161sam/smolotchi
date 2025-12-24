@@ -42,6 +42,7 @@ def cmd_core(args) -> int:
     from smolotchi.core.config import ConfigStore
     from smolotchi.core.artifacts import ArtifactStore
     from smolotchi.core.jobs import JobStore
+    from smolotchi.core.reports import ReportConfig, ReportRenderer
     from smolotchi.core.resources import ResourceManager
     from smolotchi.engines.lan_engine import LanConfig, LanEngine
     from smolotchi.engines.wifi_engine import WifiConfig, WifiEngine
@@ -58,6 +59,11 @@ def cmd_core(args) -> int:
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
     jobs = JobStore(args.db)
     resources = ResourceManager("/run/smolotchi/locks")
+    renderer = (
+        ReportRenderer(ReportConfig(templates_dir=cfg.reports.templates_dir))
+        if cfg.reports.enabled
+        else None
+    )
 
     reg = EngineRegistry()
     reg.register(
@@ -79,6 +85,7 @@ def cmd_core(args) -> int:
             ),
             artifacts=artifacts,
             jobs=jobs,
+            report_renderer=renderer,
         )
     )
 
@@ -100,6 +107,8 @@ def cmd_core(args) -> int:
                 lan.cfg.max_jobs_per_tick = new_cfg.lan.max_jobs_per_tick
             if not hasattr(cmd_core, "_last_prune"):
                 cmd_core._last_prune = 0.0  # type: ignore[attr-defined]
+            if not hasattr(cmd_core, "_last_wd"):
+                cmd_core._last_wd = 0.0  # type: ignore[attr-defined]
 
             now = time.time()
             if now - cmd_core._last_prune > 60.0:  # type: ignore[attr-defined]
@@ -127,6 +136,38 @@ def cmd_core(args) -> int:
                         "artifacts_deleted": deleted_artifacts,
                     },
                 )
+            if now - cmd_core._last_wd > 10.0:  # type: ignore[attr-defined]
+                cmd_core._last_wd = now  # type: ignore[attr-defined]
+                wd = new_cfg.watchdog
+                if wd.enabled:
+                    if wd.action == "fail":
+                        n = jobs.fail_stuck(
+                            older_than_seconds=wd.running_stuck_after_seconds,
+                            limit=50,
+                        )
+                        if n:
+                            bus.publish(
+                                "core.watchdog",
+                                {
+                                    "action": "fail",
+                                    "count": n,
+                                    "after_s": wd.running_stuck_after_seconds,
+                                },
+                            )
+                    else:
+                        n = jobs.reset_stuck(
+                            older_than_seconds=wd.running_stuck_after_seconds,
+                            limit=50,
+                        )
+                        if n:
+                            bus.publish(
+                                "core.watchdog",
+                                {
+                                    "action": "reset",
+                                    "count": n,
+                                    "after_s": wd.running_stuck_after_seconds,
+                                },
+                            )
             core.tick()
             interval = (
                 args.interval if args.interval is not None else new_cfg.core.tick_interval

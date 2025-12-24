@@ -67,6 +67,41 @@ class ArtifactStore:
         self._save_index(idx)
         return meta
 
+    def put_file(
+        self,
+        kind: str,
+        title: str,
+        filename: str,
+        content: bytes,
+        mimetype: str = "application/octet-stream",
+    ) -> ArtifactMeta:
+        aid = f"{int(time.time())}-{kind}"
+        path = self.root / f"{aid}-{filename}"
+        path.write_bytes(content)
+
+        meta = ArtifactMeta(
+            id=aid,
+            kind=kind,
+            created_ts=time.time(),
+            title=title,
+            path=str(path),
+        )
+
+        idx = self._load_index()
+        idx.insert(
+            0,
+            {
+                "id": meta.id,
+                "kind": meta.kind,
+                "created_ts": meta.created_ts,
+                "title": meta.title,
+                "path": meta.path,
+                "mimetype": mimetype,
+            },
+        )
+        self._save_index(idx)
+        return meta
+
     def list(self, limit: int = 50, kind: Optional[str] = None) -> List[ArtifactMeta]:
         idx = self._load_index()
         out: List[ArtifactMeta] = []
@@ -85,6 +120,10 @@ class ArtifactStore:
             if len(out) >= limit:
                 break
         return out
+
+    def get_meta(self, artifact_id: str) -> Optional[Dict[str, Any]]:
+        idx = self._load_index()
+        return next((r for r in idx if r.get("id") == artifact_id), None)
 
     def get_json(self, artifact_id: str) -> Optional[Dict[str, Any]]:
         idx = self._load_index()

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:20px;color:#111}
+    .muted{color:#666;font-size:12px}
+    .card{border:1px solid #ddd;border-radius:12px;padding:14px;margin:12px 0}
+    pre{background:#f6f7f8;padding:12px;border-radius:10px;overflow:auto}
+  </style>
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <div class="muted">Generated: {{ ts }}</div>
+
+  <div class="card">
+    <h2>Job</h2>
+    <pre>{{ job | tojson(indent=2) }}</pre>
+  </div>
+
+  <div class="card">
+    <h2>Summary</h2>
+    <pre>{{ summary }}</pre>
+  </div>
+
+  <div class="card">
+    <h2>Raw Result</h2>
+    <pre>{{ result | tojson(indent=2) }}</pre>
+  </div>
+</body>
+</html>
