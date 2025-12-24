@@ -116,6 +116,78 @@ class JobStore:
                 )
         return out
 
+    def list_stuck_running(
+        self, older_than_seconds: int = 180, limit: int = 50
+    ) -> List[JobRow]:
+        cutoff = time.time() - older_than_seconds
+        out: List[JobRow] = []
+        with self._conn() as con:
+            for row in con.execute(
+                "SELECT id, kind, scope, note, status, created_ts, updated_ts "
+                "FROM jobs WHERE status='running' AND updated_ts < ? "
+                "ORDER BY updated_ts ASC LIMIT ?",
+                (cutoff, limit),
+            ):
+                out.append(
+                    JobRow(
+                        row[0],
+                        row[1],
+                        row[2],
+                        row[3],
+                        row[4],
+                        float(row[5]),
+                        float(row[6]),
+                    )
+                )
+        return out
+
+    def _stuck_running_ids(
+        self, older_than_seconds: int = 180, limit: int = 50
+    ) -> List[str]:
+        cutoff = time.time() - older_than_seconds
+        with self._conn() as con:
+            rows = con.execute(
+                "SELECT id FROM jobs WHERE status='running' AND updated_ts < ? "
+                "ORDER BY updated_ts ASC LIMIT ?",
+                (cutoff, limit),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def reset_stuck(self, older_than_seconds: int = 180, limit: int = 50) -> int:
+        ids = self._stuck_running_ids(
+            older_than_seconds=older_than_seconds, limit=limit
+        )
+        if not ids:
+            return 0
+        placeholders = ",".join("?" for _ in ids)
+        with self._conn() as con:
+            cur = con.execute(
+                f"UPDATE jobs SET status='queued', updated_ts=? "
+                f"WHERE id IN ({placeholders})",
+                (time.time(), *ids),
+            )
+            return cur.rowcount
+
+    def fail_stuck(
+        self,
+        older_than_seconds: int = 180,
+        limit: int = 50,
+        note: str = "watchdog: stuck",
+    ) -> int:
+        ids = self._stuck_running_ids(
+            older_than_seconds=older_than_seconds, limit=limit
+        )
+        if not ids:
+            return 0
+        placeholders = ",".join("?" for _ in ids)
+        with self._conn() as con:
+            cur = con.execute(
+                f"UPDATE jobs SET status='failed', note=trim(note || '\n' || ?), updated_ts=? "
+                f"WHERE id IN ({placeholders})",
+                (note, time.time(), *ids),
+            )
+            return cur.rowcount
+
     def cancel(self, job_id: str) -> bool:
         """
         Cancel only queued jobs -> mark failed with note 'cancelled'.

@@ -1,7 +1,17 @@
 import json
 import time
+from pathlib import Path
 
-from flask import Flask, Response, abort, redirect, render_template, request, url_for
+from flask import (
+    Flask,
+    Response,
+    abort,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.core.artifacts import ArtifactStore
@@ -65,6 +75,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
         items = artifacts.list(limit=50, kind="lan_result")
         return render_template("lan_results.html", items=items)
 
+    @app.get("/lan/reports")
+    def lan_reports():
+        items = artifacts.list(limit=50, kind="lan_report")
+        return render_template("lan_reports.html", items=items)
+
     @app.get("/artifact/<artifact_id>")
     def artifact_view(artifact_id: str):
         data = artifacts.get_json(artifact_id)
@@ -85,6 +100,26 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 "Content-Disposition": f'attachment; filename="{artifact_id}.json"'
             },
         )
+
+    @app.get("/artifact/<artifact_id>/download")
+    def artifact_file_download(artifact_id: str):
+        meta = artifacts.get_meta(artifact_id)
+        if not meta:
+            abort(404)
+        path = meta.get("path")
+        if not path or not Path(path).exists():
+            abort(404)
+        return send_file(path, as_attachment=True)
+
+    @app.get("/report/<artifact_id>")
+    def report_view(artifact_id: str):
+        meta = artifacts.get_meta(artifact_id)
+        if not meta:
+            abort(404)
+        path = meta.get("path")
+        if not path or not Path(path).exists():
+            abort(404)
+        return send_file(path, as_attachment=False)
 
     @app.get("/lan/jobs")
     def lan_jobs():

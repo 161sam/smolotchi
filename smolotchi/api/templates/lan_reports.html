@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block page_title %}LAN Reports{% endblock %}
+{% block page_sub %}HTML reports{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="events">
+    {% for a in items %}
+      <div class="evt">
+        <div class="evt-top">{{ a.title }}</div>
+        <div class="muted">id: {{ a.id }}</div>
+        <div style="margin-top:10px" class="row">
+          <a href="{{ url_for('report_view', artifact_id=a.id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Open</a>
+          <a href="{{ url_for('artifact_file_download', artifact_id=a.id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Download</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="muted">No reports yet.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

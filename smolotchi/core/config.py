@@ -68,6 +68,19 @@ class RetentionCfg:
 
 
 @dataclass
+class WatchdogCfg:
+    enabled: bool = True
+    running_stuck_after_seconds: int = 180
+    action: str = "reset"
+
+
+@dataclass
+class ReportsCfg:
+    enabled: bool = True
+    templates_dir: str = "smolotchi/api/templates/reports"
+
+
+@dataclass
 class AppConfig:
     core: CoreCfg
     policy: PolicyCfg
@@ -76,6 +89,8 @@ class AppConfig:
     ui: UiCfg
     theme: ThemeCfg
     retention: RetentionCfg
+    watchdog: WatchdogCfg
+    reports: ReportsCfg
 
 
 class ConfigStore:
@@ -96,6 +111,8 @@ class ConfigStore:
         ui = d.get("ui", {})
         theme = d.get("theme", {})
         retention = d.get("retention", {})
+        watchdog = d.get("watchdog", {})
+        reports = d.get("reports", {})
 
         return AppConfig(
             core=CoreCfg(
@@ -136,6 +153,19 @@ class ConfigStore:
                     retention.get("artifact_kinds_keep_last", ["lan_result"])
                 ),
                 vacuum_after_prune=bool(retention.get("vacuum_after_prune", False)),
+            ),
+            watchdog=WatchdogCfg(
+                enabled=bool(watchdog.get("enabled", True)),
+                running_stuck_after_seconds=int(
+                    watchdog.get("running_stuck_after_seconds", 180)
+                ),
+                action=str(watchdog.get("action", "reset")),
+            ),
+            reports=ReportsCfg(
+                enabled=bool(reports.get("enabled", True)),
+                templates_dir=str(
+                    reports.get("templates_dir", "smolotchi/api/templates/reports")
+                ),
             ),
         )
 
