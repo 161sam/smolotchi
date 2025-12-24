@@ -1,0 +1,15 @@
+{
+  "bg": "#070b10",
+  "panel": "#0d1520",
+  "panel2": "#0a0f18",
+  "border": "#223247",
+  "text": "#eaf2fb",
+  "muted": "#9db3c8",
+  "accent": "#66f0c8",
+  "ok": "#38d996",
+  "warn": "#ffcc66",
+  "bad": "#ff5f7a",
+  "r-lg": "18px",
+  "r-md": "14px",
+  "r-sm": "10px"
+}

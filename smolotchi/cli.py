@@ -14,9 +14,15 @@ DEFAULT_TAG = os.environ.get("SMOLOTCHI_DEFAULT_TAG", "lab-approved")
 
 def cmd_web(args) -> int:
     from smolotchi.api.web import create_app
+    from smolotchi.core.config import ConfigStore
 
-    app = create_app()
-    app.run(host=args.host, port=args.port, debug=False)
+    store = ConfigStore(args.config)
+    cfg = store.load()
+
+    app = create_app(config_path=args.config)
+    host = args.host or cfg.ui.host
+    port = args.port or cfg.ui.port
+    app.run(host=host, port=port, debug=False)
     return 0
 
 
@@ -33,23 +39,61 @@ def cmd_core(args) -> int:
     (v0.0.1 tickte im Web-Request – jetzt unabhängig)
     """
     from smolotchi.core.engines import EngineRegistry
+    from smolotchi.core.config import ConfigStore
     from smolotchi.engines.lan_engine import LanConfig, LanEngine
     from smolotchi.engines.wifi_engine import WifiConfig, WifiEngine
 
+    store = ConfigStore(args.config)
+    cfg = store.load()
+
     bus = SQLiteBus(db_path=args.db)
-    policy = Policy(allowed_tags=args.allowed_tags)
+    allowed_tags = cfg.policy.allowed_tags
+    if args.allowed_tags:
+        allowed_tags = args.allowed_tags
+    policy = Policy(allowed_tags=allowed_tags)
 
     reg = EngineRegistry()
-    reg.register(WifiEngine(bus, WifiConfig(enabled=True, safe_mode=True)))
-    reg.register(LanEngine(bus, LanConfig(enabled=True, safe_mode=True)))
+    reg.register(
+        WifiEngine(
+            bus,
+            WifiConfig(
+                enabled=cfg.wifi.enabled,
+                safe_mode=cfg.wifi.safe_mode,
+            ),
+        )
+    )
+    reg.register(
+        LanEngine(
+            bus,
+            LanConfig(
+                enabled=cfg.lan.enabled,
+                safe_mode=cfg.lan.safe_mode,
+                max_jobs_per_tick=cfg.lan.max_jobs_per_tick,
+            ),
+        )
+    )
 
     core = SmolotchiCore(bus=bus, policy=policy, engines=reg)
+    core.set_state(cfg.core.default_state, "default from config")
 
-    bus.publish("core.started", {"pid": os.getpid()})
+    bus.publish("core.started", {"pid": os.getpid(), "config": args.config})
     try:
         while True:
+            new_cfg = store.get()
+            wifi = reg.get("wifi")
+            lan = reg.get("lan")
+            if wifi:
+                wifi.cfg.enabled = new_cfg.wifi.enabled
+                wifi.cfg.safe_mode = new_cfg.wifi.safe_mode
+            if lan:
+                lan.cfg.enabled = new_cfg.lan.enabled
+                lan.cfg.safe_mode = new_cfg.lan.safe_mode
+                lan.cfg.max_jobs_per_tick = new_cfg.lan.max_jobs_per_tick
             core.tick()
-            time.sleep(args.interval)
+            interval = (
+                args.interval if args.interval is not None else new_cfg.core.tick_interval
+            )
+            time.sleep(interval)
     except KeyboardInterrupt:
         bus.publish("core.stopped", {"pid": os.getpid()})
         return 0
@@ -186,24 +230,29 @@ def build_parser() -> argparse.ArgumentParser:
         description="Smolotchi (Pi Zero 2 W) – core/web/display CLI",
     )
     p.add_argument("--db", default=DEFAULT_DB, help=f"SQLite DB path (default: {DEFAULT_DB})")
+    p.add_argument(
+        "--config",
+        default=os.environ.get("SMOLOTCHI_CONFIG", "config.toml"),
+        help="Path to config.toml (default: config.toml)",
+    )
 
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("web", help="Run Flask web UI")
-    s.add_argument("--host", default="0.0.0.0")
-    s.add_argument("--port", type=int, default=8080)
+    s.add_argument("--host", default=None)
+    s.add_argument("--port", type=int, default=None)
     s.set_defaults(fn=cmd_web)
 
     s = sub.add_parser("display", help="Run e-paper display daemon")
     s.set_defaults(fn=cmd_display)
 
     s = sub.add_parser("core", help="Run core state-machine daemon")
-    s.add_argument("--interval", type=float, default=1.0)
+    s.add_argument("--interval", type=float, default=None)
     s.add_argument(
         "--allowed-tag",
         dest="allowed_tags",
         action="append",
-        default=["lab-approved"],
+        default=None,
         help="Allowlist tags for handoff (repeatable)",
     )
     s.set_defaults(fn=cmd_core)

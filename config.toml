@@ -1,0 +1,23 @@
+[core]
+tick_interval = 1.0
+default_state = "WIFI_OBSERVE"
+
+[policy]
+allowed_tags = ["lab-approved"]
+
+[wifi]
+enabled = true
+safe_mode = true
+
+[lan]
+enabled = true
+safe_mode = true
+max_jobs_per_tick = 1
+
+[ui]
+host = "0.0.0.0"
+port = 8080
+
+[theme]
+# optional: wenn gesetzt, lädt UI/Display tokens aus JSON
+json_path = "theme.json"
