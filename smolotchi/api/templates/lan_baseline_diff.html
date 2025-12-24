@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block page_title %}Baseline Diff{% endblock %}
+{% block page_sub %}baseline vs latest bundle{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <a class="pill" href="{{ url_for('lan_baseline_overview') }}">← Baseline Overview</a>
+    <a class="pill" href="{{ url_for('lan_results') }}">LAN Results</a>
+    {% if bundle_id %}
+      <a class="pill" href="{{ url_for('lan_result_details', bundle_id=bundle_id) }}">Open latest bundle</a>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Scope: {{ scope }}</h3>
+
+  <div class="events">
+    <div class="evt">
+      <div class="evt-top">Missing expected (baseline but not in latest)</div>
+      {% if diff.missing_expected %}
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          {% for fid in diff.missing_expected|sort %}
+            <span class="pill">{{ fid }}</span>
+          {% endfor %}
+        </div>
+      {% else %}<div class="muted">none</div>{% endif %}
+    </div>
+
+    <div class="evt">
+      <div class="evt-top">Unexpected (active in latest)</div>
+      {% if diff.unexpected_active %}
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          {% for fid in diff.unexpected_active|sort %}
+            <a class="pill sev-high" href="{{ url_for('lan_results') }}?finding={{ fid }}">{{ fid }}</a>
+            <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
+              <input type="hidden" name="scope" value="{{ scope }}">
+              <input type="hidden" name="fid" value="{{ fid }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <button class="secondary" type="submit">Add to baseline</button>
+            </form>
+          {% endfor %}
+        </div>
+      {% else %}<div class="muted">none</div>{% endif %}
+    </div>
+
+    <div class="evt">
+      <div class="evt-top">Unexpected (suppressed in latest)</div>
+      {% if diff.unexpected_suppressed %}
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          {% for fid in diff.unexpected_suppressed|sort %}
+            <a class="pill" href="{{ url_for('lan_results') }}?finding={{ fid }}&only_suppressed=1">{{ fid }}</a>
+            <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
+              <input type="hidden" name="scope" value="{{ scope }}">
+              <input type="hidden" name="fid" value="{{ fid }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <button class="secondary" type="submit">Add to baseline</button>
+            </form>
+          {% endfor %}
+        </div>
+      {% else %}<div class="muted">none</div>{% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

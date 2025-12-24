@@ -19,7 +19,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
-from smolotchi.core.toml_patch import patch_lan_lists
+from smolotchi.core.toml_patch import patch_baseline_add, patch_lan_lists
 from smolotchi.reports.exec_summary import (
     build_exec_summary,
     render_exec_summary_html,
@@ -27,6 +27,7 @@ from smolotchi.reports.exec_summary import (
 )
 from smolotchi.reports.host_diff import host_diff_html, host_diff_markdown
 from smolotchi.reports.baseline import expected_findings_for_scope
+from smolotchi.reports.baseline_diff import compute_baseline_diff
 from smolotchi.reports.top_findings import aggregate_top_findings
 
 
@@ -250,6 +251,75 @@ def create_app(config_path: str = "config.toml") -> Flask:
             bundle.setdefault("id", meta.id)
             items.append(bundle)
         return items
+
+    def _pick_scope(cfg, bundles: list[dict]) -> str:
+        if bundles:
+            scope = (bundles[0].get("scope") or "").strip()
+            if scope:
+                return scope
+        default_scope = (getattr(getattr(cfg, "lan", None), "default_scope", "") or "")
+        return default_scope.strip() or "default"
+
+    @app.get("/lan/baseline")
+    def lan_baseline_overview():
+        cfg = store.get()
+        bundles = _load_recent_bundles(limit=200)
+        scope = _pick_scope(cfg, bundles)
+        expected = expected_findings_for_scope(cfg, scope)
+
+        window = int(request.args.get("window", "50") or "50")
+        window = max(5, min(window, 500))
+        window_bundles = bundles[:window]
+
+        diff = compute_baseline_diff(scope, expected, window_bundles)
+
+        return render_template(
+            "lan_baseline.html",
+            scope=scope,
+            window=window,
+            expected_count=len(expected),
+            diff=diff,
+        )
+
+    @app.get("/lan/baseline/diff")
+    def lan_baseline_diff_latest():
+        cfg = store.get()
+        bundles = _load_recent_bundles(limit=50)
+        scope = _pick_scope(cfg, bundles)
+        expected = expected_findings_for_scope(cfg, scope)
+
+        latest = bundles[0] if bundles else {}
+        diff = compute_baseline_diff(scope, expected, [latest] if latest else [])
+
+        return render_template(
+            "lan_baseline_diff.html",
+            scope=scope,
+            bundle_id=(latest.get("id") if latest else None),
+            diff=diff,
+        )
+
+    @app.post("/lan/baseline/add")
+    def lan_baseline_add():
+        cfg = store.get()
+        bundles = _load_recent_bundles(limit=50)
+        scope = (request.form.get("scope") or "").strip() or _pick_scope(cfg, bundles)
+        fid = (request.form.get("fid") or "").strip()
+
+        if not fid or "\n" in fid or "\r" in fid or len(fid) > 200:
+            abort(400)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_baseline_add(text, scope=scope, finding_id=fid)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish("ui.baseline.added", {"scope": scope, "fid": fid, "ts": time.time()})
+
+        back = request.form.get("back") or ""
+        if back:
+            return redirect(back)
+        return redirect(url_for("lan_baseline_overview"))
 
     @app.get("/lan/finding/<fid>/jump")
     def lan_finding_jump(fid: str):
