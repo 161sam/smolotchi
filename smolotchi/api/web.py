@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import (
@@ -18,6 +19,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
+from smolotchi.core.toml_patch import patch_lan_lists
 from smolotchi.reports.exec_summary import (
     build_exec_summary,
     render_exec_summary_html,
@@ -106,6 +108,43 @@ def create_app(config_path: str = "config.toml") -> Flask:
             return "suppressed" if suppressed else "active"
         return None
 
+    def _bundle_ts(meta: dict, bundle: dict) -> float:
+        for key in ("ts", "created_ts", "created_at", "time"):
+            value = meta.get(key)
+            if isinstance(value, (int, float)):
+                return float(value)
+        for key in ("ts", "created_ts", "created_at", "time"):
+            value = bundle.get(key)
+            if isinstance(value, (int, float)):
+                return float(value)
+        job_id = str(bundle.get("job_id") or "")
+        if job_id.startswith("job-"):
+            try:
+                return float(int(job_id.split("-", 1)[1]))
+            except Exception:
+                pass
+        return 0.0
+
+    def _fmt_ts(ts: float) -> str:
+        if not ts:
+            return "unknown"
+        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
+
+    def _baseline_expected_set() -> set[str] | None:
+        cfg = store.get()
+        baseline = getattr(cfg, "baseline", None)
+        if baseline and getattr(baseline, "enabled", False):
+            scopes = getattr(baseline, "scopes", {}) or {}
+            scope = getattr(getattr(cfg, "lan", None), "default_scope", "") or ""
+            if not scope and isinstance(scopes, dict) and scopes:
+                scope = next(iter(scopes.keys()))
+            if scope and isinstance(scopes, dict):
+                return set(scopes.get(scope, []) or [])
+            return set()
+        return None
+
     @app.get("/lan/results")
     def lan_results():
         fid = request.args.get("finding", "").strip()
@@ -146,6 +185,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             if not fid
             else [artifacts.get_json(meta.id) or {} for meta in metas],
             limit=6,
+            expected=_baseline_expected_set(),
         )
         return render_template(
             "lan_results.html",
@@ -237,7 +277,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/summary")
     def lan_exec_summary():
         bundles = _load_recent_bundles(limit=50)
-        top_findings = aggregate_top_findings(bundles, limit=10)
+        top_findings = aggregate_top_findings(
+            bundles, limit=10, expected=_baseline_expected_set()
+        )
         summary = build_exec_summary(bundles, top_findings)
         html = render_exec_summary_html(summary)
         return Response(html, mimetype="text/html")
@@ -245,7 +287,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/summary.md")
     def lan_exec_summary_md():
         bundles = _load_recent_bundles(limit=50)
-        top_findings = aggregate_top_findings(bundles, limit=10)
+        top_findings = aggregate_top_findings(
+            bundles, limit=10, expected=_baseline_expected_set()
+        )
         summary = build_exec_summary(bundles, top_findings)
         md = render_exec_summary_md(summary)
         return Response(md, mimetype="text/markdown; charset=utf-8")
@@ -253,7 +297,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/summary.json")
     def lan_exec_summary_json():
         bundles = _load_recent_bundles(limit=50)
-        top_findings = aggregate_top_findings(bundles, limit=10)
+        top_findings = aggregate_top_findings(
+            bundles, limit=10, expected=_baseline_expected_set()
+        )
         summary = build_exec_summary(bundles, top_findings)
         return Response(
             response=json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True),
@@ -367,6 +413,52 @@ def create_app(config_path: str = "config.toml") -> Flask:
             abort(400)
         resolved = resolve_result_by_job_id(job_id)
         return _render_result_details(resolved, job_id=job_id)
+
+    @app.get("/lan/finding/<fid>/timeline")
+    def lan_finding_timeline(fid: str):
+        fid = fid.strip()
+        if not fid:
+            abort(400)
+
+        metas = artifacts.list(limit=500, kind="lan_bundle")
+        history = []
+        for meta in metas:
+            bundle = artifacts.get_json(meta.id) or {}
+            state = _bundle_finding_state(bundle, fid)
+            if state is None:
+                continue
+            meta_data = artifacts.get_meta(meta.id) or {}
+            ts = _bundle_ts(meta_data, bundle)
+            history.append(
+                {
+                    "ts": ts,
+                    "ts_str": _fmt_ts(ts),
+                    "bundle_id": meta.id,
+                    "state": state,
+                }
+            )
+
+        if not history:
+            return render_template(
+                "lan_finding_timeline.html",
+                fid=fid,
+                first=None,
+                last=None,
+                history=[],
+            )
+
+        history_sorted = sorted(history, key=lambda x: x["ts"] or 0)
+        first = history_sorted[0]
+        last = history_sorted[-1]
+        history_desc = sorted(history_sorted, key=lambda x: x["ts"] or 0, reverse=True)
+
+        return render_template(
+            "lan_finding_timeline.html",
+            fid=fid,
+            first=first,
+            last=last,
+            history=history_desc,
+        )
 
     def _render_result_details(resolved: dict, job_id: str | None):
         bundle_id = resolved.get("bundle_id")
@@ -586,6 +678,57 @@ def create_app(config_path: str = "config.toml") -> Flask:
         ok = jobstore.delete(job_id)
         bus.publish("ui.job.delete", {"id": job_id, "ok": ok})
         return redirect(url_for("lan_jobs"))
+
+    @app.get("/lan/policy")
+    def lan_policy():
+        cfg_file = Path(config_path)
+        cfg = store.get()
+        noisy = getattr(getattr(cfg, "lan", None), "noisy_scripts", None) or []
+        allow = getattr(getattr(cfg, "lan", None), "allowlist_scripts", None) or []
+        return render_template(
+            "lan_policy.html",
+            noisy="\n".join(noisy),
+            allow="\n".join(allow),
+        )
+
+    @app.post("/lan/policy")
+    def lan_policy_save():
+        cfg_file = Path(config_path)
+        noisy = [
+            value.strip()
+            for value in request.form.get("noisy", "").splitlines()
+            if value.strip()
+        ]
+        allow = [
+            value.strip()
+            for value in request.form.get("allow", "").splitlines()
+            if value.strip()
+        ]
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_lan_lists(text, noisy=noisy, allow=allow)
+        _atomic_write_text(cfg_file, patched)
+        bus.publish("ui.policy.saved", {"ts": time.time()})
+        return redirect(url_for("lan_policy"))
+
+    @app.post("/lan/policy/save_reload")
+    def lan_policy_save_reload():
+        cfg_file = Path(config_path)
+        noisy = [
+            value.strip()
+            for value in request.form.get("noisy", "").splitlines()
+            if value.strip()
+        ]
+        allow = [
+            value.strip()
+            for value in request.form.get("allow", "").splitlines()
+            if value.strip()
+        ]
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_lan_lists(text, noisy=noisy, allow=allow)
+        _atomic_write_text(cfg_file, patched)
+        store.reload()
+        bus.publish("ui.policy.saved_reloaded", {"ts": time.time()})
+        return redirect(url_for("lan_policy"))
 
     @app.get("/config")
     def config():

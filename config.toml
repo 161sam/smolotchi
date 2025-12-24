@@ -17,6 +17,7 @@ safe_mode = true
 enabled = true
 safe_mode = true
 max_jobs_per_tick = 1
+default_scope = "10.0.10.0/24"
 noisy_scripts = ["http-enum", "http-title"]
 allowlist_scripts = []
 
@@ -114,3 +115,9 @@ baseline_host_summary_id = ""
 [invalidation]
 enabled = true
 invalidate_on_port_change = true
+
+[baseline]
+enabled = false
+
+[baseline.scopes]
+"10.0.10.0/24" = []
