@@ -10,6 +10,14 @@
       <div class="muted">Interface</div>
       <div style="font-weight:900">{{ iface }}</div>
     </div>
+    <div>
+      <div class="muted">IPv4</div>
+      <div style="font-weight:900">{{ ip_cidr or "—" }}</div>
+    </div>
+    <div>
+      <div class="muted">Derived scope</div>
+      <div style="font-weight:900">{{ scope or "—" }}</div>
+    </div>
     <div class="row" style="gap:10px; flex-wrap:wrap;">
       <a class="pill" href="{{ url_for('config') }}">Config</a>
       <a class="pill" href="{{ url_for('lan') }}">LAN</a>
@@ -81,6 +89,29 @@
   {% else %}
     <div class="muted">No scan data yet. Wait for the next scan tick.</div>
   {% endif %}
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">WiFi credentials (lab-only)</h3>
+  <div class="muted" style="margin-bottom:10px">
+    Format: <code>SSID=psk</code> (one per line). Saved into <code>[wifi.credentials]</code>
+    in config.
+  </div>
+
+  <form method="post" action="/wifi/credentials/save">
+    <textarea name="creds" spellcheck="false"
+      style="width:100%; min-height:24vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,monospace; font-size:12px; line-height:1.4;"
+    >{% if app_cfg and app_cfg.wifi and app_cfg.wifi.credentials %}
+{% for k,v in (app_cfg.wifi.credentials or {}).items()|dictsort %}
+{{ k }}={{ v }}
+{% endfor %}
+{% endif %}</textarea>
+
+    <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
+      <button class="btn" type="submit">Save</button>
+      <button class="btn" type="submit" formaction="/wifi/credentials/save_reload" formmethod="post">Save + Reload</button>
+    </div>
+  </form>
 </section>
 
 <section class="card">

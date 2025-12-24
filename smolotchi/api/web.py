@@ -24,7 +24,10 @@ from smolotchi.core.toml_patch import (
     patch_baseline_add,
     patch_baseline_remove,
     patch_lan_lists,
+    parse_wifi_credentials_text,
+    patch_wifi_credentials,
 )
+from smolotchi.engines.net_detect import detect_ipv4_cidr, detect_scope_for_iface
 from smolotchi.reports.exec_summary import (
     build_exec_summary,
     render_exec_summary_html,
@@ -92,6 +95,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg = store.get()
         w = getattr(cfg, "wifi", None)
         iface = getattr(w, "iface", "wlan0") if w else "wlan0"
+        ip_cidr = detect_ipv4_cidr(iface)
+        scope = detect_scope_for_iface(iface)
 
         events = bus.tail(limit=80, topic_prefix="wifi.")
         scan_evt = next((e for e in events if e.topic == "wifi.scan"), None)
@@ -116,6 +121,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "wifi.html",
             events=events,
             iface=iface,
+            ip_cidr=ip_cidr,
+            scope=scope,
             aps=aps,
             scan_evt=scan_evt,
             conn_evt=conn_evt,
@@ -143,6 +150,36 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
         bus.publish("ui.wifi.connect", {"iface": iface, "ssid": ssid})
 
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/credentials/save")
+    def wifi_credentials_save():
+        body = request.form.get("creds", "")
+        creds = parse_wifi_credentials_text(body)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_credentials(text, creds)
+        _atomic_write_text(cfg_file, patched)
+
+        bus.publish("ui.wifi.credentials.saved", {"count": len(creds), "ts": time.time()})
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/credentials/save_reload")
+    def wifi_credentials_save_reload():
+        body = request.form.get("creds", "")
+        creds = parse_wifi_credentials_text(body)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_credentials(text, creds)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish(
+            "ui.wifi.credentials.saved_reloaded",
+            {"count": len(creds), "ts": time.time()},
+        )
         return redirect(url_for("wifi"))
 
     @app.get("/lan")

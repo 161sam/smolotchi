@@ -4,6 +4,85 @@ import re
 from typing import Dict, List
 
 
+def patch_wifi_credentials(toml_text: str, creds: Dict[str, str]) -> str:
+    """
+    Writes [wifi.credentials] section with normalized formatting:
+      "SSID" = "psk"
+    Keeps other sections intact.
+    Ensures [wifi] exists.
+    """
+    if not re.search(r"^\[wifi\]\s*$", toml_text, flags=re.MULTILINE):
+        toml_text = (
+            toml_text.rstrip() + '\n\n[wifi]\nenabled = true\niface = "wlan0"\n'
+        )
+
+    if not re.search(r"^\[wifi\.credentials\]\s*$", toml_text, flags=re.MULTILINE):
+        toml_text = toml_text.rstrip() + "\n\n[wifi.credentials]\n"
+
+    match = re.search(r"^\[wifi\.credentials\]\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+
+    norm: Dict[str, str] = {}
+    for key, value in (creds or {}).items():
+        key = (key or "").strip()
+        value = (value or "").strip()
+        if not key or not value:
+            continue
+        norm[key] = value
+
+    lines: List[str] = []
+    for ssid in sorted(norm.keys()):
+        psk = norm[ssid].replace('"', '\\"')
+        ssid_safe = ssid.replace('"', '\\"')
+        lines.append(f'"{ssid_safe}" = "{psk}"')
+
+    new_block = "\n" + "\n".join(lines) + ("\n" if lines else "\n")
+
+    return toml_text[:start] + new_block + toml_text[end:]
+
+
+def parse_wifi_credentials_text(text: str) -> Dict[str, str]:
+    """
+    Parses textarea format:
+      SSID=psk
+      SSID : psk
+      "SSID" = "psk"
+    One per line. Ignores comments (#) and blanks.
+    """
+    out: Dict[str, str] = {}
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "#" in line:
+            line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+
+        match = re.match(r'^\s*"([^"]+)"\s*=\s*"([^"]+)"\s*$', line)
+        if match:
+            out[match.group(1).strip()] = match.group(2).strip()
+            continue
+
+        if "=" in line:
+            key, value = line.split("=", 1)
+        elif ":" in line:
+            key, value = line.split(":", 1)
+        else:
+            continue
+
+        key = key.strip().strip('"')
+        value = value.strip().strip('"')
+        if key and value:
+            out[key] = value
+    return out
+
+
 def _toml_list(xs: List[str]) -> str:
     quoted = [f'"{x}"' for x in xs if x]
     return "[" + ", ".join(quoted) + "]"
