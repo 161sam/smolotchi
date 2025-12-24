@@ -4,6 +4,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from smolotchi.core.artifacts import ArtifactStore
+from smolotchi.core.app_state import load_state, save_state, state_path_for_artifacts
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
@@ -63,6 +65,8 @@ def cmd_core(args) -> int:
     )
 
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    state_path = state_path_for_artifacts(artifacts.root)
+    state = load_state(state_path)
     jobs = JobStore(args.db)
     resources = ResourceManager("/run/smolotchi/locks")
     renderer = (
@@ -166,6 +170,8 @@ def cmd_core(args) -> int:
                     "enabled": cfg.report_diff.enabled,
                     "compare_window_seconds": cfg.report_diff.compare_window_seconds,
                     "max_hosts": cfg.report_diff.max_hosts,
+                    "baseline_host_summary_id": state.baseline_host_summary_id
+                    or cfg.report_diff.baseline_host_summary_id,
                 },
             },
         )
@@ -227,6 +233,7 @@ def cmd_core(args) -> int:
                     "enabled": new_cfg.invalidation.enabled,
                     "invalidate_on_port_change": new_cfg.invalidation.invalidate_on_port_change,
                 }
+                state = load_state(state_path)
                 lan.report_cfg = {
                     "findings": {
                         "enabled": new_cfg.report_findings.enabled,
@@ -246,6 +253,8 @@ def cmd_core(args) -> int:
                         "enabled": new_cfg.report_diff.enabled,
                         "compare_window_seconds": new_cfg.report_diff.compare_window_seconds,
                         "max_hosts": new_cfg.report_diff.max_hosts,
+                        "baseline_host_summary_id": state.baseline_host_summary_id
+                        or new_cfg.report_diff.baseline_host_summary_id,
                     },
                 }
             if not hasattr(cmd_core, "_last_prune"):
@@ -433,6 +442,24 @@ def cmd_lan_done(args) -> int:
     return 0
 
 
+def cmd_diff_baseline_set(args) -> int:
+    artifacts = ArtifactStore()
+    state_path = state_path_for_artifacts(artifacts.root)
+    state = load_state(state_path)
+    state.baseline_host_summary_id = str(args.artifact_id or "").strip()
+    save_state(state_path, state)
+    print(f"baseline_host_summary_id={state.baseline_host_summary_id}")
+    return 0
+
+
+def cmd_diff_baseline_show(args) -> int:
+    artifacts = ArtifactStore()
+    state_path = state_path_for_artifacts(artifacts.root)
+    state = load_state(state_path)
+    print(state.baseline_host_summary_id or "")
+    return 0
+
+
 def _write_unit(dst: Path, content: str) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(content, encoding="utf-8")
@@ -585,6 +612,13 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("lan-done", help="Mark LAN ops done (publishes event)")
     s.add_argument("--note", default="manual done")
     s.set_defaults(fn=cmd_lan_done)
+
+    s = sub.add_parser("diff-baseline-set", help="Set baseline host_summary artifact id")
+    s.add_argument("artifact_id")
+    s.set_defaults(fn=cmd_diff_baseline_set)
+
+    s = sub.add_parser("diff-baseline-show", help="Show baseline host_summary artifact id")
+    s.set_defaults(fn=cmd_diff_baseline_show)
 
     s = sub.add_parser("install-systemd", help="Install systemd units (needs sudo)")
     s.add_argument("--project-dir", default=".", help="Path to smolotchi project root")

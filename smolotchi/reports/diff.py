@@ -26,6 +26,23 @@ def find_previous_host_summary(
     return None
 
 
+def resolve_baseline_host_summary(
+    artifacts: ArtifactStore,
+    current_id: str,
+    window_s: int,
+    baseline_id: str | None = None,
+) -> Optional[str]:
+    baseline_id = (baseline_id or "").strip()
+    if baseline_id:
+        data = artifacts.get_json(baseline_id)
+        if isinstance(data, dict) and data.get("hosts") is not None:
+            return baseline_id
+        return None
+    return find_previous_host_summary(
+        artifacts, current_id=current_id, window_s=window_s
+    )
+
+
 def _ports_union(host: dict) -> List[int]:
     ports_by_key = host.get("ports_by_key") or {}
     ports = set(
@@ -83,6 +100,23 @@ def diff_host_summaries(
                 }
         if fp_changes:
             changed.append({"host": host, "type": "fingerprints", "changes": fp_changes})
+
+        prev_sev = prev_host.get("sev_counts") or {}
+        cur_sev = cur_host.get("sev_counts") or {}
+        keys = ("critical", "high", "medium", "low", "info")
+        prev_norm = {key: int(prev_sev.get(key, 0) or 0) for key in keys}
+        cur_norm = {key: int(cur_sev.get(key, 0) or 0) for key in keys}
+        if prev_norm != cur_norm:
+            changed.append(
+                {
+                    "host": host,
+                    "type": "severity_counts",
+                    "prev": prev_norm,
+                    "cur": cur_norm,
+                    "prev_highest": str(prev_host.get("sev_highest", "info")),
+                    "cur_highest": str(cur_host.get("sev_highest", "info")),
+                }
+            )
 
     return {
         "prev_id": prev.get("artifact_id"),

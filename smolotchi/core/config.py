@@ -162,6 +162,7 @@ class ReportDiffCfg:
     enabled: bool = True
     compare_window_seconds: int = 86400
     max_hosts: int = 50
+    baseline_host_summary_id: str = ""
 
 
 @dataclass
@@ -349,6 +350,7 @@ class ConfigStore:
                 enabled=bool(rd.get("enabled", True)),
                 compare_window_seconds=int(rd.get("compare_window_seconds", 86400)),
                 max_hosts=int(rd.get("max_hosts", 50)),
+                baseline_host_summary_id=str(rd.get("baseline_host_summary_id", "")),
             ),
             invalidation=InvalidationCfg(
                 enabled=bool(inv.get("enabled", True)),
