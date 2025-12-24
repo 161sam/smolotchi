@@ -212,3 +212,22 @@ class ArtifactStore:
 
         self._save_index(idx)
         return deleted
+
+    def _remove_meta(self, artifact_id: str) -> None:
+        idx = self._load_index()
+        idx = [row for row in idx if row.get("id") != artifact_id]
+        self._save_index(idx)
+
+    def delete(self, artifact_id: str) -> None:
+        meta = self.get_meta(artifact_id)
+        if not meta:
+            return
+        path = meta.get("path")
+        if path:
+            file_path = Path(str(path))
+            try:
+                file_path.unlink(missing_ok=True)
+            except TypeError:
+                if file_path.exists():
+                    file_path.unlink()
+        self._remove_meta(artifact_id)
