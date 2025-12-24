@@ -7,6 +7,28 @@
   {% include "partials/back_to_lan.html" %}
 </section>
 
+{% if top_findings %}
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Top Findings (recent)</h3>
+  <div class="events">
+    {% for f in top_findings %}
+      <div class="evt">
+        <div class="evt-top">
+          <span class="pill sev-{{ f.severity }}">{{ f.severity|upper }}</span>
+          {{ f.title }}
+        </div>
+        <div class="muted">
+          affected hosts: {{ f.count }}
+          {% if f.hosts %}
+            · {{ f.hosts|join(", ") }}
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <h3 style="margin:0 0 10px 0">Latest bundles</h3>
   <div class="events">
