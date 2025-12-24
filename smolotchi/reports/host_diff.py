@@ -142,26 +142,55 @@ def host_diff_html(diff: Dict[str, Any], host: str) -> str:
 
     links = h.get("links") or {}
     if links:
-        blocks = []
-        for side in ("prev", "cur"):
+        def render_side(side: str) -> str:
             amap = links.get(side) or {}
-            blocks.append(f"<div class='h3'>{esc(side)}</div>")
             if not amap:
-                blocks.append("<div class='muted'>—</div>")
-                continue
+                return "<div class='muted'>—</div>"
 
-            for art_id in amap.get("net.port_scan") or []:
-                blocks.append(f"<div>{a_link(art_id, f'net.port_scan {art_id}')}</div>")
+            parts = []
 
-            for action_id in sorted([k for k in amap.keys() if k.startswith("vuln.")]):
-                for art_id in amap.get(action_id) or []:
-                    blocks.append(f"<div>{a_link(art_id, f'{action_id} {art_id}')}</div>")
+            ps = amap.get("net.port_scan") or []
+            if ps:
+                parts.append("<div class='h3'>net.port_scan</div>")
+                for art_id in ps:
+                    parts.append(
+                        f"<div>{a_link(art_id, f'net.port_scan {art_id}')} "
+                        f"<span class='muted'>·</span> "
+                        f"<a href='/artifact/{esc(art_id)}.json' target='_blank'>json</a>"
+                        f"</div>"
+                    )
+
+            vulns = sorted([k for k in amap.keys() if k.startswith("vuln.")])
+            if vulns:
+                parts.append("<div class='h3' style='margin-top:10px'>vuln</div>")
+                for aid in vulns:
+                    for art_id in (amap.get(aid) or []):
+                        parts.append(
+                            f"<div>{a_link(art_id, f'{aid} {art_id}')} "
+                            f"<span class='muted'>·</span> "
+                            f"<a href='/artifact/{esc(art_id)}.json' target='_blank'>json</a>"
+                            f"</div>"
+                        )
+
+            return "".join(parts) if parts else "<div class='muted'>—</div>"
+
+        prev_html = render_side("prev")
+        cur_html = render_side("cur")
 
         cards.append(
             "<div class='card'>"
-            "<div class='h2'>Artifacts</div>"
-            + "".join(blocks)
-            + "</div>"
+            "<div class='h2'>Artifacts (Prev / Cur)</div>"
+            "<div class='grid2'>"
+            "<div class='col'>"
+            "<div class='h3'>prev</div>"
+            f"{prev_html}"
+            "</div>"
+            "<div class='col'>"
+            "<div class='h3'>cur</div>"
+            f"{cur_html}"
+            "</div>"
+            "</div>"
+            "</div>"
         )
 
     if not cards:
@@ -188,6 +217,9 @@ def host_diff_html(diff: Dict[str, Any], host: str) -> str:
   .mono{{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px}}
   .row{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}
   .pill{{padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);font-weight:800;font-size:12px}}
+  .grid2{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+  .col{{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}}
+  @media (max-width: 820px){{.grid2{{grid-template-columns:1fr}}}}
 </style>
 </head>
 <body>

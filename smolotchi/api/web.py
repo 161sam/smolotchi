@@ -252,7 +252,55 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     @app.get("/lan/reports")
     def lan_reports():
-        items = artifacts.list(limit=50, kind="lan_report")
+        report_metas = artifacts.list(limit=50, kind="lan_report")
+
+        bundle_metas = artifacts.list(limit=200, kind="lan_bundle")
+        report_to_bundle: dict[str, str] = {}
+        bundle_cache: dict[str, dict] = {}
+
+        for bm in bundle_metas:
+            bundle = artifacts.get_json(bm.id) or {}
+            bundle_cache[bm.id] = bundle
+            reports = bundle.get("reports") or {}
+            html = reports.get("html") or bundle.get("report_html") or {}
+            rep_id = (html or {}).get("artifact_id")
+            if rep_id:
+                report_to_bundle[str(rep_id)] = bm.id
+
+        items = []
+        for rm in report_metas:
+            bundle_id = report_to_bundle.get(rm.id)
+            job_id = None
+            diff_html_id = None
+            diff_md_id = None
+            diff_json_id = None
+
+            if bundle_id:
+                bundle = bundle_cache.get(bundle_id) or (artifacts.get_json(bundle_id) or {})
+                job_id = bundle.get("job_id")
+
+                reports = bundle.get("reports") or {}
+                diff_report = reports.get("diff") or {}
+                diff_summary = bundle.get("diff_summary") or {}
+
+                diff_html_id = (diff_report.get("html") or {}).get("artifact_id")
+                diff_md_id = (diff_report.get("md") or {}).get("artifact_id")
+                diff_json_id = (diff_report.get("json") or {}).get("artifact_id") or diff_summary.get(
+                    "artifact_id"
+                )
+
+            items.append(
+                {
+                    "id": rm.id,
+                    "title": rm.title,
+                    "bundle_id": bundle_id,
+                    "job_id": job_id,
+                    "diff_html_id": diff_html_id,
+                    "diff_md_id": diff_md_id,
+                    "diff_json_id": diff_json_id,
+                }
+            )
+
         return render_template("lan_reports.html", items=items)
 
     def _resolve_bundle(bundle_id: str):
