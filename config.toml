@@ -12,6 +12,14 @@ autonomous_categories = ["network_scan", "vuln_assess"]
 [wifi]
 enabled = true
 safe_mode = true
+iface = "wlan0"
+scan_interval_sec = 30
+allow_ssids = ["LAB-1", "LAB-2"]
+auto_connect = true
+preferred_ssid = "LAB-1"
+
+[wifi.credentials]
+"LAB-1" = "testtest12345"
 
 [lan]
 enabled = true
