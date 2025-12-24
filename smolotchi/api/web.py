@@ -105,6 +105,12 @@ def create_app(config_path: str = "config.toml") -> Flask:
         events = sorted(events, key=lambda e: e.ts, reverse=True)[:120]
         scan_evt = next((e for e in events if e.topic == "wifi.scan"), None)
         conn_evt = next((e for e in events if e.topic == "wifi.connect"), None)
+        health_evt = next((e for e in events if e.topic == "wifi.health"), None)
+        locked_evt = next((e for e in events if e.topic == "wifi.lock"), None)
+        unlocked_evt = next((e for e in events if e.topic == "wifi.unlock"), None)
+        lan_locked = bool(locked_evt) and (
+            not unlocked_evt or locked_evt.ts > unlocked_evt.ts
+        )
 
         aps = []
         if scan_evt and scan_evt.payload:
@@ -130,8 +136,10 @@ def create_app(config_path: str = "config.toml") -> Flask:
             aps=aps,
             scan_evt=scan_evt,
             conn_evt=conn_evt,
+            health_evt=health_evt,
             auto_connect=auto_connect,
             preferred_ssid=preferred,
+            lan_locked=lan_locked,
         )
 
     @app.post("/wifi/connect")
@@ -154,6 +162,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
         bus.publish("ui.wifi.connect", {"iface": iface, "ssid": ssid})
 
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/disconnect")
+    def wifi_disconnect():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        if not w:
+            abort(400)
+
+        iface = (request.form.get("iface") or getattr(w, "iface", "wlan0")).strip()
+
+        bus.publish("ui.wifi.disconnect", {"iface": iface})
         return redirect(url_for("wifi"))
 
     @app.post("/wifi/credentials/save")

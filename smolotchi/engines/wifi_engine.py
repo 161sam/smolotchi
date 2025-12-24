@@ -28,6 +28,7 @@ class WifiEngine:
         self._connected_ssid: Optional[str] = None
         self._lan_locked = False
         self._lan_was_busy = False
+        self._last_lan_done_ts = 0.0
 
     def _maybe_disconnect_after_lan(
         self, busy: bool, lan_was_busy: bool, iface: str, w
@@ -44,6 +45,18 @@ class WifiEngine:
                 {"iface": iface, "ssid": self._connected_ssid, "ok": ok, "note": out},
             )
             self._connected_ssid = None
+
+    def _lan_done_event_since_last(self) -> bool:
+        for evt in self.bus.tail(limit=40, topic_prefix="lan."):
+            if evt.topic in ("lan.done", "lan.job.done") and evt.ts > self._last_lan_done_ts:
+                self._last_lan_done_ts = evt.ts
+                return True
+
+        for evt in self.bus.tail(limit=40, topic_prefix="ui.lan."):
+            if evt.topic == "ui.lan.done" and evt.ts > self._last_lan_done_ts:
+                self._last_lan_done_ts = evt.ts
+                return True
+        return False
 
     def start(self) -> None:
         self._running = True
@@ -97,6 +110,48 @@ class WifiEngine:
                 )
                 if ok:
                     self._connected_ssid = ssid
+
+        dis = next((e for e in ui_evts if e.topic == "ui.wifi.disconnect"), None)
+        if dis and dis.payload:
+            if self._lan_locked:
+                self.bus.publish(
+                    "wifi.disconnect",
+                    {
+                        "iface": iface,
+                        "ssid": self._connected_ssid,
+                        "ok": False,
+                        "reason": "lan_locked",
+                    },
+                )
+            elif self._connected_ssid:
+                ok, out = disconnect_wpa(iface)
+                self.bus.publish(
+                    "wifi.disconnect",
+                    {
+                        "iface": iface,
+                        "ssid": self._connected_ssid,
+                        "ok": ok,
+                        "reason": "ui_request",
+                        "note": out,
+                    },
+                )
+                if ok:
+                    self._connected_ssid = None
+
+        if self._connected_ssid and getattr(w, "disconnect_after_lan", False):
+            if (not self._lan_locked) and self._lan_done_event_since_last():
+                ok, out = disconnect_wpa(iface)
+                self.bus.publish(
+                    "wifi.disconnect",
+                    {
+                        "iface": iface,
+                        "ssid": self._connected_ssid,
+                        "ok": ok,
+                        "reason": "lan_done",
+                        "note": out,
+                    },
+                )
+                self._connected_ssid = None
 
         if self._connected_ssid and getattr(w, "health_enabled", True):
             interval = int(getattr(w, "health_interval_sec", 20) or 20)

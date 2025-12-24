@@ -22,6 +22,10 @@
       <a class="pill" href="{{ url_for('config') }}">Config</a>
       <a class="pill" href="{{ url_for('lan') }}">LAN</a>
       <a class="pill" href="{{ url_for('audit') }}">Audit</a>
+      <form method="post" action="/wifi/disconnect" style="margin:0">
+        <input type="hidden" name="iface" value="{{ iface }}">
+        <button class="secondary" type="submit">Disconnect now</button>
+      </form>
     </div>
   </div>
 
@@ -36,15 +40,10 @@
     {% if scan_evt and scan_evt.payload %}
       <span class="pill">last scan: {{ scan_evt.payload.get("count") }} APs</span>
     {% endif %}
-    {% if events %}
-      {% for e in events %}
-        {% if e.topic == "wifi.health" %}
-          <span class="pill">health: {{ "ok" if e.payload.get("ok") else "bad" }}</span>
-          {% break %}
-        {% endif %}
-      {% endfor %}
+    {% if health_evt and health_evt.payload %}
+      <span class="pill">health: {{ "ok" if health_evt.payload.get("ok") else "bad" }}</span>
     {% endif %}
-    {% if events and events|selectattr("topic","equalto","wifi.lock")|list %}
+    {% if lan_locked %}
       <span class="pill">LAN lock active</span>
     {% endif %}
   </div>
