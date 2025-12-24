@@ -44,6 +44,23 @@
 </section>
 
 <section class="card">
+  <h3 style="margin:0 0 10px 0">AI Mode</h3>
+  <form method="post" action="/ai/plan" class="row">
+    <input name="scope" value="10.0.10.0/24" />
+    <input name="note" placeholder="plan note (optional)" />
+    <button type="submit" class="secondary">Generate Plan</button>
+  </form>
+
+  <form method="post" action="/ai/run" style="margin-top:10px">
+    <button type="submit">Run Autonomous (safe)</button>
+  </form>
+
+  <div class="muted" style="margin-top:10px">
+    Autonomous runs only actions explicitly marked allow_autonomous + allowed by policy (network_scan + vuln_assess).
+  </div>
+</section>
+
+<section class="card">
   <h3 style="margin:0 0 10px 0">Recent events</h3>
   <div class="events">
     {% for e in events %}

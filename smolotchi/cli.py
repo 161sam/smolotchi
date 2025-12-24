@@ -54,7 +54,13 @@ def cmd_core(args) -> int:
     allowed_tags = cfg.policy.allowed_tags
     if args.allowed_tags:
         allowed_tags = args.allowed_tags
-    policy = Policy(allowed_tags=allowed_tags)
+    policy = Policy(
+        allowed_tags=allowed_tags,
+        allowed_scopes=cfg.policy.allowed_scopes,
+        allowed_tools=cfg.policy.allowed_tools,
+        block_categories=cfg.policy.block_categories,
+        autonomous_categories=cfg.policy.autonomous_categories,
+    )
 
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
     jobs = JobStore(args.db)
@@ -75,6 +81,18 @@ def cmd_core(args) -> int:
             ),
         )
     )
+    from smolotchi.actions.plan_runner import PlanRunner
+    from smolotchi.actions.planners.ai_planner import AIPlanner
+    from smolotchi.actions.registry import load_pack
+    from smolotchi.actions.runner import ActionRunner
+
+    actions = load_pack("smolotchi/actions/packs/bjorn_core.yml")
+    action_runner = ActionRunner(bus=bus, artifacts=artifacts, policy=policy)
+    plan_runner = PlanRunner(
+        bus=bus, registry=actions, runner=action_runner, artifacts=artifacts
+    )
+    planner = AIPlanner(bus=bus, registry=actions)
+
     reg.register(
         LanEngine(
             bus,
@@ -86,6 +104,9 @@ def cmd_core(args) -> int:
             artifacts=artifacts,
             jobs=jobs,
             report_renderer=renderer,
+            registry=actions,
+            planner=planner,
+            plan_runner=plan_runner,
         )
     )
 

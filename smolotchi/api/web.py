@@ -297,6 +297,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
         )
         return redirect(url_for("lan"))
 
+    @app.post("/ai/plan")
+    def ai_plan():
+        scope = request.form.get("scope", "10.0.10.0/24")
+        note = request.form.get("note", "")
+        bus.publish("ui.ai.generate_plan", {"scope": scope, "note": note})
+        return redirect(url_for("dashboard"))
+
+    @app.post("/ai/run")
+    def ai_run():
+        bus.publish("ui.ai.run_autonomous_safe", {})
+        return redirect(url_for("dashboard"))
+
     return app
 
 

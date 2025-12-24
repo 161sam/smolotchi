@@ -133,6 +133,18 @@ class SmolotchiCore:
                     if job:
                         lan.enqueue(job)
 
+            if e.topic == "ui.ai.generate_plan":
+                scope = str(e.payload.get("scope", "10.0.10.0/24"))
+                note = str(e.payload.get("note", ""))
+                lan = self.engines.get("lan")
+                if lan and hasattr(lan, "generate_plan"):
+                    lan.generate_plan(scope=scope, note=note)
+
+            if e.topic == "ui.ai.run_autonomous_safe":
+                lan = self.engines.get("lan")
+                if lan and hasattr(lan, "run_latest_plan_autonomous"):
+                    lan.run_latest_plan_autonomous()
+
         for eng in self.engines.all():
             try:
                 eng.tick()
