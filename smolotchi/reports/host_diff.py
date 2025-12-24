@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 from typing import Any, Dict
+
+from smolotchi.core.artifacts import ArtifactStore
 
 
 def _ts(ts: float) -> str:
@@ -82,12 +85,33 @@ def host_diff_markdown(diff: Dict[str, Any], host: str) -> str:
     return "\n".join(lines)
 
 
-def host_diff_html(diff: Dict[str, Any], host: str) -> str:
+def host_diff_html(
+    diff: Dict[str, Any],
+    host: str,
+    artifacts: ArtifactStore | None = None,
+) -> str:
     per = diff.get("per_host") or {}
     h = per.get(host) or {}
 
     def esc(value: str) -> str:
         return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def pretty_json(obj: Any) -> str:
+        try:
+            return json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True)
+        except Exception:
+            return str(obj)
+
+    def load_artifact_json(art_id: str) -> str:
+        if not artifacts:
+            return "artifact store not available"
+        data = artifacts.get_json(art_id)
+        if data is None:
+            return "artifact not found"
+        txt = pretty_json(data)
+        if len(txt) > 120_000:
+            return txt[:120_000] + "\n\n…(truncated)…"
+        return txt
 
     def a_link(art_id: str, label: str) -> str:
         return (
@@ -193,6 +217,71 @@ def host_diff_html(diff: Dict[str, Any], host: str) -> str:
             "</div>"
         )
 
+        if artifacts:
+            def first_id(amap: dict, key: str) -> str | None:
+                ids = amap.get(key) or []
+                return ids[0] if ids else None
+
+            prev_map = (links.get("prev") or {})
+            cur_map = (links.get("cur") or {})
+
+            prev_ps = first_id(prev_map, "net.port_scan")
+            cur_ps = first_id(cur_map, "net.port_scan")
+
+            def first_vuln(amap: dict) -> tuple[str, str] | None:
+                keys = sorted([k for k in amap.keys() if k.startswith("vuln.")])
+                for key in keys:
+                    ids = amap.get(key) or []
+                    if ids:
+                        return (key, ids[0])
+                return None
+
+            prev_v = first_vuln(prev_map)
+            cur_v = first_vuln(cur_map)
+
+            def side_preview(title: str, ps_id: str | None, v: tuple[str, str] | None) -> str:
+                parts = [f"<div class='h3'>{esc(title)}</div>"]
+                if not ps_id and not v:
+                    parts.append("<div class='muted'>—</div>")
+                    return "".join(parts)
+
+                if ps_id:
+                    ps_txt = esc(load_artifact_json(ps_id))
+                    parts.append(
+                        "<details class='det' open>"
+                        f"<summary class='sum'>net.port_scan · {esc(ps_id)}</summary>"
+                        f"<pre class='json'>{ps_txt}</pre>"
+                        "</details>"
+                    )
+
+                if v:
+                    aid, vid = v
+                    v_txt = esc(load_artifact_json(vid))
+                    parts.append(
+                        "<details class='det'>"
+                        f"<summary class='sum'>{esc(aid)} · {esc(vid)}</summary>"
+                        f"<pre class='json'>{v_txt}</pre>"
+                        "</details>"
+                    )
+
+                return "".join(parts)
+
+            prev_html2 = side_preview("prev", prev_ps, prev_v)
+            cur_html2 = side_preview("cur", cur_ps, cur_v)
+
+            cards.append(
+                "<div class='card'>"
+                "<div class='h2'>JSON Preview (Prev / Cur)</div>"
+                "<div class='grid2'>"
+                f"<div class='col'>{prev_html2}</div>"
+                f"<div class='col'>{cur_html2}</div>"
+                "</div>"
+                "<div class='muted' style='margin-top:10px'>"
+                "Shows first net.port_scan and first vuln.* per side (truncated if huge)."
+                "</div>"
+                "</div>"
+            )
+
     if not cards:
         cards.append("<div class='card'><div class='muted'>No details for this host.</div></div>")
 
@@ -219,6 +308,9 @@ def host_diff_html(diff: Dict[str, Any], host: str) -> str:
   .pill{{padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);font-weight:800;font-size:12px}}
   .grid2{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
   .col{{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}}
+  .det{{margin-top:10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;background:rgba(255,255,255,.02)}}
+  .sum{{cursor:pointer;padding:10px 12px;font-weight:900}}
+  .json{{margin:0;padding:12px;white-space:pre-wrap;word-break:break-word;max-height:55vh;overflow:auto;background:#0f1722}}
   @media (max-width: 820px){{.grid2{{grid-template-columns:1fr}}}}
 </style>
 </head>
