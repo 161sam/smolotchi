@@ -89,6 +89,8 @@ def host_diff_html(
     diff: Dict[str, Any],
     host: str,
     artifacts: ArtifactStore | None = None,
+    prev_v: str = "",
+    cur_v: str = "",
 ) -> str:
     per = diff.get("per_host") or {}
     h = per.get(host) or {}
@@ -196,6 +198,24 @@ def host_diff_html(
                             f"</div>"
                         )
 
+            vulns = sorted([k for k in amap.keys() if k.startswith("vuln.")])
+            if vulns:
+                parts.append("<div class='h3' style='margin-top:12px'>Preview</div>")
+                for key in vulns[:10]:
+                    if side == "prev":
+                        href = (
+                            f"?prev_v={esc(key)}&cur_v={esc(cur_v)}"
+                            if cur_v
+                            else f"?prev_v={esc(key)}"
+                        )
+                    else:
+                        href = (
+                            f"?prev_v={esc(prev_v)}&cur_v={esc(key)}"
+                            if prev_v
+                            else f"?cur_v={esc(key)}"
+                        )
+                    parts.append(f"<div><a class='pill' href='{href}'>{esc(key)}</a></div>")
+
             return "".join(parts) if parts else "<div class='muted'>—</div>"
 
         prev_html = render_side("prev")
@@ -228,7 +248,12 @@ def host_diff_html(
             prev_ps = first_id(prev_map, "net.port_scan")
             cur_ps = first_id(cur_map, "net.port_scan")
 
-            def first_vuln(amap: dict) -> tuple[str, str] | None:
+            def pick_vuln(amap: dict, want_key: str) -> tuple[str, str] | None:
+                if want_key and want_key.startswith("vuln."):
+                    ids = amap.get(want_key) or []
+                    if ids:
+                        return (want_key, ids[0])
+                    return None
                 keys = sorted([k for k in amap.keys() if k.startswith("vuln.")])
                 for key in keys:
                     ids = amap.get(key) or []
@@ -236,8 +261,8 @@ def host_diff_html(
                         return (key, ids[0])
                 return None
 
-            prev_v = first_vuln(prev_map)
-            cur_v = first_vuln(cur_map)
+            prev_v_sel = pick_vuln(prev_map, prev_v)
+            cur_v_sel = pick_vuln(cur_map, cur_v)
 
             def side_preview(title: str, ps_id: str | None, v: tuple[str, str] | None) -> str:
                 parts = [f"<div class='h3'>{esc(title)}</div>"]
@@ -266,8 +291,8 @@ def host_diff_html(
 
                 return "".join(parts)
 
-            prev_html2 = side_preview("prev", prev_ps, prev_v)
-            cur_html2 = side_preview("cur", cur_ps, cur_v)
+            prev_html2 = side_preview("prev", prev_ps, prev_v_sel)
+            cur_html2 = side_preview("cur", cur_ps, cur_v_sel)
 
             cards.append(
                 "<div class='card'>"
@@ -317,13 +342,14 @@ def host_diff_html(
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <div class="h1">Host Diff • {esc(host)} <span class="muted">({esc(status)})</span></div>
-        <div class="muted">Prev: <span class="mono">{esc(prev_id)}</span> · Cur: <span class="mono">{esc(cur_id)}</span></div>
-      </div>
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="h1">Host Diff • {esc(host)} <span class="muted">({esc(status)})</span></div>
+          <div class="muted">Prev: <span class="mono">{esc(prev_id)}</span> · Cur: <span class="mono">{esc(cur_id)}</span></div>
+        </div>
       <div class="row">
         <a class="pill" href="/lan">← Back to LAN</a>
+        <a class="pill" href="?">Clear preview selection</a>
       </div>
     </div>
   </div>
