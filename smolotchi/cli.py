@@ -110,6 +110,16 @@ def cmd_core(args) -> int:
             ai_max_hosts=cfg.ai.max_hosts_per_plan,
             ai_max_steps=cfg.ai.max_steps,
             ai_include_vuln=cfg.ai.autonomous_include_vuln_assess,
+            ai_exec={
+                "cooldown_between_actions_ms": cfg.ai.exec.cooldown_between_actions_ms,
+                "cooldown_between_hosts_ms": cfg.ai.exec.cooldown_between_hosts_ms,
+                "max_retries": cfg.ai.exec.max_retries,
+                "retry_backoff_ms": cfg.ai.exec.retry_backoff_ms,
+            },
+            ai_cache={
+                "use_cached_discovery": cfg.ai.cache.use_cached_discovery,
+                "discovery_ttl_seconds": cfg.ai.cache.discovery_ttl_seconds,
+            },
         )
     )
 
@@ -132,6 +142,16 @@ def cmd_core(args) -> int:
                 lan.ai_max_hosts = new_cfg.ai.max_hosts_per_plan
                 lan.ai_max_steps = new_cfg.ai.max_steps
                 lan.ai_include_vuln = new_cfg.ai.autonomous_include_vuln_assess
+                lan.ai_exec = {
+                    "cooldown_between_actions_ms": new_cfg.ai.exec.cooldown_between_actions_ms,
+                    "cooldown_between_hosts_ms": new_cfg.ai.exec.cooldown_between_hosts_ms,
+                    "max_retries": new_cfg.ai.exec.max_retries,
+                    "retry_backoff_ms": new_cfg.ai.exec.retry_backoff_ms,
+                }
+                lan.ai_cache = {
+                    "use_cached_discovery": new_cfg.ai.cache.use_cached_discovery,
+                    "discovery_ttl_seconds": new_cfg.ai.cache.discovery_ttl_seconds,
+                }
             if not hasattr(cmd_core, "_last_prune"):
                 cmd_core._last_prune = 0.0  # type: ignore[attr-defined]
             if not hasattr(cmd_core, "_last_wd"):

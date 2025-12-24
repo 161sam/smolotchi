@@ -55,10 +55,27 @@ class LanCfg:
 
 
 @dataclass
+class AiExecCfg:
+    concurrency: int = 1
+    cooldown_between_actions_ms: int = 250
+    cooldown_between_hosts_ms: int = 800
+    max_retries: int = 1
+    retry_backoff_ms: int = 800
+
+
+@dataclass
+class AiCacheCfg:
+    discovery_ttl_seconds: int = 600
+    use_cached_discovery: bool = True
+
+
+@dataclass
 class AiCfg:
     max_hosts_per_plan: int = 16
     max_steps: int = 80
     autonomous_include_vuln_assess: bool = True
+    exec: AiExecCfg = field(default_factory=AiExecCfg)
+    cache: AiCacheCfg = field(default_factory=AiCacheCfg)
 
 
 @dataclass
@@ -132,6 +149,27 @@ class ConfigStore:
         retention = d.get("retention", {})
         watchdog = d.get("watchdog", {})
         reports = d.get("reports", {})
+        aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
+        aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
+
+        ai_cfg = AiCfg(
+            max_hosts_per_plan=int(ai.get("max_hosts_per_plan", 16)),
+            max_steps=int(ai.get("max_steps", 80)),
+            autonomous_include_vuln_assess=bool(
+                ai.get("autonomous_include_vuln_assess", True)
+            ),
+        )
+        ai_cfg.exec = AiExecCfg(
+            concurrency=int(aiexec.get("concurrency", 1)),
+            cooldown_between_actions_ms=int(aiexec.get("cooldown_between_actions_ms", 250)),
+            cooldown_between_hosts_ms=int(aiexec.get("cooldown_between_hosts_ms", 800)),
+            max_retries=int(aiexec.get("max_retries", 1)),
+            retry_backoff_ms=int(aiexec.get("retry_backoff_ms", 800)),
+        )
+        ai_cfg.cache = AiCacheCfg(
+            discovery_ttl_seconds=int(aicache.get("discovery_ttl_seconds", 600)),
+            use_cached_discovery=bool(aicache.get("use_cached_discovery", True)),
+        )
 
         return AppConfig(
             core=CoreCfg(
@@ -162,13 +200,7 @@ class ConfigStore:
                 safe_mode=bool(lan.get("safe_mode", True)),
                 max_jobs_per_tick=int(lan.get("max_jobs_per_tick", 1)),
             ),
-            ai=AiCfg(
-                max_hosts_per_plan=int(ai.get("max_hosts_per_plan", 16)),
-                max_steps=int(ai.get("max_steps", 80)),
-                autonomous_include_vuln_assess=bool(
-                    ai.get("autonomous_include_vuln_assess", True)
-                ),
-            ),
+            ai=ai_cfg,
             ui=UiCfg(
                 host=str(ui.get("host", "0.0.0.0")),
                 port=int(ui.get("port", 8080)),
