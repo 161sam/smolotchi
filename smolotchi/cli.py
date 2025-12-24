@@ -98,6 +98,35 @@ def cmd_core(args) -> int:
                 lan.cfg.enabled = new_cfg.lan.enabled
                 lan.cfg.safe_mode = new_cfg.lan.safe_mode
                 lan.cfg.max_jobs_per_tick = new_cfg.lan.max_jobs_per_tick
+            if not hasattr(cmd_core, "_last_prune"):
+                cmd_core._last_prune = 0.0  # type: ignore[attr-defined]
+
+            now = time.time()
+            if now - cmd_core._last_prune > 60.0:  # type: ignore[attr-defined]
+                cmd_core._last_prune = now  # type: ignore[attr-defined]
+                r = new_cfg.retention
+                deleted_events = bus.prune(
+                    keep_last=r.events_keep_last,
+                    older_than_days=r.events_older_than_days,
+                    vacuum=r.vacuum_after_prune,
+                )
+                deleted_jobs = jobs.prune(
+                    keep_last=r.jobs_keep_last,
+                    done_failed_older_than_days=r.jobs_done_failed_older_than_days,
+                )
+                deleted_artifacts = artifacts.prune(
+                    keep_last=r.artifacts_keep_last,
+                    older_than_days=r.artifacts_older_than_days,
+                    kinds_keep_last=r.artifact_kinds_keep_last,
+                )
+                bus.publish(
+                    "core.retention.pruned",
+                    {
+                        "events_deleted": deleted_events,
+                        "jobs_deleted": deleted_jobs,
+                        "artifacts_deleted": deleted_artifacts,
+                    },
+                )
             core.tick()
             interval = (
                 args.interval if args.interval is not None else new_cfg.core.tick_interval
@@ -133,6 +162,76 @@ def cmd_events(args) -> int:
     evts = bus.tail(limit=args.limit, topic_prefix=args.topic_prefix)
     for e in reversed(evts):
         print(f"{e.ts:.0f}  {e.topic}  {e.payload}")
+    return 0
+
+
+def cmd_jobs(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    js = JobStore(args.db)
+    rows = js.list(limit=args.limit, status=args.status)
+    for j in rows:
+        print(f"{j.status:7} {j.id} {j.kind} {j.scope} {j.note}".strip())
+    return 0
+
+
+def cmd_job_cancel(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    js = JobStore(args.db)
+    ok = js.cancel(args.job_id)
+    print("ok" if ok else "no-op")
+    return 0 if ok else 1
+
+
+def cmd_job_reset(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    js = JobStore(args.db)
+    ok = js.reset_running(args.job_id)
+    print("ok" if ok else "no-op")
+    return 0 if ok else 1
+
+
+def cmd_job_delete(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    js = JobStore(args.db)
+    ok = js.delete(args.job_id)
+    print("ok" if ok else "no-op")
+    return 0 if ok else 1
+
+
+def cmd_prune(args) -> int:
+    from smolotchi.core.config import ConfigStore
+    from smolotchi.core.jobs import JobStore
+    from smolotchi.core.artifacts import ArtifactStore
+
+    store = ConfigStore(args.config)
+    cfg = store.load()
+    bus = SQLiteBus(db_path=args.db)
+    jobs = JobStore(args.db)
+    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+
+    r = cfg.retention
+    deleted_events = bus.prune(
+        keep_last=r.events_keep_last,
+        older_than_days=r.events_older_than_days,
+        vacuum=r.vacuum_after_prune,
+    )
+    deleted_jobs = jobs.prune(
+        keep_last=r.jobs_keep_last,
+        done_failed_older_than_days=r.jobs_done_failed_older_than_days,
+    )
+    deleted_artifacts = artifacts.prune(
+        keep_last=r.artifacts_keep_last,
+        older_than_days=r.artifacts_older_than_days,
+        kinds_keep_last=r.artifact_kinds_keep_last,
+    )
+
+    print(
+        f"events_deleted={deleted_events} jobs_deleted={deleted_jobs} artifacts_deleted={deleted_artifacts}"
+    )
     return 0
 
 
@@ -273,6 +372,26 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--limit", type=int, default=50)
     s.add_argument("--topic-prefix", default=None)
     s.set_defaults(fn=cmd_events)
+
+    s = sub.add_parser("jobs", help="List jobs")
+    s.add_argument("--status", default=None)
+    s.add_argument("--limit", type=int, default=50)
+    s.set_defaults(fn=cmd_jobs)
+
+    s = sub.add_parser("job-cancel", help="Cancel queued job")
+    s.add_argument("job_id")
+    s.set_defaults(fn=cmd_job_cancel)
+
+    s = sub.add_parser("job-reset", help="Reset running job to queued")
+    s.add_argument("job_id")
+    s.set_defaults(fn=cmd_job_reset)
+
+    s = sub.add_parser("job-delete", help="Delete job")
+    s.add_argument("job_id")
+    s.set_defaults(fn=cmd_job_delete)
+
+    s = sub.add_parser("prune", help="Run retention prune once")
+    s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("handoff", help="Request handoff to LAN_OPS (publishes event)")
     s.add_argument("--tag", default=DEFAULT_TAG)

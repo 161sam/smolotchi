@@ -13,7 +13,13 @@
   <h3 style="margin:0 0 10px 0">Running</h3>
   <div class="events">
     {% for j in running %}
-      <div class="evt"><div class="evt-top">{{ j.id }}</div><pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre></div>
+      <div class="evt">
+        <div class="evt-top">{{ j.id }}</div>
+        <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" style="margin-top:8px">
+          <button class="secondary" type="submit">Reset to queued</button>
+        </form>
+      </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
 </section>
@@ -22,7 +28,13 @@
   <h3 style="margin:0 0 10px 0">Queued</h3>
   <div class="events">
     {% for j in queued %}
-      <div class="evt"><div class="evt-top">{{ j.id }}</div><pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre></div>
+      <div class="evt">
+        <div class="evt-top">{{ j.id }}</div>
+        <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <form method="post" action="{{ url_for('lan_job_cancel', job_id=j.id) }}" style="margin-top:8px">
+          <button class="secondary" type="submit">Cancel</button>
+        </form>
+      </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
 </section>
@@ -31,7 +43,13 @@
   <h3 style="margin:0 0 10px 0">Done</h3>
   <div class="events">
     {% for j in done %}
-      <div class="evt"><div class="evt-top">{{ j.id }}</div><pre>{{ j.kind }} • {{ j.scope }}</pre></div>
+      <div class="evt">
+        <div class="evt-top">{{ j.id }}</div>
+        <pre>{{ j.kind }} • {{ j.scope }}</pre>
+        <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" style="margin-top:8px">
+          <button class="secondary" type="submit">Delete</button>
+        </form>
+      </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
 </section>
@@ -40,7 +58,13 @@
   <h3 style="margin:0 0 10px 0">Failed</h3>
   <div class="events">
     {% for j in failed %}
-      <div class="evt"><div class="evt-top">{{ j.id }}</div><pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre></div>
+      <div class="evt">
+        <div class="evt-top">{{ j.id }}</div>
+        <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" style="margin-top:8px">
+          <button class="secondary" type="submit">Delete</button>
+        </form>
+      </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
 </section>

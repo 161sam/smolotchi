@@ -115,3 +115,67 @@ class JobStore:
                     )
                 )
         return out
+
+    def cancel(self, job_id: str) -> bool:
+        """
+        Cancel only queued jobs -> mark failed with note 'cancelled'.
+        """
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT status FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            if not row:
+                return False
+            if row[0] != "queued":
+                return False
+            con.execute(
+                "UPDATE jobs SET status='failed', note=trim(note || '\n' || ?), updated_ts=? WHERE id=?",
+                ("cancelled", time.time(), job_id),
+            )
+            return True
+
+    def reset_running(self, job_id: str) -> bool:
+        """
+        Reset stuck running job -> queued.
+        """
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT status FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            if not row:
+                return False
+            if row[0] != "running":
+                return False
+            con.execute(
+                "UPDATE jobs SET status='queued', updated_ts=? WHERE id=?",
+                (time.time(), job_id),
+            )
+            return True
+
+    def delete(self, job_id: str) -> bool:
+        with self._conn() as con:
+            cur = con.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+            return cur.rowcount > 0
+
+    def prune(self, keep_last: int = 1000, done_failed_older_than_days: int = 14) -> int:
+        """
+        Prune old done/failed jobs + cap table to keep_last newest rows.
+        Returns number of deleted rows.
+        """
+        deleted = 0
+        cutoff = time.time() - (done_failed_older_than_days * 86400)
+
+        with self._conn() as con:
+            cur = con.execute(
+                "DELETE FROM jobs WHERE (status='done' OR status='failed') AND updated_ts < ?",
+                (cutoff,),
+            )
+            deleted += cur.rowcount
+
+            cur = con.execute(
+                "DELETE FROM jobs WHERE id IN (SELECT id FROM jobs ORDER BY created_ts DESC LIMIT -1 OFFSET ?)",
+                (keep_last,),
+            )
+            deleted += cur.rowcount
+
+        return deleted

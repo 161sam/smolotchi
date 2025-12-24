@@ -30,6 +30,7 @@ class SmolotchiCore:
         self.engines = engines
         self.resources = resources
         self.status = CoreStatus(state="WIFI_OBSERVE", since=time.time(), note="boot")
+        self._last_prune = 0.0
 
         self._apply_state_engines()
 
@@ -145,3 +146,11 @@ class SmolotchiCore:
             "core.health", {"engines": [h.__dict__ for h in self.engines.health_all()]}
         )
         self.bus.publish("core.resources", {"leases": self.resources.snapshot()})
+
+        now = time.time()
+        if now - self._last_prune > 60.0:
+            self._last_prune = now
+            try:
+                self.bus.publish("core.retention.tick", {"ts": now})
+            except Exception as ex:
+                self.bus.publish("core.retention.error", {"err": str(ex)})
