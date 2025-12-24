@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 import time
 
+from smolotchi.actions.fingerprint import service_fingerprint
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
 from smolotchi.actions.parse_services import parse_nmap_xml_services
 from smolotchi.core.artifacts import ArtifactStore
@@ -66,11 +67,15 @@ def find_fresh_portscan_for_host(
 
 
 def find_fresh_vuln_for_host_action(
-    artifacts: ArtifactStore, host: str, action_id: str, ttl_s: int
+    artifacts: ArtifactStore,
+    host: str,
+    action_id: str,
+    ttl_s: int,
+    expected_fp: str | None = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Find newest action_run for vuln_* action with payload.target==host within ttl.
-    Returns {artifact_id, ts}.
+    If expected_fp is provided, require payload._svc_fp == expected_fp.
     """
     now = time.time()
     items = artifacts.list(limit=600, kind="action_run")
@@ -84,10 +89,48 @@ def find_fresh_vuln_for_host_action(
         tgt = str((payload or {}).get("target", ""))
         if tgt != host:
             continue
+        if expected_fp:
+            if str((payload or {}).get("_svc_fp", "")) != expected_fp:
+                continue
 
         ts = float(data.get("ts", meta.created_ts) or meta.created_ts)
         if now - ts > ttl_s:
             continue
 
         return {"artifact_id": meta.id, "ts": ts}
+    return None
+
+
+def put_service_fingerprint(
+    artifacts: ArtifactStore, host: str, services: list, source: str
+) -> str:
+    fp = service_fingerprint(services)
+    meta = artifacts.put_json(
+        kind="svc_fingerprint",
+        title=f"FP • {host}",
+        payload={
+            "host": host,
+            "fp": fp,
+            "count": len(services or []),
+            "services": services,
+            "source": source,
+            "ts": time.time(),
+        },
+    )
+    return meta.id
+
+
+def find_latest_fingerprint(
+    artifacts: ArtifactStore, host: str, ttl_s: int = 3600
+) -> Optional[dict]:
+    now = time.time()
+    items = artifacts.list(limit=200, kind="svc_fingerprint")
+    for meta in items:
+        data = artifacts.get_json(meta.id) or {}
+        if str(data.get("host", "")) != host:
+            continue
+        ts = float(data.get("ts", meta.created_ts) or meta.created_ts)
+        if now - ts > ttl_s:
+            continue
+        return data
     return None
