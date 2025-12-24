@@ -14,6 +14,8 @@ class LanConfig:
     enabled: bool = True
     safe_mode: bool = True
     max_jobs_per_tick: int = 1
+    noisy_scripts: list[str] | None = None
+    allowlist_scripts: list[str] | None = None
 
 
 class LanEngine:

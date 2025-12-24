@@ -3,6 +3,67 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 
+def apply_policy_suppression(
+    findings: List[Dict[str, Any]],
+    cfg: Any,
+) -> List[Dict[str, Any]]:
+    """
+    Marks findings as suppressed_by_policy instead of removing them.
+    Policy sources:
+      cfg.lan.noisy_scripts: list[str]
+      cfg.lan.allowlist_scripts: list[str]
+      cfg.lan.suppress: dict (optional future)
+    """
+    lan_cfg = cfg.get("lan") if isinstance(cfg, dict) else getattr(cfg, "lan", None)
+    if lan_cfg is None:
+        lan_cfg = {}
+    noisy = set(
+        (x or "").strip().lower()
+        for x in (
+            lan_cfg.get("noisy_scripts", [])
+            if isinstance(lan_cfg, dict)
+            else getattr(lan_cfg, "noisy_scripts", [])
+        )
+        or []
+        if (x or "").strip()
+    )
+    allow = set(
+        (x or "").strip().lower()
+        for x in (
+            lan_cfg.get("allowlist_scripts", [])
+            if isinstance(lan_cfg, dict)
+            else getattr(lan_cfg, "allowlist_scripts", [])
+        )
+        or []
+        if (x or "").strip()
+    )
+
+    out: List[Dict[str, Any]] = []
+
+    for f in findings:
+        script_id = (f.get("script_id") or f.get("script") or f.get("id") or "").strip()
+        script_key = script_id.lower()
+
+        suppressed = False
+        reason = ""
+
+        if script_key and script_key in allow:
+            suppressed = False
+        elif script_key and script_key in noisy:
+            suppressed = True
+            reason = f"script suppressed by policy: {script_id}"
+
+        if suppressed:
+            f = dict(f)
+            f["suppressed_by_policy"] = True
+            f["suppressed_reason"] = reason
+            f.setdefault("original_severity", f.get("severity", "info"))
+
+        out.append(f)
+
+    return out
+
+
 def filter_findings_scripts(
     scripts: List[Dict[str, Any]],
     *,

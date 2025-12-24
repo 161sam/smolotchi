@@ -17,6 +17,8 @@ safe_mode = true
 enabled = true
 safe_mode = true
 max_jobs_per_tick = 1
+noisy_scripts = ["http-enum", "http-title"]
+allowlist_scripts = []
 
 [ai]
 max_hosts_per_plan = 16
