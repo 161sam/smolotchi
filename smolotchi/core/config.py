@@ -72,6 +72,9 @@ class AiCacheCfg:
     portscan_ttl_seconds: int = 900
     use_cached_vuln: bool = True
     vuln_ttl_seconds: int = 1800
+    vuln_ttl_http_seconds: int = 600
+    vuln_ttl_ssh_seconds: int = 3600
+    vuln_ttl_smb_seconds: int = 1800
 
 
 @dataclass
@@ -137,6 +140,12 @@ class ReportsCfg:
 
 
 @dataclass
+class InvalidationCfg:
+    enabled: bool = True
+    invalidate_on_port_change: bool = True
+
+
+@dataclass
 class AppConfig:
     core: CoreCfg
     policy: PolicyCfg
@@ -148,6 +157,7 @@ class AppConfig:
     retention: RetentionCfg
     watchdog: WatchdogCfg
     reports: ReportsCfg
+    invalidation: InvalidationCfg
 
 
 class ConfigStore:
@@ -171,6 +181,7 @@ class ConfigStore:
         retention = d.get("retention", {})
         watchdog = d.get("watchdog", {})
         reports = d.get("reports", {})
+        inv = d.get("invalidation", {}) if isinstance(d.get("invalidation"), dict) else {}
         aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
         aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
         athrottle = (
@@ -199,6 +210,9 @@ class ConfigStore:
             portscan_ttl_seconds=int(aicache.get("portscan_ttl_seconds", 900)),
             use_cached_vuln=bool(aicache.get("use_cached_vuln", True)),
             vuln_ttl_seconds=int(aicache.get("vuln_ttl_seconds", 1800)),
+            vuln_ttl_http_seconds=int(aicache.get("vuln_ttl_http_seconds", 600)),
+            vuln_ttl_ssh_seconds=int(aicache.get("vuln_ttl_ssh_seconds", 3600)),
+            vuln_ttl_smb_seconds=int(aicache.get("vuln_ttl_smb_seconds", 1800)),
         )
         ai_cfg.throttle = AiThrottleCfg(
             enabled=bool(athrottle.get("enabled", True)),
@@ -283,6 +297,12 @@ class ConfigStore:
                 enabled=bool(reports.get("enabled", True)),
                 templates_dir=str(
                     reports.get("templates_dir", "smolotchi/api/templates/reports")
+                ),
+            ),
+            invalidation=InvalidationCfg(
+                enabled=bool(inv.get("enabled", True)),
+                invalidate_on_port_change=bool(
+                    inv.get("invalidate_on_port_change", True)
                 ),
             ),
         )

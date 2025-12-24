@@ -36,6 +36,7 @@ class LanEngine:
         ai_throttle: Optional[dict] = None,
         ai_exec: Optional[dict] = None,
         ai_cache: Optional[dict] = None,
+        invalidation: Optional[dict] = None,
     ):
         self.bus = bus
         self.cfg = cfg
@@ -52,6 +53,7 @@ class LanEngine:
         self.ai_throttle = ai_throttle or {}
         self.ai_exec = ai_exec or {}
         self.ai_cache = ai_cache or {}
+        self.invalidation = invalidation or {}
         self._running = False
         self._active: Optional[JobRow] = None
 
@@ -132,6 +134,24 @@ class LanEngine:
             vuln_ttl_s=int(self.ai_cache.get("vuln_ttl_seconds", 1800)),
             batch_strategy=self.ai_batch_strategy,
             throttle_cfg=self.ai_throttle,
+            cache_cfg={
+                "vuln_ttl_seconds": int(self.ai_cache.get("vuln_ttl_seconds", 1800)),
+                "vuln_ttl_http_seconds": int(
+                    self.ai_cache.get("vuln_ttl_http_seconds", 600)
+                ),
+                "vuln_ttl_ssh_seconds": int(
+                    self.ai_cache.get("vuln_ttl_ssh_seconds", 3600)
+                ),
+                "vuln_ttl_smb_seconds": int(
+                    self.ai_cache.get("vuln_ttl_smb_seconds", 1800)
+                ),
+            },
+            invalidation_cfg={
+                "enabled": bool(self.invalidation.get("enabled", True)),
+                "invalidate_on_port_change": bool(
+                    self.invalidation.get("invalidate_on_port_change", True)
+                ),
+            },
             service_map={
                 "http": ["vuln.http_basic"],
                 "ssh": ["vuln.ssh_basic"],

@@ -107,8 +107,35 @@ def find_fresh_vuln_for_host_action(
 def put_service_fingerprint(
     artifacts: ArtifactStore, host: str, services: list, source: str
 ) -> str:
+    def _ports_by_key(svc_list: list) -> dict:
+        out = {"http": [], "ssh": [], "smb": []}
+        for svc in svc_list or []:
+            port = int(svc.get("port") or 0)
+            name = (svc.get("name") or "").lower()
+            tunnel = (svc.get("tunnel") or "").lower()
+
+            if (
+                name.startswith("http")
+                or port in (80, 81, 443, 8080, 8443)
+                or tunnel == "ssl"
+            ):
+                out["http"].append(port)
+            if name == "ssh" or port == 22:
+                out["ssh"].append(port)
+            if (
+                name in ("microsoft-ds", "netbios-ssn")
+                or port in (139, 445)
+                or "smb" in name
+            ):
+                out["smb"].append(port)
+
+        for key in out:
+            out[key] = sorted(set(out[key]))
+        return out
+
     fp_all = service_fingerprint(services)
     fp_map = service_fingerprint_by_key(services)
+    ports_map = _ports_by_key(services)
     meta = artifacts.put_json(
         kind="svc_fingerprint",
         title=f"FP • {host}",
@@ -116,6 +143,7 @@ def put_service_fingerprint(
             "host": host,
             "fp": fp_all,
             "fp_by_key": fp_map,
+            "ports_by_key": ports_map,
             "count": len(services or []),
             "services": services,
             "source": source,

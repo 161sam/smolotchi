@@ -38,6 +38,9 @@ use_cached_portscan = true
 portscan_ttl_seconds = 900
 use_cached_vuln = true
 vuln_ttl_seconds = 1800
+vuln_ttl_http_seconds = 600
+vuln_ttl_ssh_seconds = 3600
+vuln_ttl_smb_seconds = 1800
 
 [ai.throttle]
 enabled = true
@@ -82,3 +85,7 @@ action = "reset"
 [reports]
 enabled = true
 templates_dir = "smolotchi/api/templates/reports"
+
+[invalidation]
+enabled = true
+invalidate_on_port_change = true
