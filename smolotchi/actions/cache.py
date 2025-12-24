@@ -78,7 +78,7 @@ def find_fresh_vuln_for_host_action(
     If expected_fp is provided, require payload._svc_fp == expected_fp.
     """
     now = time.time()
-    items = artifacts.list(limit=600, kind="action_run")
+    items = artifacts.list(limit=800, kind="action_run")
     for meta in items:
         data = artifacts.get_json(meta.id) or {}
         spec = data.get("spec") or {}
