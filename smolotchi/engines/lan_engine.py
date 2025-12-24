@@ -184,6 +184,20 @@ class LanEngine:
                     "artifact_id": res.get("aggregate_report_json_artifact_id"),
                     "title": f"Aggregate Report (JSON) • {plan.get('id')}",
                 },
+                "diff": {
+                    "html": {
+                        "artifact_id": res.get("diff_report_html_artifact_id"),
+                        "title": "Host Diff (HTML)",
+                    },
+                    "md": {
+                        "artifact_id": res.get("diff_report_md_artifact_id"),
+                        "title": "Host Diff (MD)",
+                    },
+                    "json": {
+                        "artifact_id": res.get("diff_report_json_artifact_id"),
+                        "title": "Host Diff (JSON)",
+                    },
+                },
             },
         }
         bmeta = self.artifacts.put_json(

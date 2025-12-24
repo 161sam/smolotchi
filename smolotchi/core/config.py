@@ -151,6 +151,20 @@ class ReportFindingsCfg:
 
 
 @dataclass
+class ReportNormalizeCfg:
+    enabled: bool = True
+    force_severity: Dict[str, str] = field(default_factory=dict)
+    force_tag: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class ReportDiffCfg:
+    enabled: bool = True
+    compare_window_seconds: int = 86400
+    max_hosts: int = 50
+
+
+@dataclass
 class InvalidationCfg:
     enabled: bool = True
     invalidate_on_port_change: bool = True
@@ -169,6 +183,8 @@ class AppConfig:
     watchdog: WatchdogCfg
     reports: ReportsCfg
     report_findings: ReportFindingsCfg
+    report_normalize: ReportNormalizeCfg
+    report_diff: ReportDiffCfg
     invalidation: InvalidationCfg
 
 
@@ -193,7 +209,10 @@ class ConfigStore:
         retention = d.get("retention", {})
         watchdog = d.get("watchdog", {})
         reports = d.get("reports", {})
-        rf = d.get("report", {}).get("findings", {}) if isinstance(d.get("report", {}), dict) else {}
+        report = d.get("report", {}) if isinstance(d.get("report"), dict) else {}
+        rf = report.get("findings", {}) if isinstance(report.get("findings"), dict) else {}
+        rn = report.get("normalize", {}) if isinstance(report.get("normalize"), dict) else {}
+        rd = report.get("diff", {}) if isinstance(report.get("diff"), dict) else {}
         inv = d.get("invalidation", {}) if isinstance(d.get("invalidation"), dict) else {}
         aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
         aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
@@ -320,6 +339,16 @@ class ConfigStore:
                 max_findings_per_host=int(rf.get("max_findings_per_host", 12)),
                 max_output_chars=int(rf.get("max_output_chars", 600)),
                 max_output_lines=int(rf.get("max_output_lines", 6)),
+            ),
+            report_normalize=ReportNormalizeCfg(
+                enabled=bool(rn.get("enabled", True)),
+                force_severity=dict(rn.get("force_severity", {}) or {}),
+                force_tag=dict(rn.get("force_tag", {}) or {}),
+            ),
+            report_diff=ReportDiffCfg(
+                enabled=bool(rd.get("enabled", True)),
+                compare_window_seconds=int(rd.get("compare_window_seconds", 86400)),
+                max_hosts=int(rd.get("max_hosts", 50)),
             ),
             invalidation=InvalidationCfg(
                 enabled=bool(inv.get("enabled", True)),

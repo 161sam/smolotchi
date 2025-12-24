@@ -95,6 +95,16 @@ max_findings_per_host = 12
 max_output_chars = 600
 max_output_lines = 6
 
+[report.normalize]
+enabled = true
+force_severity = { "http-security-headers" = "info", "http-headers" = "info", "http-methods" = "info", "ssl-cert" = "info" }
+force_tag = { "vulners" = "info" }
+
+[report.diff]
+enabled = true
+compare_window_seconds = 86400
+max_hosts = 50
+
 [invalidation]
 enabled = true
 invalidate_on_port_change = true
