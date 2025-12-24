@@ -121,12 +121,35 @@ def create_app(config_path: str = "config.toml") -> Flask:
         auto_connect = bool(getattr(w, "auto_connect", False)) if w else False
         preferred = (getattr(w, "preferred_ssid", "") or "").strip() if w else ""
         sessions = artifacts.list(limit=10, kind="wifi_session")
+        reports = artifacts.list(limit=20, kind="wifi_session_report")
+        rep_map = {}
+        for r in reports:
+            rep_map[r.title.replace("wifi session report ", "").strip()] = r.id
+
+        for s in sessions:
+            sid = s.title.replace("wifi session ", "").strip()
+            setattr(s, "report_id", rep_map.get(sid))
+
+        targets_latest = artifacts.list(limit=1, kind="wifi_targets")
+        targets_state = (
+            artifacts.get_json(targets_latest[0].id) if targets_latest else {}
+        )
+        targets = (
+            (targets_state.get("targets") or {})
+            if isinstance(targets_state, dict)
+            else {}
+        )
 
         for ap in aps:
             ssid = (ap.get("ssid") or "").strip()
+            bssid = (ap.get("bssid") or "").strip()
+            mem = targets.get(bssid) or {}
             ap["_allowed"] = (not allow) or (ssid in allow)
             ap["_has_cred"] = ssid in creds
             ap["_preferred"] = bool(preferred and ssid == preferred)
+            ap["_seen_count"] = mem.get("seen_count")
+            ap["_strongest"] = mem.get("strongest_signal_dbm")
+            ap["_last_seen_ts"] = mem.get("last_seen_ts")
 
         return render_template(
             "wifi.html",
@@ -142,6 +165,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             preferred_ssid=preferred,
             lan_locked=lan_locked,
             sessions=sessions,
+            targets_id=targets_latest[0].id if targets_latest else None,
         )
 
     @app.post("/wifi/connect")

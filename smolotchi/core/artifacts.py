@@ -67,6 +67,42 @@ class ArtifactStore:
         self._save_index(idx)
         return meta
 
+    def put_text(
+        self,
+        kind: str,
+        title: str,
+        text: str,
+        ext: str = ".txt",
+        mime: str = "text/plain; charset=utf-8",
+    ) -> ArtifactMeta:
+        aid = f"{int(time.time())}-{kind}"
+        suffix = ext if ext.startswith(".") else f".{ext}"
+        path = self.root / f"{aid}{suffix}"
+        path.write_text(text, encoding="utf-8")
+
+        meta = ArtifactMeta(
+            id=aid,
+            kind=kind,
+            created_ts=time.time(),
+            title=title,
+            path=str(path),
+        )
+
+        idx = self._load_index()
+        idx.insert(
+            0,
+            {
+                "id": meta.id,
+                "kind": meta.kind,
+                "created_ts": meta.created_ts,
+                "title": meta.title,
+                "path": meta.path,
+                "mimetype": mime,
+            },
+        )
+        self._save_index(idx)
+        return meta
+
     def put_file(
         self,
         kind: str,
@@ -151,6 +187,10 @@ class ArtifactStore:
             if data and str(data.get("job_id")) == job_id:
                 return aid
         return None
+
+    def find_latest(self, kind: str) -> Optional[str]:
+        latest = self.list(limit=1, kind=kind)
+        return latest[0].id if latest else None
 
     def prune(
         self, keep_last: int = 500, older_than_days: int = 30, kinds_keep_last=None
