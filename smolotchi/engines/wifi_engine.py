@@ -6,6 +6,7 @@ from typing import Optional
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.engines import EngineHealth
+from smolotchi.engines.net_detect import detect_scope_for_iface
 from smolotchi.engines.wifi_connect import connect_wpa_psk
 from smolotchi.engines.wifi_scan import scan_iw
 
@@ -98,14 +99,17 @@ class WifiEngine:
             return
 
         self._connected_ssid = chosen
+        scope = detect_scope_for_iface(iface) or getattr(
+            getattr(cfg, "lan", None), "default_scope", "10.0.10.0/24"
+        )
         self.bus.publish(
             "ui.lan.enqueue",
             {
                 "job": {
                     "id": f"job-{int(time.time())}",
                     "kind": "inventory",
-                    "scope": cfg.lan.default_scope,
-                    "note": f"triggered by wifi ssid={chosen}",
+                    "scope": scope,
+                    "note": f"triggered by wifi ssid={chosen} iface={iface}",
                 }
             },
         )

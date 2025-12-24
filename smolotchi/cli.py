@@ -359,6 +359,7 @@ def cmd_wifi_scan(args) -> int:
 def cmd_wifi_connect(args) -> int:
     from smolotchi.core.config import ConfigStore
     from smolotchi.engines.wifi_connect import connect_wpa_psk
+    from smolotchi.engines.net_detect import detect_ipv4_cidr, detect_scope_for_iface
 
     store = ConfigStore(args.config)
     cfg = store.load()
@@ -373,7 +374,27 @@ def cmd_wifi_connect(args) -> int:
         return 2
     ok, out = connect_wpa_psk(iface, args.ssid, creds[args.ssid])
     print(out.strip())
+    if ok:
+        cidr = detect_ipv4_cidr(iface)
+        scope = detect_scope_for_iface(iface)
+        if cidr:
+            print(f"cidr={cidr}")
+        if scope:
+            print(f"scope={scope}")
     return 0 if ok else 1
+
+
+def cmd_wifi_status(args) -> int:
+    from smolotchi.core.config import ConfigStore
+    from smolotchi.engines.net_detect import detect_ipv4_cidr, detect_scope_for_iface
+
+    store = ConfigStore(args.config)
+    cfg = store.load()
+    iface = args.iface or cfg.wifi.iface
+    cidr = detect_ipv4_cidr(iface)
+    scope = detect_scope_for_iface(iface)
+    print(f"iface={iface} cidr={cidr or '-'} scope={scope or '-'}")
+    return 0
 
 
 def cmd_jobs(args) -> int:
@@ -616,6 +637,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("ssid")
     s.add_argument("--iface", default=None)
     s.set_defaults(fn=cmd_wifi_connect)
+
+    s = wifi_sub.add_parser("status", help="Show WiFi CIDR + derived scope")
+    s.add_argument("--iface", default=None)
+    s.set_defaults(fn=cmd_wifi_status)
 
     s = sub.add_parser("jobs", help="List jobs")
     s.add_argument("--status", default=None)
