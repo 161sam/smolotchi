@@ -32,6 +32,8 @@ class LanEngine:
         ai_max_hosts: int = 16,
         ai_max_steps: int = 80,
         ai_include_vuln: bool = True,
+        ai_exec: Optional[dict] = None,
+        ai_cache: Optional[dict] = None,
     ):
         self.bus = bus
         self.cfg = cfg
@@ -44,6 +46,8 @@ class LanEngine:
         self.ai_max_hosts = ai_max_hosts
         self.ai_max_steps = ai_max_steps
         self.ai_include_vuln = ai_include_vuln
+        self.ai_exec = ai_exec or {}
+        self.ai_cache = ai_cache or {}
         self._running = False
         self._active: Optional[JobRow] = None
 
@@ -113,6 +117,12 @@ class LanEngine:
             mode="autonomous",
             max_hosts=self.ai_max_hosts,
             max_steps=self.ai_max_steps,
+            cooldown_action_ms=int(self.ai_exec.get("cooldown_between_actions_ms", 250)),
+            cooldown_host_ms=int(self.ai_exec.get("cooldown_between_hosts_ms", 800)),
+            max_retries=int(self.ai_exec.get("max_retries", 1)),
+            retry_backoff_ms=int(self.ai_exec.get("retry_backoff_ms", 800)),
+            use_cached_discovery=bool(self.ai_cache.get("use_cached_discovery", True)),
+            discovery_ttl_s=int(self.ai_cache.get("discovery_ttl_seconds", 600)),
         )
         bundle = {
             "job_id": f"ai-{plan.get('id')}",

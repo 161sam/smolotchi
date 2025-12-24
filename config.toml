@@ -23,6 +23,17 @@ max_hosts_per_plan = 16
 max_steps = 80
 autonomous_include_vuln_assess = true
 
+[ai.exec]
+concurrency = 1
+cooldown_between_actions_ms = 250
+cooldown_between_hosts_ms = 800
+max_retries = 1
+retry_backoff_ms = 800
+
+[ai.cache]
+discovery_ttl_seconds = 600
+use_cached_discovery = true
+
 [ui]
 host = "0.0.0.0"
 port = 8080

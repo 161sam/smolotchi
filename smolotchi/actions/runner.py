@@ -132,6 +132,7 @@ class ActionRunner:
                     "stdout": cp.stdout[-20000:],
                     "stderr": cp.stderr[-20000:],
                     "duration_s": dur,
+                    "ts": time.time(),
                 }
                 meta = self.artifacts.put_json(
                     kind="action_run",
