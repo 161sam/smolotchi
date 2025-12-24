@@ -71,6 +71,35 @@
         <div class="mono">{{ host.ports_by_key.smb | join(", ") if host.ports_by_key.smb else "—" }}</div>
       </div>
 
+      <div style="margin-top:12px;font-weight:900">Findings (safe)</div>
+      {% if host.findings.scripts and host.findings.scripts|length > 0 %}
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">Tag</th>
+              <th style="width:140px">Scope</th>
+              <th style="width:220px">Script</th>
+              <th>Output (snippet)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in host.findings.scripts[:12] %}
+              <tr>
+                <td class="mono">{{ f.tag }}</td>
+                <td class="mono">{{ f.scope }}</td>
+                <td class="mono">{{ f.id }}</td>
+                <td class="mono">{{ f.output }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if host.findings.scripts|length > 12 %}
+          <div class="muted" style="margin-top:6px">Showing first 12 findings. Open JSON artifacts for full outputs.</div>
+        {% endif %}
+      {% else %}
+        <div class="muted">No script findings extracted.</div>
+      {% endif %}
+
       <div style="margin-top:12px;font-weight:900">Findings / Artifacts</div>
       <table>
         <thead>

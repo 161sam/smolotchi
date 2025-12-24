@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from smolotchi.core.artifacts import ArtifactStore
+from smolotchi.reports.findings_aggregate import build_host_findings
 
 
 def _ts_human(ts: float) -> str:
@@ -66,6 +67,8 @@ def build_aggregate_report(
             }
         )
 
+    findings = build_host_findings(artifacts, hs)
+
     hosts: List[Dict[str, Any]] = []
     for host_ip, hdata in hosts_map.items():
         ports_by_key = hdata.get("ports_by_key") or {
@@ -90,6 +93,10 @@ def build_aggregate_report(
                 "fp_by_key": fp_by_key,
                 "open_ports": open_ports,
                 "actions": per_host_actions.get(host_ip, []),
+                "findings": {
+                    "ports": (findings.get(host_ip) or {}).get("ports", []),
+                    "scripts": (findings.get(host_ip) or {}).get("scripts", []),
+                },
             }
         )
 
