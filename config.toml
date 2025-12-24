@@ -25,6 +25,7 @@ autonomous_include_vuln_assess = true
 
 [ai.exec]
 concurrency = 1
+batch_strategy = "phases"
 cooldown_between_actions_ms = 250
 cooldown_between_hosts_ms = 800
 max_retries = 1
@@ -33,6 +34,20 @@ retry_backoff_ms = 800
 [ai.cache]
 discovery_ttl_seconds = 600
 use_cached_discovery = true
+
+[ai.throttle]
+enabled = true
+loadavg_soft = 0.90
+loadavg_hard = 1.50
+cooldown_multiplier_soft = 1.5
+cooldown_multiplier_hard = 3.0
+min_cooldown_ms = 150
+max_cooldown_ms = 5000
+use_cpu_temp = true
+temp_soft_c = 70
+temp_hard_c = 80
+temp_multiplier_soft = 1.5
+temp_multiplier_hard = 3.0
 
 [ui]
 host = "0.0.0.0"

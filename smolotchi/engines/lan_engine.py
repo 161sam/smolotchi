@@ -32,6 +32,8 @@ class LanEngine:
         ai_max_hosts: int = 16,
         ai_max_steps: int = 80,
         ai_include_vuln: bool = True,
+        ai_batch_strategy: str = "phases",
+        ai_throttle: Optional[dict] = None,
         ai_exec: Optional[dict] = None,
         ai_cache: Optional[dict] = None,
     ):
@@ -46,6 +48,8 @@ class LanEngine:
         self.ai_max_hosts = ai_max_hosts
         self.ai_max_steps = ai_max_steps
         self.ai_include_vuln = ai_include_vuln
+        self.ai_batch_strategy = ai_batch_strategy
+        self.ai_throttle = ai_throttle or {}
         self.ai_exec = ai_exec or {}
         self.ai_cache = ai_cache or {}
         self._running = False
@@ -123,6 +127,8 @@ class LanEngine:
             retry_backoff_ms=int(self.ai_exec.get("retry_backoff_ms", 800)),
             use_cached_discovery=bool(self.ai_cache.get("use_cached_discovery", True)),
             discovery_ttl_s=int(self.ai_cache.get("discovery_ttl_seconds", 600)),
+            batch_strategy=self.ai_batch_strategy,
+            throttle_cfg=self.ai_throttle,
         )
         bundle = {
             "job_id": f"ai-{plan.get('id')}",
