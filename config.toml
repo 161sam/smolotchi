@@ -18,6 +18,11 @@ enabled = true
 safe_mode = true
 max_jobs_per_tick = 1
 
+[ai]
+max_hosts_per_plan = 16
+max_steps = 80
+autonomous_include_vuln_assess = true
+
 [ui]
 host = "0.0.0.0"
 port = 8080

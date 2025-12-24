@@ -2,10 +2,10 @@ actions:
   - id: net.host_discovery
     name: Host Discovery
     category: network_scan
-    description: Identify live hosts in scope
+    description: Identify live hosts in scope (Nmap XML on stdout)
     driver: command
-    command: ["nmap", "-sn", "{scope}"]
-    timeout_s: 120
+    command: ["nmap", "-sn", "-oX", "-", "{scope}"]
+    timeout_s: 180
     risk: safe
     allow_autonomous: true
     inputs_schema:
@@ -16,7 +16,7 @@ actions:
     category: network_scan
     description: TCP port scan + service detection (read-only)
     driver: command
-    command: ["nmap", "-sV", "-Pn", "{target}"]
+    command: ["nmap", "-sV", "-Pn", "-oX", "-", "{target}"]
     timeout_s: 300
     risk: caution
     allow_autonomous: true
@@ -28,11 +28,10 @@ actions:
     category: vuln_assess
     description: Non-exploitative NSE/metadata assessment
     driver: command
-    command: ["nmap", "--script", "vuln", "-sV", "-Pn", "{target}"]
+    command: ["nmap", "--script", "vuln", "-sV", "-Pn", "-oX", "-", "{target}"]
     timeout_s: 600
     risk: caution
-    allow_autonomous: false
-    requires_confirmation: true
+    allow_autonomous: true
     inputs_schema:
       target: {type: string, required: true}
 

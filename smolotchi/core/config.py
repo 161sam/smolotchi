@@ -55,6 +55,13 @@ class LanCfg:
 
 
 @dataclass
+class AiCfg:
+    max_hosts_per_plan: int = 16
+    max_steps: int = 80
+    autonomous_include_vuln_assess: bool = True
+
+
+@dataclass
 class UiCfg:
     host: str = "0.0.0.0"
     port: int = 8080
@@ -96,6 +103,7 @@ class AppConfig:
     policy: PolicyCfg
     wifi: WifiCfg
     lan: LanCfg
+    ai: AiCfg
     ui: UiCfg
     theme: ThemeCfg
     retention: RetentionCfg
@@ -118,6 +126,7 @@ class ConfigStore:
         policy = d.get("policy", {})
         wifi = d.get("wifi", {})
         lan = d.get("lan", {})
+        ai = d.get("ai", {})
         ui = d.get("ui", {})
         theme = d.get("theme", {})
         retention = d.get("retention", {})
@@ -152,6 +161,13 @@ class ConfigStore:
                 enabled=bool(lan.get("enabled", True)),
                 safe_mode=bool(lan.get("safe_mode", True)),
                 max_jobs_per_tick=int(lan.get("max_jobs_per_tick", 1)),
+            ),
+            ai=AiCfg(
+                max_hosts_per_plan=int(ai.get("max_hosts_per_plan", 16)),
+                max_steps=int(ai.get("max_steps", 80)),
+                autonomous_include_vuln_assess=bool(
+                    ai.get("autonomous_include_vuln_assess", True)
+                ),
             ),
             ui=UiCfg(
                 host=str(ui.get("host", "0.0.0.0")),

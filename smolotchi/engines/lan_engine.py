@@ -29,6 +29,9 @@ class LanEngine:
         registry=None,
         planner=None,
         plan_runner=None,
+        ai_max_hosts: int = 16,
+        ai_max_steps: int = 80,
+        ai_include_vuln: bool = True,
     ):
         self.bus = bus
         self.cfg = cfg
@@ -38,6 +41,9 @@ class LanEngine:
         self.registry = registry
         self.planner = planner
         self.plan_runner = plan_runner
+        self.ai_max_hosts = ai_max_hosts
+        self.ai_max_steps = ai_max_steps
+        self.ai_include_vuln = ai_include_vuln
         self._running = False
         self._active: Optional[JobRow] = None
 
@@ -65,7 +71,12 @@ class LanEngine:
         if not self.planner:
             self.bus.publish("ai.plan.error", {"reason": "planner_missing"})
             return
-        plan = self.planner.generate(scope=scope, mode="autonomous_safe", note=note)
+        plan = self.planner.generate(
+            scope=scope,
+            mode="autonomous_safe",
+            note=note,
+            include_vuln_assess=self.ai_include_vuln,
+        )
         payload = {
             "id": plan.id,
             "created_ts": plan.created_ts,
@@ -73,6 +84,9 @@ class LanEngine:
             "scope": plan.scope,
             "steps": [{"action_id": s.action_id, "payload": s.payload} for s in plan.steps],
             "note": plan.note,
+            "expand_hosts": True,
+            "per_host_actions": ["net.port_scan"]
+            + (["vuln.assess_basic"] if self.ai_include_vuln else []),
         }
         meta = self.artifacts.put_json(
             kind="ai_plan",
@@ -94,7 +108,12 @@ class LanEngine:
         if not plan:
             self.bus.publish("ai.plan.missing", {"artifact_id": plan_id})
             return
-        res = self.plan_runner.run(plan, mode="autonomous")
+        res = self.plan_runner.run(
+            plan,
+            mode="autonomous",
+            max_hosts=self.ai_max_hosts,
+            max_steps=self.ai_max_steps,
+        )
         bundle = {
             "job_id": f"ai-{plan.get('id')}",
             "kind": "ai_autonomous_safe",
