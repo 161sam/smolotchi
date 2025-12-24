@@ -55,86 +55,157 @@ def host_diff_markdown(diff: Dict[str, Any], host: str) -> str:
         lines.append(f"- counts cur:  {sc.get('cur')}")
         lines.append("")
 
-    if not any([h.get("ports"), h.get("fingerprints"), h.get("severity_counts")]):
-        lines.append("_No detailed changes recorded for this host._")
-        lines.append("")
-
     links = h.get("links") or {}
     if links:
         lines.append("## Artifacts")
         for side in ("prev", "cur"):
             amap = links.get(side) or {}
-            if not amap:
-                continue
             lines.append(f"### {side}")
+            if not amap:
+                lines.append("- —")
+                lines.append("")
+                continue
+
             if "net.port_scan" in amap:
-                lines.append(f"- net.port_scan: {', '.join(amap['net.port_scan'])}")
+                for art_id in amap.get("net.port_scan") or []:
+                    lines.append(f"- net.port_scan: {art_id}")
+
             for key in sorted([k for k in amap.keys() if k.startswith("vuln.")]):
-                lines.append(f"- {key}: {', '.join(amap[key])}")
+                for art_id in amap.get(key) or []:
+                    lines.append(f"- {key}: {art_id}")
             lines.append("")
+
+    if not any([h.get("ports"), h.get("fingerprints"), h.get("severity_counts"), links]):
+        lines.append("_No detailed changes recorded for this host._")
+        lines.append("")
 
     return "\n".join(lines)
 
 
-def _artifact_links_html(amap: dict) -> str:
-    parts = []
-    for art_id in amap.get("net.port_scan") or []:
-        parts.append(
-            "<div><a href='/artifact/{0}'>port_scan {0}</a> · "
-            "<a href='/artifact/{0}/download'>dl</a></div>".format(art_id)
-        )
-    for action_id in sorted([k for k in amap.keys() if k.startswith("vuln.")]):
-        for art_id in amap.get(action_id) or []:
-            parts.append(
-                "<div><a href='/artifact/{0}'>{1} {0}</a> · "
-                "<a href='/artifact/{0}/download'>dl</a></div>".format(
-                    art_id, action_id
-                )
-            )
-    return "".join(parts) or "<div class='muted'>—</div>"
-
-
 def host_diff_html(diff: Dict[str, Any], host: str) -> str:
-    md = (
-        host_diff_markdown(diff, host)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
     per = diff.get("per_host") or {}
     h = per.get(host) or {}
-    links = h.get("links") or {}
-    link_blocks = []
-    for side in ("prev", "cur"):
-        amap = links.get(side) or {}
-        if not amap:
-            continue
-        link_blocks.append(
-            "<div class='artifact-side'><div class='artifact-title'>"
-            f"{side}</div>{_artifact_links_html(amap)}</div>"
+
+    def esc(value: str) -> str:
+        return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def a_link(art_id: str, label: str) -> str:
+        return (
+            f"<a href='/artifact/{esc(art_id)}'>{esc(label)}</a>"
+            f" <span class='muted'>·</span> "
+            f"<a href='/artifact/{esc(art_id)}/download'>dl</a>"
         )
-    artifacts_html = ""
-    if link_blocks:
-        artifacts_html = (
-            "<div class='card'><h3>Artifacts</h3>"
-            + "".join(link_blocks)
+
+    if host in (diff.get("hosts_added") or []):
+        status = "added"
+    elif host in (diff.get("hosts_removed") or []):
+        status = "removed"
+    else:
+        status = "changed"
+
+    cards = []
+
+    if h.get("ports"):
+        cards.append(
+            "<div class='card'>"
+            "<div class='h2'>Ports</div>"
+            f"<div class='mono'>prev: {esc(str(h['ports']['prev']))}</div>"
+            f"<div class='mono'>cur:  {esc(str(h['ports']['cur']))}</div>"
+            "</div>"
+        )
+
+    if h.get("fingerprints"):
+        fp_lines = []
+        for key, value in (h.get("fingerprints") or {}).items():
+            fp_lines.append(
+                f"<div class='mono'>{esc(key)}: {esc(value.get('prev', ''))} → "
+                f"{esc(value.get('cur', ''))}</div>"
+            )
+        cards.append(
+            "<div class='card'>"
+            "<div class='h2'>Fingerprints</div>"
+            + "".join(fp_lines)
             + "</div>"
         )
-    return (
-        "<!doctype html><html><head><meta charset='utf-8'/>"
-        "<meta name='viewport' content='width=device-width,initial-scale=1'/>"
-        "<title>Host Diff</title>"
-        "<style>body{background:#0b1016;color:#e7eef7;font-family:system-ui;margin:0;"
-        "padding:18px}pre{white-space:pre-wrap;background:#111a24;"
-        "border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:14px}"
-        ".card{margin-top:16px;background:#111a24;border:1px solid "
-        "rgba(255,255,255,.10);border-radius:16px;padding:14px}"
-        ".artifact-title{font-weight:700;margin:6px 0}"
-        ".artifact-side{margin-bottom:10px}"
-        "a{color:#8ac7ff;text-decoration:none}.muted{opacity:.7}</style>"
-        "</head><body><pre>"
-        f"{md}"
-        "</pre>"
-        f"{artifacts_html}"
-        "</body></html>"
-    )
+
+    if h.get("severity_counts"):
+        sc = h["severity_counts"]
+        cards.append(
+            "<div class='card'>"
+            "<div class='h2'>Severity</div>"
+            f"<div class='mono'>highest: {esc(str(sc.get('prev_highest', 'info')))} → "
+            f"{esc(str(sc.get('cur_highest', 'info')))}</div>"
+            f"<div class='mono'>prev: {esc(str(sc.get('prev')))}</div>"
+            f"<div class='mono'>cur:  {esc(str(sc.get('cur')))}</div>"
+            "</div>"
+        )
+
+    links = h.get("links") or {}
+    if links:
+        blocks = []
+        for side in ("prev", "cur"):
+            amap = links.get(side) or {}
+            blocks.append(f"<div class='h3'>{esc(side)}</div>")
+            if not amap:
+                blocks.append("<div class='muted'>—</div>")
+                continue
+
+            for art_id in amap.get("net.port_scan") or []:
+                blocks.append(f"<div>{a_link(art_id, f'net.port_scan {art_id}')}</div>")
+
+            for action_id in sorted([k for k in amap.keys() if k.startswith("vuln.")]):
+                for art_id in amap.get(action_id) or []:
+                    blocks.append(f"<div>{a_link(art_id, f'{action_id} {art_id}')}</div>")
+
+        cards.append(
+            "<div class='card'>"
+            "<div class='h2'>Artifacts</div>"
+            + "".join(blocks)
+            + "</div>"
+        )
+
+    if not cards:
+        cards.append("<div class='card'><div class='muted'>No details for this host.</div></div>")
+
+    prev_id = str(diff.get("prev_host_summary_id") or diff.get("prev_id") or "")
+    cur_id = str(diff.get("cur_host_summary_id") or diff.get("cur_id") or "")
+
+    return f"""<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Host Diff • {esc(host)}</title>
+<style>
+  body{{background:#0b1016;color:#e7eef7;font-family:system-ui;margin:0;padding:18px}}
+  a{{color:#5fd1ff;text-decoration:none}} a:hover{{text-decoration:underline}}
+  .wrap{{max-width:980px;margin:0 auto}}
+  .card{{background:#111a24;border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:14px;margin:12px 0}}
+  .h1{{font-size:18px;font-weight:900}}
+  .h2{{font-size:14px;font-weight:900;margin-bottom:8px}}
+  .h3{{font-size:12px;font-weight:900;margin-top:10px}}
+  .muted{{color:rgba(231,238,247,.70);font-size:12px}}
+  .mono{{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px}}
+  .row{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}
+  .pill{{padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);font-weight:800;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div class="h1">Host Diff • {esc(host)} <span class="muted">({esc(status)})</span></div>
+        <div class="muted">Prev: <span class="mono">{esc(prev_id)}</span> · Cur: <span class="mono">{esc(cur_id)}</span></div>
+      </div>
+      <div class="row">
+        <a class="pill" href="/lan">← Back to LAN</a>
+      </div>
+    </div>
+  </div>
+
+  {''.join(cards)}
+
+</div>
+</body>
+</html>"""

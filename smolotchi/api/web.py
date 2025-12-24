@@ -25,6 +25,13 @@ def pretty(obj) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True)
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    path = path.resolve()
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
+
 def create_app(config_path: str = "config.toml") -> Flask:
     app = Flask(__name__)
     bus = SQLiteBus()
@@ -78,7 +85,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/lan/results")
     def lan_results():
         items = artifacts.list(limit=50, kind="lan_bundle")
-        return render_template("lan_results.html", items=items)
+        bundles = []
+        for item in items:
+            bundle = artifacts.get_json(item.id) or {}
+            bundles.append(
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "diff_summary": bundle.get("diff_summary") or {},
+                    "diff_badges": bundle.get("diff_badges") or {},
+                }
+            )
+        return render_template("lan_results.html", items=bundles)
 
     def resolve_result_by_job_id(job_id: str):
         """
@@ -356,7 +374,53 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.get("/config")
     def config():
         cfg = store.get()
-        return render_template("config.html", cfg=cfg)
+        cfg_file = Path(config_path)
+        msg = None
+        try:
+            content = cfg_file.read_text(encoding="utf-8")
+        except Exception as exc:
+            content = ""
+            msg = {"title": "Error", "text": f"Failed to read {cfg_file}: {exc}"}
+
+        return render_template(
+            "config.html",
+            cfg=cfg,
+            config_path=str(cfg_file),
+            content=content,
+            msg=msg,
+        )
+
+    @app.post("/config")
+    def config_save():
+        cfg_file = Path(config_path)
+        content = request.form.get("content", "")
+        msg = None
+
+        try:
+            if not isinstance(content, str):
+                raise ValueError("Invalid content")
+            _atomic_write_text(cfg_file, content)
+            msg = {
+                "title": "Saved",
+                "text": f"Updated {cfg_file}. You may want to Reload config.",
+            }
+            bus.publish("ui.config.saved", {"path": str(cfg_file), "ts": time.time()})
+        except Exception as exc:
+            msg = {"title": "Error", "text": f"Failed to write {cfg_file}: {exc}"}
+
+        cfg = store.get()
+        try:
+            content = cfg_file.read_text(encoding="utf-8")
+        except Exception:
+            pass
+
+        return render_template(
+            "config.html",
+            cfg=cfg,
+            config_path=str(cfg_file),
+            content=content,
+            msg=msg,
+        )
 
     @app.post("/config/reload")
     def config_reload():
