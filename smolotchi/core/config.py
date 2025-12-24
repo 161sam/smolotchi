@@ -57,6 +57,7 @@ class LanCfg:
 @dataclass
 class AiExecCfg:
     concurrency: int = 1
+    batch_strategy: str = "phases"
     cooldown_between_actions_ms: int = 250
     cooldown_between_hosts_ms: int = 800
     max_retries: int = 1
@@ -70,12 +71,29 @@ class AiCacheCfg:
 
 
 @dataclass
+class AiThrottleCfg:
+    enabled: bool = True
+    loadavg_soft: float = 0.90
+    loadavg_hard: float = 1.50
+    cooldown_multiplier_soft: float = 1.5
+    cooldown_multiplier_hard: float = 3.0
+    min_cooldown_ms: int = 150
+    max_cooldown_ms: int = 5000
+    use_cpu_temp: bool = True
+    temp_soft_c: int = 70
+    temp_hard_c: int = 80
+    temp_multiplier_soft: float = 1.5
+    temp_multiplier_hard: float = 3.0
+
+
+@dataclass
 class AiCfg:
     max_hosts_per_plan: int = 16
     max_steps: int = 80
     autonomous_include_vuln_assess: bool = True
     exec: AiExecCfg = field(default_factory=AiExecCfg)
     cache: AiCacheCfg = field(default_factory=AiCacheCfg)
+    throttle: AiThrottleCfg = field(default_factory=AiThrottleCfg)
 
 
 @dataclass
@@ -151,6 +169,9 @@ class ConfigStore:
         reports = d.get("reports", {})
         aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
         aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
+        athrottle = (
+            (ai.get("throttle") or {}) if isinstance(ai.get("throttle"), dict) else {}
+        )
 
         ai_cfg = AiCfg(
             max_hosts_per_plan=int(ai.get("max_hosts_per_plan", 16)),
@@ -161,6 +182,7 @@ class ConfigStore:
         )
         ai_cfg.exec = AiExecCfg(
             concurrency=int(aiexec.get("concurrency", 1)),
+            batch_strategy=str(aiexec.get("batch_strategy", "phases")),
             cooldown_between_actions_ms=int(aiexec.get("cooldown_between_actions_ms", 250)),
             cooldown_between_hosts_ms=int(aiexec.get("cooldown_between_hosts_ms", 800)),
             max_retries=int(aiexec.get("max_retries", 1)),
@@ -169,6 +191,24 @@ class ConfigStore:
         ai_cfg.cache = AiCacheCfg(
             discovery_ttl_seconds=int(aicache.get("discovery_ttl_seconds", 600)),
             use_cached_discovery=bool(aicache.get("use_cached_discovery", True)),
+        )
+        ai_cfg.throttle = AiThrottleCfg(
+            enabled=bool(athrottle.get("enabled", True)),
+            loadavg_soft=float(athrottle.get("loadavg_soft", 0.90)),
+            loadavg_hard=float(athrottle.get("loadavg_hard", 1.50)),
+            cooldown_multiplier_soft=float(
+                athrottle.get("cooldown_multiplier_soft", 1.5)
+            ),
+            cooldown_multiplier_hard=float(
+                athrottle.get("cooldown_multiplier_hard", 3.0)
+            ),
+            min_cooldown_ms=int(athrottle.get("min_cooldown_ms", 150)),
+            max_cooldown_ms=int(athrottle.get("max_cooldown_ms", 5000)),
+            use_cpu_temp=bool(athrottle.get("use_cpu_temp", True)),
+            temp_soft_c=int(athrottle.get("temp_soft_c", 70)),
+            temp_hard_c=int(athrottle.get("temp_hard_c", 80)),
+            temp_multiplier_soft=float(athrottle.get("temp_multiplier_soft", 1.5)),
+            temp_multiplier_hard=float(athrottle.get("temp_multiplier_hard", 3.0)),
         )
 
         return AppConfig(

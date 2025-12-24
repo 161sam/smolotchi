@@ -110,7 +110,23 @@ def cmd_core(args) -> int:
             ai_max_hosts=cfg.ai.max_hosts_per_plan,
             ai_max_steps=cfg.ai.max_steps,
             ai_include_vuln=cfg.ai.autonomous_include_vuln_assess,
+            ai_batch_strategy=cfg.ai.exec.batch_strategy,
+            ai_throttle={
+                "enabled": cfg.ai.throttle.enabled,
+                "loadavg_soft": cfg.ai.throttle.loadavg_soft,
+                "loadavg_hard": cfg.ai.throttle.loadavg_hard,
+                "cooldown_multiplier_soft": cfg.ai.throttle.cooldown_multiplier_soft,
+                "cooldown_multiplier_hard": cfg.ai.throttle.cooldown_multiplier_hard,
+                "min_cooldown_ms": cfg.ai.throttle.min_cooldown_ms,
+                "max_cooldown_ms": cfg.ai.throttle.max_cooldown_ms,
+                "use_cpu_temp": cfg.ai.throttle.use_cpu_temp,
+                "temp_soft_c": cfg.ai.throttle.temp_soft_c,
+                "temp_hard_c": cfg.ai.throttle.temp_hard_c,
+                "temp_multiplier_soft": cfg.ai.throttle.temp_multiplier_soft,
+                "temp_multiplier_hard": cfg.ai.throttle.temp_multiplier_hard,
+            },
             ai_exec={
+                "batch_strategy": cfg.ai.exec.batch_strategy,
                 "cooldown_between_actions_ms": cfg.ai.exec.cooldown_between_actions_ms,
                 "cooldown_between_hosts_ms": cfg.ai.exec.cooldown_between_hosts_ms,
                 "max_retries": cfg.ai.exec.max_retries,
@@ -142,7 +158,23 @@ def cmd_core(args) -> int:
                 lan.ai_max_hosts = new_cfg.ai.max_hosts_per_plan
                 lan.ai_max_steps = new_cfg.ai.max_steps
                 lan.ai_include_vuln = new_cfg.ai.autonomous_include_vuln_assess
+                lan.ai_batch_strategy = new_cfg.ai.exec.batch_strategy
+                lan.ai_throttle = {
+                    "enabled": new_cfg.ai.throttle.enabled,
+                    "loadavg_soft": new_cfg.ai.throttle.loadavg_soft,
+                    "loadavg_hard": new_cfg.ai.throttle.loadavg_hard,
+                    "cooldown_multiplier_soft": new_cfg.ai.throttle.cooldown_multiplier_soft,
+                    "cooldown_multiplier_hard": new_cfg.ai.throttle.cooldown_multiplier_hard,
+                    "min_cooldown_ms": new_cfg.ai.throttle.min_cooldown_ms,
+                    "max_cooldown_ms": new_cfg.ai.throttle.max_cooldown_ms,
+                    "use_cpu_temp": new_cfg.ai.throttle.use_cpu_temp,
+                    "temp_soft_c": new_cfg.ai.throttle.temp_soft_c,
+                    "temp_hard_c": new_cfg.ai.throttle.temp_hard_c,
+                    "temp_multiplier_soft": new_cfg.ai.throttle.temp_multiplier_soft,
+                    "temp_multiplier_hard": new_cfg.ai.throttle.temp_multiplier_hard,
+                }
                 lan.ai_exec = {
+                    "batch_strategy": new_cfg.ai.exec.batch_strategy,
                     "cooldown_between_actions_ms": new_cfg.ai.exec.cooldown_between_actions_ms,
                     "cooldown_between_hosts_ms": new_cfg.ai.exec.cooldown_between_hosts_ms,
                     "max_retries": new_cfg.ai.exec.max_retries,
