@@ -20,6 +20,10 @@ from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
 
 
+def pretty(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True)
+
+
 def create_app(config_path: str = "config.toml") -> Flask:
     app = Flask(__name__)
     bus = SQLiteBus()
@@ -75,34 +79,97 @@ def create_app(config_path: str = "config.toml") -> Flask:
         items = artifacts.list(limit=50, kind="lan_bundle")
         return render_template("lan_results.html", items=items)
 
+    def resolve_result_by_job_id(job_id: str):
+        """
+        Fallback resolver:
+        1) Try lan_bundle by job_id (fast)
+        2) Else: scan artifacts index for lan_result/lan_report and correlate via content.job.id
+        """
+        bundle_id = artifacts.find_bundle_by_job_id(job_id)
+        if bundle_id:
+            bundle = artifacts.get_json(bundle_id)
+            json_id = (bundle.get("result_json") or {}).get("artifact_id")
+            rep_id = ((bundle.get("report_html") or {}) or {}).get("artifact_id")
+            return {
+                "bundle_id": bundle_id,
+                "bundle": bundle,
+                "json_id": json_id,
+                "report_id": rep_id,
+            }
+
+        idx = artifacts.list(limit=300)
+        json_id = None
+        report_id = None
+
+        for artifact in idx:
+            if artifact.kind == "lan_result":
+                data = artifacts.get_json(artifact.id)
+                if data and str(data.get("job", {}).get("id")) == job_id:
+                    json_id = artifact.id
+                    break
+
+        for artifact in idx:
+            if artifact.kind == "lan_report" and job_id in artifact.title:
+                report_id = artifact.id
+                break
+
+        return {
+            "bundle_id": None,
+            "bundle": None,
+            "json_id": json_id,
+            "report_id": report_id,
+        }
+
     @app.get("/lan/result/<bundle_id>")
     def lan_result_details(bundle_id: str):
         bundle = artifacts.get_json(bundle_id)
         if not bundle:
             abort(404)
-
         json_id = (bundle.get("result_json") or {}).get("artifact_id")
         report = bundle.get("report_html") or {}
         report_id = report.get("artifact_id")
+        resolved = {
+            "bundle_id": bundle_id,
+            "bundle": bundle,
+            "json_id": json_id,
+            "report_id": report_id,
+        }
+        return _render_result_details(resolved, job_id=bundle.get("job_id"))
+
+    @app.get("/lan/result")
+    def lan_result_by_job():
+        job_id = request.args.get("job_id", "").strip()
+        if not job_id:
+            abort(400)
+        resolved = resolve_result_by_job_id(job_id)
+        return _render_result_details(resolved, job_id=job_id)
+
+    def _render_result_details(resolved: dict, job_id: str | None):
+        bundle_id = resolved.get("bundle_id")
+        bundle = resolved.get("bundle")
+        json_id = resolved.get("json_id")
+        report_id = resolved.get("report_id")
 
         result_json = artifacts.get_json(json_id) if json_id else None
+        bundle_pretty = pretty(bundle) if bundle else ""
+        result_pretty = pretty(result_json) if result_json else ""
 
-        job_id = bundle.get("job_id")
         evts = []
         if job_id:
-            raw = bus.tail(limit=200)
-            for e in raw:
-                p = e.payload or {}
-                if p.get("id") == job_id or p.get("job", {}).get("id") == job_id:
-                    evts.append(e)
-            evts = evts[:50]
+            raw = bus.tail(limit=300)
+            for event in raw:
+                payload = event.payload or {}
+                if payload.get("id") == job_id or payload.get("job", {}).get("id") == job_id:
+                    evts.append(event)
+            evts = evts[:80]
 
         return render_template(
-            "lan_result_details.html",
+            "lan_result_details_tabs.html",
+            job_id=job_id,
             bundle_id=bundle_id,
-            bundle=bundle,
+            bundle_pretty=bundle_pretty,
             result_json_id=json_id,
-            result_json=result_json,
+            result_pretty=result_pretty,
             report_id=report_id,
             events=evts,
         )

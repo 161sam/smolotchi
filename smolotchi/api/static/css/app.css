@@ -193,3 +193,56 @@ button.secondary{
 pre{margin:8px 0 0;color:var(--muted);font-size:12px;white-space:pre-wrap}
 
 .ico svg{width:18px;height:18px;fill:currentColor;opacity:.95}
+
+.tabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin: 6px 0 14px 0;
+}
+
+.tab-btn{
+  padding:8px 10px;
+  border-radius: 12px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  cursor:pointer;
+  font-weight:900;
+}
+
+.tab-btn.active{
+  border-color: rgba(95,209,255,.22);
+  background: rgba(95,209,255,.10);
+  color: var(--accent);
+}
+
+.codebox{
+  background: var(--panel2);
+  border:1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  text-decoration:none;
+  font-weight:900;
+}
+.btn:hover{border-color: rgba(255,255,255,.22)}
+.btn.primary{background: rgba(95,209,255,.10); border-color: rgba(95,209,255,.22); color: var(--accent);}
+.hr{height:1px;background:var(--border);margin:12px 0}
+.small{font-size:12px;color:var(--muted)}
