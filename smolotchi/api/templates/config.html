@@ -13,6 +13,9 @@
       <form method="post" action="{{ url_for('config_save') }}">
         <button type="submit" class="btn">Save</button>
       </form>
+      <form method="post" action="{{ url_for('config_save_reload') }}">
+        <button type="submit" class="btn">Save + Reload</button>
+      </form>
       <form method="post" action="{{ url_for('config_reload') }}">
         <button type="submit" class="secondary">Reload config</button>
       </form>
@@ -38,6 +41,7 @@
 
     <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
       <button type="submit" class="btn">Save</button>
+      <button type="submit" formaction="{{ url_for('config_save_reload') }}" formmethod="post" class="btn">Save + Reload</button>
       <button type="submit" formaction="{{ url_for('config_reload') }}" formmethod="post" class="secondary">Reload config</button>
     </div>
   </form>
