@@ -6,6 +6,7 @@ import time
 from smolotchi.actions.cache import (
     find_fresh_discovery,
     find_fresh_portscan_for_host,
+    find_fresh_vuln_for_host_action,
 )
 from smolotchi.actions.parse import parse_nmap_xml_up_hosts
 from smolotchi.actions.parse_services import (
@@ -73,6 +74,8 @@ class PlanRunner:
         discovery_ttl_s: int = 600,
         use_cached_portscan: bool = True,
         portscan_ttl_s: int = 900,
+        use_cached_vuln: bool = True,
+        vuln_ttl_s: int = 1800,
         batch_strategy: str = "phases",
         throttle_cfg: dict | None = None,
         service_map: dict | None = None,
@@ -230,6 +233,43 @@ class PlanRunner:
                                     "source": "portscan_cache",
                                 },
                             )
+
+                        time.sleep(max(0, effective_action_ms) / 1000.0)
+                        i += 1
+                        continue
+
+            if use_cached_vuln and spec.category == "vuln_assess":
+                host = str(payload.get("target") or "")
+                if host:
+                    cache_vuln = find_fresh_vuln_for_host_action(
+                        self.artifacts,
+                        host=host,
+                        action_id=spec.id,
+                        ttl_s=vuln_ttl_s,
+                    )
+                    if cache_vuln:
+                        self.bus.publish(
+                            "plan.cache.vuln_hit",
+                            {
+                                "plan_id": plan.get("id"),
+                                "host": host,
+                                "action_id": spec.id,
+                                "artifact_id": cache_vuln["artifact_id"],
+                                "age_s": int(
+                                    time.time() - float(cache_vuln["ts"])
+                                ),
+                            },
+                        )
+
+                        out_steps.append(
+                            {
+                                "action_id": spec.id,
+                                "ok": True,
+                                "artifact_id": cache_vuln["artifact_id"],
+                                "summary": "cache_hit",
+                                "meta": {"cache": True},
+                            }
+                        )
 
                         time.sleep(max(0, effective_action_ms) / 1000.0)
                         i += 1

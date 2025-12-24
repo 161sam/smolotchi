@@ -70,6 +70,8 @@ class AiCacheCfg:
     use_cached_discovery: bool = True
     use_cached_portscan: bool = True
     portscan_ttl_seconds: int = 900
+    use_cached_vuln: bool = True
+    vuln_ttl_seconds: int = 1800
 
 
 @dataclass
@@ -195,6 +197,8 @@ class ConfigStore:
             use_cached_discovery=bool(aicache.get("use_cached_discovery", True)),
             use_cached_portscan=bool(aicache.get("use_cached_portscan", True)),
             portscan_ttl_seconds=int(aicache.get("portscan_ttl_seconds", 900)),
+            use_cached_vuln=bool(aicache.get("use_cached_vuln", True)),
+            vuln_ttl_seconds=int(aicache.get("vuln_ttl_seconds", 1800)),
         )
         ai_cfg.throttle = AiThrottleCfg(
             enabled=bool(athrottle.get("enabled", True)),

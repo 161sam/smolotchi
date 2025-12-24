@@ -36,6 +36,8 @@ discovery_ttl_seconds = 600
 use_cached_discovery = true
 use_cached_portscan = true
 portscan_ttl_seconds = 900
+use_cached_vuln = true
+vuln_ttl_seconds = 1800
 
 [ai.throttle]
 enabled = true
