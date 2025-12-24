@@ -88,22 +88,72 @@ def create_app(config_path: str = "config.toml") -> Flask:
         events = bus.tail(limit=80, topic_prefix="lan.")
         return render_template("lan.html", events=events)
 
+    def _bundle_finding_state(bundle: dict, fid: str):
+        """
+        Returns:
+          None                → finding not present
+          "active"            → present, not suppressed
+          "suppressed"        → present, suppressed
+        """
+        hs = bundle.get("host_summary") or {}
+        for finding in (hs.get("findings") or []):
+            finding_id = str(finding.get("id") or finding.get("title") or "")
+            if finding_id != fid:
+                continue
+            suppressed = bool(
+                finding.get("suppressed") or finding.get("suppressed_by_policy")
+            )
+            return "suppressed" if suppressed else "active"
+        return None
+
     @app.get("/lan/results")
     def lan_results():
-        items = artifacts.list(limit=50, kind="lan_bundle")
+        fid = request.args.get("finding", "").strip()
+        include_suppressed = request.args.get("include_suppressed", "0") in (
+            "1",
+            "true",
+            "yes",
+        )
+        only_suppressed = request.args.get("only_suppressed", "0") in ("1", "true", "yes")
+
+        metas = artifacts.list(limit=50, kind="lan_bundle")
+
         bundles = []
-        for item in items:
-            bundle = artifacts.get_json(item.id) or {}
-            bundle.setdefault("id", item.id)
-            bundle.setdefault("title", item.title)
+        for meta in metas:
+            bundle = artifacts.get_json(meta.id) or {}
+            bundle.setdefault("id", meta.id)
+            bundle.setdefault("title", meta.title)
             bundle.setdefault("diff_summary", bundle.get("diff_summary") or {})
             bundle.setdefault("diff_badges", bundle.get("diff_badges") or {})
+
+            state = None
+            if fid:
+                state = _bundle_finding_state(bundle, fid)
+                if state is None:
+                    continue
+                if only_suppressed and state != "suppressed":
+                    continue
+                if not include_suppressed and state == "suppressed":
+                    continue
+
+                bundle["_finding_state"] = state
+                bundle["_finding_id"] = fid
+
             bundles.append(bundle)
-        top_findings = aggregate_top_findings(bundles, limit=6)
+
+        top_findings = aggregate_top_findings(
+            bundles
+            if not fid
+            else [artifacts.get_json(meta.id) or {} for meta in metas],
+            limit=6,
+        )
         return render_template(
             "lan_results.html",
             items=bundles,
             top_findings=top_findings,
+            finding_filter=fid,
+            include_suppressed=include_suppressed,
+            only_suppressed=only_suppressed,
         )
 
     def _bundle_has_finding(bundle: dict, fid: str):

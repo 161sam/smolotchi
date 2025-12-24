@@ -7,6 +7,29 @@
   {% include "partials/back_to_lan.html" %}
 </section>
 
+{% if finding_filter %}
+<section class="card">
+  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <div>
+      <div class="muted">Filter active</div>
+      <div style="font-weight:900">
+        Finding: {{ finding_filter }}
+        {% if only_suppressed %}
+          <span class="pill">only suppressed</span>
+        {% elif include_suppressed %}
+          <span class="pill">include suppressed</span>
+        {% else %}
+          <span class="pill">active only</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="row" style="gap:10px; flex-wrap:wrap;">
+      <a class="pill" href="{{ url_for('lan_results') }}">Clear filter</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 {% if top_findings %}
 <section class="card">
   <h3 style="margin:0 0 10px 0">Top Findings (recent)</h3>
@@ -15,7 +38,7 @@
       <div class="evt">
         <div class="evt-top">
           <span class="pill sev-{{ f.severity }}">{{ f.severity|upper }}</span>
-          <a href="{{ url_for('lan_finding_jump', fid=f.id) }}"
+          <a href="{{ url_for('lan_results') }}?finding={{ f.id }}"
              style="color:var(--accent); text-decoration:none; font-weight:900;">
             {{ f.title }}
           </a>
@@ -39,6 +62,16 @@
             {% if f.suppressed_hosts %}
               · {{ f.suppressed_hosts|join(", ") }}
             {% endif %}
+            <div class="row" style="gap:10px; margin-top:6px; flex-wrap:wrap;">
+              <a class="pill"
+                 href="{{ url_for('lan_results') }}?finding={{ f.id }}&include_suppressed=1">
+                include suppressed
+              </a>
+              <a class="pill"
+                 href="{{ url_for('lan_results') }}?finding={{ f.id }}&only_suppressed=1">
+                only suppressed
+              </a>
+            </div>
           {% endif %}
         </div>
       </div>
@@ -67,6 +100,13 @@
       <div class="evt">
         <div class="evt-top">{{ a.title }}</div>
         <div class="muted">bundle_id: {{ a.id }}</div>
+        {% if a._finding_state %}
+          {% if a._finding_state == "active" %}
+            <span class="pill sev-high">active finding</span>
+          {% else %}
+            <span class="pill">suppressed finding</span>
+          {% endif %}
+        {% endif %}
         <div style="margin-top:10px" class="row">
           <a href="{{ url_for('lan_result_details', bundle_id=a.id) }}"
              style="color:var(--accent); text-decoration:none; font-weight:900;">Open details</a>
