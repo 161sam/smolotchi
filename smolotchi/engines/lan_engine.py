@@ -199,6 +199,12 @@ class LanEngine:
                     },
                 },
             },
+            "diff_summary": {
+                "artifact_id": res.get("diff_report_json_artifact_id"),
+                "html_artifact_id": res.get("diff_report_html_artifact_id"),
+                "changed_hosts_count": res.get("diff_changed_hosts_count", 0),
+                "changed_hosts": res.get("diff_changed_hosts", []),
+            },
         }
         bmeta = self.artifacts.put_json(
             kind="lan_bundle",

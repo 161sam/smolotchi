@@ -664,6 +664,9 @@ class PlanRunner:
                 diff["cur_host_summary_id"] = smeta.id
                 diff["ts_prev"] = float(prev.get("ts", 0) or 0)
                 diff["ts_cur"] = float(cur.get("ts", 0) or 0)
+                diff_changed_hosts = diff.get("changed_hosts", [])
+                result["diff_changed_hosts"] = diff_changed_hosts
+                result["diff_changed_hosts_count"] = len(diff_changed_hosts)
 
                 diff_html_meta = self.artifacts.put_file(
                     kind="lan_diff",

@@ -32,29 +32,42 @@ def diff_markdown(diff: Dict[str, Any]) -> str:
         for host in diff["hosts_removed"]:
             lines.append(f"- {host}")
         lines.append("")
-    lines.append("## Changes")
-    for change in diff.get("changes", []):
-        if change["type"] == "ports":
+    ch_hosts = diff.get("changed_hosts") or []
+    if ch_hosts:
+        lines.append("## Changed hosts")
+        for host in ch_hosts:
+            lines.append(f"- {host}")
+        lines.append("")
+    else:
+        lines.append("## Changed hosts")
+        lines.append("_No changes detected._")
+        lines.append("")
+
+    per = diff.get("per_host") or {}
+    for host in ch_hosts:
+        hdiff = per.get(host) or {}
+        lines.append(f"### {host}")
+        if hdiff.get("ports"):
             lines.append(
-                f"- **{change['host']}** ports: `{change['prev']}` → `{change['cur']}`"
+                f"- ports: `{hdiff['ports']['prev']}` → `{hdiff['ports']['cur']}`"
             )
-        elif change["type"] == "fingerprints":
+        if hdiff.get("fingerprints"):
             parts = [
                 f"{key}: {value['prev']}→{value['cur']}"
-                for key, value in (change.get("changes") or {}).items()
+                for key, value in (hdiff.get("fingerprints") or {}).items()
             ]
-            lines.append(f"- **{change['host']}** fp: " + ", ".join(parts))
-        elif change["type"] == "severity_counts":
+            lines.append("- fp: " + ", ".join(parts))
+        if hdiff.get("severity_counts"):
+            sc = hdiff["severity_counts"]
             lines.append(
-                f"- **{change['host']}** severity: {change['prev_highest']}→{change['cur_highest']} "
-                f"(C {change['prev']['critical']}→{change['cur']['critical']}, "
-                f"H {change['prev']['high']}→{change['cur']['high']}, "
-                f"M {change['prev']['medium']}→{change['cur']['medium']}, "
-                f"L {change['prev']['low']}→{change['cur']['low']}, "
-                f"I {change['prev']['info']}→{change['cur']['info']})"
+                f"- severity: {sc['prev_highest']}→{sc['cur_highest']} "
+                f"(C {sc['prev']['critical']}→{sc['cur']['critical']}, "
+                f"H {sc['prev']['high']}→{sc['cur']['high']}, "
+                f"M {sc['prev']['medium']}→{sc['cur']['medium']}, "
+                f"L {sc['prev']['low']}→{sc['cur']['low']}, "
+                f"I {sc['prev']['info']}→{sc['cur']['info']})"
             )
-    if not diff.get("changes"):
-        lines.append("_No changes detected._")
+        lines.append("")
     lines.append("")
     return "\n".join(lines)
 
