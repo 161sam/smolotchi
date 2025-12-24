@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block page_title %}Result Details{% endblock %}
+{% block page_sub %}Job {{ job_id or "unknown" }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="btn-row">
+    {% if report_id %}
+      <a class="btn primary" href="{{ url_for('report_view', artifact_id=report_id) }}">Open report (HTML)</a>
+      <a class="btn" href="{{ url_for('artifact_file_download', artifact_id=report_id) }}">Download report</a>
+    {% else %}
+      <span class="small">No report available.</span>
+    {% endif %}
+
+    {% if result_json_id %}
+      <a class="btn primary" href="{{ url_for('artifact_view', artifact_id=result_json_id) }}">View result JSON</a>
+      <a class="btn" href="{{ url_for('artifact_download', artifact_id=result_json_id) }}">Download result JSON</a>
+    {% else %}
+      <span class="small">No result JSON found.</span>
+    {% endif %}
+
+    {% if bundle_id %}
+      <a class="btn" href="{{ url_for('artifact_download', artifact_id=bundle_id) }}">Download bundle JSON</a>
+    {% endif %}
+  </div>
+
+  <div class="hr"></div>
+
+  <div data-tabs data-tabs-key="result-details-tabs" data-default-tab="meta">
+    <div class="tabs">
+      <button class="tab-btn" type="button" data-tab="meta">Meta</button>
+      <button class="tab-btn" type="button" data-tab="json">Result JSON</button>
+      <button class="tab-btn" type="button" data-tab="bundle">Bundle</button>
+      <button class="tab-btn" type="button" data-tab="events">Events</button>
+    </div>
+
+    <div data-pane="meta">
+      <div class="small">Job ID</div>
+      <div class="codebox" id="job_id_box">{{ job_id }}</div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn" type="button" data-copy="job_id_box">Copy</button>
+        {% if job_id %}
+          <a class="btn" href="{{ url_for('lan_jobs') }}">Jobs</a>
+          <a class="btn" href="{{ url_for('lan_results') }}">Results</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div data-pane="json">
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn" type="button" data-copy="result_json_box">Copy</button>
+        {% if result_json_id %}
+          <a class="btn" href="{{ url_for('artifact_download', artifact_id=result_json_id) }}">Download</a>
+        {% endif %}
+      </div>
+      <div class="codebox" id="result_json_box">{{ result_pretty }}</div>
+    </div>
+
+    <div data-pane="bundle">
+      {% if bundle_pretty %}
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn" type="button" data-copy="bundle_box">Copy</button>
+          {% if bundle_id %}
+            <a class="btn" href="{{ url_for('artifact_download', artifact_id=bundle_id) }}">Download</a>
+          {% endif %}
+        </div>
+        <div class="codebox" id="bundle_box">{{ bundle_pretty }}</div>
+      {% else %}
+        <div class="small">No bundle for this job (fallback mode).</div>
+      {% endif %}
+    </div>
+
+    <div data-pane="events">
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn" type="button" data-collapse="#evt_list">Hide</button>
+      </div>
+      <div id="evt_list" class="events">
+        {% for e in events %}
+          <div class="evt">
+            <div class="evt-top">{{ e.topic }}</div>
+            <pre>{{ e.payload }}</pre>
+          </div>
+        {% else %}
+          <div class="muted">No matching events.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
