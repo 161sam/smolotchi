@@ -74,6 +74,8 @@
             <th style="padding:0 10px">SSID</th>
             <th style="padding:0 10px">BSSID</th>
             <th style="padding:0 10px">Signal</th>
+            <th style="padding:0 10px">Seen</th>
+            <th style="padding:0 10px">Best</th>
             <th style="padding:0 10px">Security</th>
             <th style="padding:0 10px">Freq</th>
             <th style="padding:0 10px">Action</th>
@@ -89,6 +91,8 @@
               </td>
               <td style="padding:10px" class="muted">{{ a.bssid }}</td>
               <td style="padding:10px">{{ a.signal }} dBm</td>
+              <td style="padding:10px">{{ a._seen_count or 0 }}</td>
+              <td style="padding:10px">{{ a._strongest if a._strongest is not none else "—" }}</td>
               <td style="padding:10px">{{ a.sec or "unknown" }}</td>
               <td style="padding:10px">{{ a.freq or "" }}</td>
               <td style="padding:10px">
@@ -110,6 +114,12 @@
       </table>
     </div>
     <div class="muted" style="margin-top:10px">Tip: Add credentials in config (wifi.credentials).</div>
+    {% if targets_id %}
+      <div class="muted" style="margin-top:10px">
+        Target memory: <a class="pill" href="{{ url_for('artifact_view', artifact_id=targets_id) }}">Open</a>
+        <a class="pill" href="{{ url_for('artifact_download', artifact_id=targets_id) }}">Download</a>
+      </div>
+    {% endif %}
   {% else %}
     <div class="muted">No scan data yet. Wait for the next scan tick.</div>
   {% endif %}
@@ -148,6 +158,9 @@
         <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
           <a class="pill" href="{{ url_for('artifact_view', artifact_id=s.id) }}">Open JSON</a>
           <a class="pill" href="{{ url_for('artifact_download', artifact_id=s.id) }}">Download</a>
+          {% if s.report_id %}
+            <a class="pill" href="{{ url_for('report_view', artifact_id=s.report_id) }}">Open HTML</a>
+          {% endif %}
         </div>
       </div>
     {% else %}

@@ -11,6 +11,8 @@ from smolotchi.engines.net_detect import detect_scope_for_iface
 from smolotchi.engines.net_health import health_check
 from smolotchi.engines.wifi_connect import connect_wpa_psk, disconnect_wpa
 from smolotchi.engines.wifi_scan import scan_iw
+from smolotchi.engines.wifi_targets import update_targets_state
+from smolotchi.reports.wifi_session_report import wifi_session_html
 
 
 class WifiEngine:
@@ -86,6 +88,24 @@ class WifiEngine:
             self.bus.publish(
                 "wifi.session.saved", {"id": self._session_id, "artifact_id": art.id}
             )
+            try:
+                html = wifi_session_html(payload)
+                html_id = self.artifacts.put_text(
+                    kind="wifi_session_report",
+                    title=f"wifi session report {self._session_id}",
+                    text=html,
+                    ext=".html",
+                    mime="text/html; charset=utf-8",
+                )
+                self.bus.publish(
+                    "wifi.session.report.saved",
+                    {"id": self._session_id, "artifact_id": html_id.id},
+                )
+            except Exception as ex:
+                self.bus.publish(
+                    "wifi.session.report.save_failed",
+                    {"id": self._session_id, "err": str(ex)},
+                )
         except Exception as ex:
             self.bus.publish(
                 "wifi.session.save_failed", {"id": self._session_id, "err": str(ex)}
@@ -279,6 +299,35 @@ class WifiEngine:
                     for ap in aps[:30]
                 ],
             },
+        )
+
+        try:
+            existing_id = self.artifacts.find_latest(kind="wifi_targets")
+        except Exception:
+            existing_id = None
+
+        state = {}
+        if existing_id:
+            state = self.artifacts.get_json(existing_id) or {}
+
+        aps_payload = [
+            {
+                "ssid": ap.ssid,
+                "bssid": ap.bssid,
+                "freq": ap.freq_mhz,
+                "signal": ap.signal_dbm,
+                "sec": ap.security,
+            }
+            for ap in aps[:80]
+        ]
+
+        new_state = update_targets_state(state, aps_payload)
+        tid = self.artifacts.put_json(
+            kind="wifi_targets", title="wifi targets (memory)", payload=new_state
+        )
+        self.bus.publish(
+            "wifi.targets.saved",
+            {"artifact_id": tid.id, "count": len(new_state.get("targets") or {})},
         )
 
         if not w.auto_connect:
