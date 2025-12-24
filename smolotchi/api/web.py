@@ -19,6 +19,7 @@ from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
 from smolotchi.reports.host_diff import host_diff_html, host_diff_markdown
+from smolotchi.reports.top_findings import aggregate_top_findings
 
 
 def pretty(obj) -> str:
@@ -88,15 +89,17 @@ def create_app(config_path: str = "config.toml") -> Flask:
         bundles = []
         for item in items:
             bundle = artifacts.get_json(item.id) or {}
-            bundles.append(
-                {
-                    "id": item.id,
-                    "title": item.title,
-                    "diff_summary": bundle.get("diff_summary") or {},
-                    "diff_badges": bundle.get("diff_badges") or {},
-                }
-            )
-        return render_template("lan_results.html", items=bundles)
+            bundle.setdefault("id", item.id)
+            bundle.setdefault("title", item.title)
+            bundle.setdefault("diff_summary", bundle.get("diff_summary") or {})
+            bundle.setdefault("diff_badges", bundle.get("diff_badges") or {})
+            bundles.append(bundle)
+        top_findings = aggregate_top_findings(bundles, limit=6)
+        return render_template(
+            "lan_results.html",
+            items=bundles,
+            top_findings=top_findings,
+        )
 
     def resolve_result_by_job_id(job_id: str):
         """
