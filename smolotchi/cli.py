@@ -32,9 +32,18 @@ def cmd_core(args) -> int:
     Minimaler Core-Daemon: tickt State-Machine periodisch.
     (v0.0.1 tickte im Web-Request – jetzt unabhängig)
     """
+    from smolotchi.core.engines import EngineRegistry
+    from smolotchi.engines.lan_engine import LanConfig, LanEngine
+    from smolotchi.engines.wifi_engine import WifiConfig, WifiEngine
+
     bus = SQLiteBus(db_path=args.db)
     policy = Policy(allowed_tags=args.allowed_tags)
-    core = SmolotchiCore(bus=bus, policy=policy)
+
+    reg = EngineRegistry()
+    reg.register(WifiEngine(bus, WifiConfig(enabled=True, safe_mode=True)))
+    reg.register(LanEngine(bus, LanConfig(enabled=True, safe_mode=True)))
+
+    core = SmolotchiCore(bus=bus, policy=policy, engines=reg)
 
     bus.publish("core.started", {"pid": os.getpid()})
     try:
