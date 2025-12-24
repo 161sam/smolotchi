@@ -224,6 +224,24 @@ class JobStore:
             )
             return True
 
+    def fail(self, job_id: str, note: str = "watchdog: stuck") -> bool:
+        """
+        Fail running job -> failed.
+        """
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT status FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            if not row:
+                return False
+            if row[0] != "running":
+                return False
+            con.execute(
+                "UPDATE jobs SET status='failed', note=trim(note || '\n' || ?), updated_ts=? WHERE id=?",
+                (note, time.time(), job_id),
+            )
+            return True
+
     def delete(self, job_id: str) -> bool:
         with self._conn() as con:
             cur = con.execute("DELETE FROM jobs WHERE id=?", (job_id,))

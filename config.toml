@@ -79,8 +79,11 @@ vacuum_after_prune = false
 
 [watchdog]
 enabled = true
-running_stuck_after_seconds = 180
+interval_sec = 30
+stuck_after_sec = 300
+min_runtime_sec = 60
 action = "reset"
+max_resets = 2
 
 [reports]
 enabled = true
