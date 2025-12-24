@@ -30,6 +30,8 @@ from smolotchi.actions.throttle import (
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.reports.aggregate import build_aggregate_model, build_aggregate_report
+from smolotchi.reports.diff import find_previous_host_summary, diff_host_summaries
+from smolotchi.reports.diff_export import diff_html, diff_json, diff_markdown
 from smolotchi.reports.export import build_report_json, build_report_markdown
 
 
@@ -621,6 +623,58 @@ class PlanRunner:
                 "json": rmeta_json.id,
             },
         )
+        diff_cfg = report_cfg.get("diff") if isinstance(report_cfg.get("diff"), dict) else {}
+        if diff_cfg.get("enabled", True):
+            window_s = int(diff_cfg.get("compare_window_seconds", 86400))
+            max_hosts = int(diff_cfg.get("max_hosts", 50))
+            prev_id = find_previous_host_summary(
+                self.artifacts, current_id=smeta.id, window_s=window_s
+            )
+            if prev_id:
+                prev = self.artifacts.get_json(prev_id) or {}
+                cur = self.artifacts.get_json(smeta.id) or {}
+                prev["artifact_id"] = prev_id
+                cur["artifact_id"] = smeta.id
+
+                diff = diff_host_summaries(prev, cur, max_hosts=max_hosts)
+                diff["prev_host_summary_id"] = prev_id
+                diff["cur_host_summary_id"] = smeta.id
+                diff["ts_prev"] = float(prev.get("ts", 0) or 0)
+                diff["ts_cur"] = float(cur.get("ts", 0) or 0)
+
+                diff_html_meta = self.artifacts.put_file(
+                    kind="lan_diff",
+                    title=f"Host Diff • {plan.get('id')}",
+                    filename="diff.html",
+                    content=diff_html(diff).encode("utf-8"),
+                    mimetype="text/html; charset=utf-8",
+                )
+                diff_md_meta = self.artifacts.put_file(
+                    kind="lan_diff_md",
+                    title=f"Host Diff (MD) • {plan.get('id')}",
+                    filename="diff.md",
+                    content=diff_markdown(diff).encode("utf-8"),
+                    mimetype="text/markdown; charset=utf-8",
+                )
+                diff_json_meta = self.artifacts.put_file(
+                    kind="lan_diff_json",
+                    title=f"Host Diff (JSON) • {plan.get('id')}",
+                    filename="diff.json",
+                    content=diff_json(diff),
+                    mimetype="application/json; charset=utf-8",
+                )
+                self.bus.publish(
+                    "report.diff.created",
+                    {
+                        "plan_id": plan.get("id"),
+                        "html": diff_html_meta.id,
+                        "md": diff_md_meta.id,
+                        "json": diff_json_meta.id,
+                    },
+                )
+                result["diff_report_html_artifact_id"] = diff_html_meta.id
+                result["diff_report_md_artifact_id"] = diff_md_meta.id
+                result["diff_report_json_artifact_id"] = diff_json_meta.id
         self.bus.publish(
             "plan.finished",
             {"id": plan.get("id"), "artifact_id": meta.id, "ok": all(s["ok"] for s in out_steps)},

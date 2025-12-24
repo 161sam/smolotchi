@@ -6,6 +6,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.reports.filtering import filter_findings_scripts
 from smolotchi.reports.nmap_classify import classify_scripts
 from smolotchi.reports.nmap_findings import parse_nmap_xml_findings
+from smolotchi.reports.normalize import apply_normalization
 
 
 def extract_findings_for_host_from_action_run(
@@ -31,13 +32,25 @@ def build_host_findings(
     """
     Returns: { host: { ports:[...], scripts:[...], sources:[{action_id,artifact_id}] } }
     """
-    enabled = bool(cfg.get("enabled", True))
-    max_lines = int(cfg.get("max_output_lines", 6))
-    max_chars = int(cfg.get("max_output_chars", 600))
-    allowlist = cfg.get("allowlist", []) or []
-    denylist = cfg.get("denylist", []) or []
-    deny_contains = cfg.get("deny_contains", []) or []
-    max_per_host = int(cfg.get("max_findings_per_host", 12))
+    report_cfg = cfg or {}
+    findings_cfg = (
+        report_cfg.get("findings")
+        if isinstance(report_cfg.get("findings"), dict)
+        else report_cfg
+    )
+    normalize_cfg = (
+        report_cfg.get("normalize")
+        if isinstance(report_cfg.get("normalize"), dict)
+        else {}
+    )
+
+    enabled = bool(findings_cfg.get("enabled", True))
+    max_lines = int(findings_cfg.get("max_output_lines", 6))
+    max_chars = int(findings_cfg.get("max_output_chars", 600))
+    allowlist = findings_cfg.get("allowlist", []) or []
+    denylist = findings_cfg.get("denylist", []) or []
+    deny_contains = findings_cfg.get("deny_contains", []) or []
+    max_per_host = int(findings_cfg.get("max_findings_per_host", 12))
 
     hosts = host_summary.get("hosts") or {}
     refs = host_summary.get("artifacts") or []
@@ -79,14 +92,13 @@ def build_host_findings(
             ports = parsed.get("ports") or []
             if enabled:
                 parsed_scripts = classify_scripts(parsed.get("scripts") or [])
-                scripts.extend(
-                    filter_findings_scripts(
-                        parsed_scripts,
-                        allowlist=allowlist,
-                        denylist=denylist,
-                        deny_contains=deny_contains,
-                    )
+                filtered_scripts = filter_findings_scripts(
+                    parsed_scripts,
+                    allowlist=allowlist,
+                    denylist=denylist,
+                    deny_contains=deny_contains,
                 )
+                scripts.extend(apply_normalization(filtered_scripts, normalize_cfg))
 
         for action_id, art_id in items:
             if not action_id.startswith("vuln."):
@@ -96,14 +108,13 @@ def build_host_findings(
             )
             if enabled:
                 parsed_scripts = classify_scripts(parsed.get("scripts") or [])
-                scripts.extend(
-                    filter_findings_scripts(
-                        parsed_scripts,
-                        allowlist=allowlist,
-                        denylist=denylist,
-                        deny_contains=deny_contains,
-                    )
+                filtered_scripts = filter_findings_scripts(
+                    parsed_scripts,
+                    allowlist=allowlist,
+                    denylist=denylist,
+                    deny_contains=deny_contains,
                 )
+                scripts.extend(apply_normalization(filtered_scripts, normalize_cfg))
 
         seen = set()
         deduped = []

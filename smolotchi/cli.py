@@ -148,13 +148,25 @@ def cmd_core(args) -> int:
                 "invalidate_on_port_change": cfg.invalidation.invalidate_on_port_change,
             },
             report_cfg={
-                "enabled": cfg.report_findings.enabled,
-                "allowlist": cfg.report_findings.allowlist,
-                "denylist": cfg.report_findings.denylist,
-                "deny_contains": cfg.report_findings.deny_contains,
-                "max_findings_per_host": cfg.report_findings.max_findings_per_host,
-                "max_output_chars": cfg.report_findings.max_output_chars,
-                "max_output_lines": cfg.report_findings.max_output_lines,
+                "findings": {
+                    "enabled": cfg.report_findings.enabled,
+                    "allowlist": cfg.report_findings.allowlist,
+                    "denylist": cfg.report_findings.denylist,
+                    "deny_contains": cfg.report_findings.deny_contains,
+                    "max_findings_per_host": cfg.report_findings.max_findings_per_host,
+                    "max_output_chars": cfg.report_findings.max_output_chars,
+                    "max_output_lines": cfg.report_findings.max_output_lines,
+                },
+                "normalize": {
+                    "enabled": cfg.report_normalize.enabled,
+                    "force_severity": cfg.report_normalize.force_severity,
+                    "force_tag": cfg.report_normalize.force_tag,
+                },
+                "diff": {
+                    "enabled": cfg.report_diff.enabled,
+                    "compare_window_seconds": cfg.report_diff.compare_window_seconds,
+                    "max_hosts": cfg.report_diff.max_hosts,
+                },
             },
         )
     )
@@ -216,13 +228,25 @@ def cmd_core(args) -> int:
                     "invalidate_on_port_change": new_cfg.invalidation.invalidate_on_port_change,
                 }
                 lan.report_cfg = {
-                    "enabled": new_cfg.report_findings.enabled,
-                    "allowlist": new_cfg.report_findings.allowlist,
-                    "denylist": new_cfg.report_findings.denylist,
-                    "deny_contains": new_cfg.report_findings.deny_contains,
-                    "max_findings_per_host": new_cfg.report_findings.max_findings_per_host,
-                    "max_output_chars": new_cfg.report_findings.max_output_chars,
-                    "max_output_lines": new_cfg.report_findings.max_output_lines,
+                    "findings": {
+                        "enabled": new_cfg.report_findings.enabled,
+                        "allowlist": new_cfg.report_findings.allowlist,
+                        "denylist": new_cfg.report_findings.denylist,
+                        "deny_contains": new_cfg.report_findings.deny_contains,
+                        "max_findings_per_host": new_cfg.report_findings.max_findings_per_host,
+                        "max_output_chars": new_cfg.report_findings.max_output_chars,
+                        "max_output_lines": new_cfg.report_findings.max_output_lines,
+                    },
+                    "normalize": {
+                        "enabled": new_cfg.report_normalize.enabled,
+                        "force_severity": new_cfg.report_normalize.force_severity,
+                        "force_tag": new_cfg.report_normalize.force_tag,
+                    },
+                    "diff": {
+                        "enabled": new_cfg.report_diff.enabled,
+                        "compare_window_seconds": new_cfg.report_diff.compare_window_seconds,
+                        "max_hosts": new_cfg.report_diff.max_hosts,
+                    },
                 }
             if not hasattr(cmd_core, "_last_prune"):
                 cmd_core._last_prune = 0.0  # type: ignore[attr-defined]
