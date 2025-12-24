@@ -36,18 +36,18 @@ class AIPlanner:
         self.bus = bus
         self.registry = registry
 
-    def generate(self, scope: str, mode: PlanMode, note: str = "") -> ActionPlan:
+    def generate(
+        self,
+        scope: str,
+        mode: PlanMode,
+        note: str = "",
+        include_vuln_assess: bool = True,
+    ) -> ActionPlan:
         pid = f"plan-{int(time.time())}"
         steps: List[PlanStep] = []
 
         if self.registry.get("net.host_discovery"):
             steps.append(PlanStep("net.host_discovery", {"scope": scope}))
-
-        if self.registry.get("net.port_scan"):
-            steps.append(PlanStep("net.port_scan", {"target": scope}))
-
-        if self.registry.get("vuln.assess_basic"):
-            steps.append(PlanStep("vuln.assess_basic", {"target": scope}))
 
         plan = ActionPlan(
             id=pid,
@@ -64,6 +64,8 @@ class AIPlanner:
                 "mode": plan.mode,
                 "scope": plan.scope,
                 "steps": [s.action_id for s in steps],
+                "expand_hosts": True,
+                "include_vuln_assess": include_vuln_assess,
             },
         )
         return plan

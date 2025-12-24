@@ -107,6 +107,9 @@ def cmd_core(args) -> int:
             registry=actions,
             planner=planner,
             plan_runner=plan_runner,
+            ai_max_hosts=cfg.ai.max_hosts_per_plan,
+            ai_max_steps=cfg.ai.max_steps,
+            ai_include_vuln=cfg.ai.autonomous_include_vuln_assess,
         )
     )
 
@@ -126,6 +129,9 @@ def cmd_core(args) -> int:
                 lan.cfg.enabled = new_cfg.lan.enabled
                 lan.cfg.safe_mode = new_cfg.lan.safe_mode
                 lan.cfg.max_jobs_per_tick = new_cfg.lan.max_jobs_per_tick
+                lan.ai_max_hosts = new_cfg.ai.max_hosts_per_plan
+                lan.ai_max_steps = new_cfg.ai.max_steps
+                lan.ai_include_vuln = new_cfg.ai.autonomous_include_vuln_assess
             if not hasattr(cmd_core, "_last_prune"):
                 cmd_core._last_prune = 0.0  # type: ignore[attr-defined]
             if not hasattr(cmd_core, "_last_wd"):
