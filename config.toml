@@ -4,6 +4,10 @@ default_state = "WIFI_OBSERVE"
 
 [policy]
 allowed_tags = ["lab-approved"]
+allowed_scopes = ["10.0.0.0/8", "192.168.0.0/16"]
+allowed_tools = ["nmap", "ip", "arp", "ping"]
+block_categories = ["system_attack", "file_steal"]
+autonomous_categories = ["network_scan", "vuln_assess"]
 
 [wifi]
 enabled = true

@@ -29,6 +29,16 @@ class CoreCfg:
 @dataclass
 class PolicyCfg:
     allowed_tags: List[str] = field(default_factory=lambda: ["lab-approved"])
+    allowed_scopes: List[str] = field(
+        default_factory=lambda: ["10.0.0.0/8", "192.168.0.0/16"]
+    )
+    allowed_tools: List[str] = field(default_factory=lambda: ["nmap", "ip", "arp", "ping"])
+    block_categories: List[str] = field(
+        default_factory=lambda: ["system_attack", "file_steal"]
+    )
+    autonomous_categories: List[str] = field(
+        default_factory=lambda: ["network_scan", "vuln_assess"]
+    )
 
 
 @dataclass
@@ -121,6 +131,18 @@ class ConfigStore:
             ),
             policy=PolicyCfg(
                 allowed_tags=list(policy.get("allowed_tags", ["lab-approved"])),
+                allowed_scopes=list(
+                    policy.get("allowed_scopes", ["10.0.0.0/8", "192.168.0.0/16"])
+                ),
+                allowed_tools=list(
+                    policy.get("allowed_tools", ["nmap", "ip", "arp", "ping"])
+                ),
+                block_categories=list(
+                    policy.get("block_categories", ["system_attack", "file_steal"])
+                ),
+                autonomous_categories=list(
+                    policy.get("autonomous_categories", ["network_scan", "vuln_assess"])
+                ),
             ),
             wifi=WifiCfg(
                 enabled=bool(wifi.get("enabled", True)),

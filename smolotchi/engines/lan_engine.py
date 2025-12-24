@@ -26,12 +26,18 @@ class LanEngine:
         artifacts: ArtifactStore,
         jobs: JobStore,
         report_renderer: Optional[ReportRenderer] = None,
+        registry=None,
+        planner=None,
+        plan_runner=None,
     ):
         self.bus = bus
         self.cfg = cfg
         self.artifacts = artifacts
         self.jobs = jobs
         self.report_renderer = report_renderer
+        self.registry = registry
+        self.planner = planner
+        self.plan_runner = plan_runner
         self._running = False
         self._active: Optional[JobRow] = None
 
@@ -53,6 +59,58 @@ class LanEngine:
                 "scope": job_dict["scope"],
                 "note": job_dict.get("note", ""),
             },
+        )
+
+    def generate_plan(self, scope: str, note: str = "") -> None:
+        if not self.planner:
+            self.bus.publish("ai.plan.error", {"reason": "planner_missing"})
+            return
+        plan = self.planner.generate(scope=scope, mode="autonomous_safe", note=note)
+        payload = {
+            "id": plan.id,
+            "created_ts": plan.created_ts,
+            "mode": plan.mode,
+            "scope": plan.scope,
+            "steps": [{"action_id": s.action_id, "payload": s.payload} for s in plan.steps],
+            "note": plan.note,
+        }
+        meta = self.artifacts.put_json(
+            kind="ai_plan",
+            title=f"AI Plan • {plan.id}",
+            payload=payload,
+        )
+        self.bus.publish("ai.plan.stored", {"plan_id": plan.id, "artifact_id": meta.id})
+
+    def run_latest_plan_autonomous(self) -> None:
+        if not self.plan_runner:
+            self.bus.publish("ai.plan.error", {"reason": "plan_runner_missing"})
+            return
+        plans = self.artifacts.list(limit=50, kind="ai_plan")
+        if not plans:
+            self.bus.publish("ai.plan.missing", {})
+            return
+        plan_id = plans[0].id
+        plan = self.artifacts.get_json(plan_id)
+        if not plan:
+            self.bus.publish("ai.plan.missing", {"artifact_id": plan_id})
+            return
+        res = self.plan_runner.run(plan, mode="autonomous")
+        bundle = {
+            "job_id": f"ai-{plan.get('id')}",
+            "kind": "ai_autonomous_safe",
+            "scope": plan.get("scope"),
+            "created_ts": time.time(),
+            "plan_artifact_id": plan_id,
+            "plan_run_artifact_id": res.get("artifact_id"),
+        }
+        bmeta = self.artifacts.put_json(
+            kind="lan_bundle",
+            title=f"Bundle • {bundle['job_id']}",
+            payload=bundle,
+        )
+        self.bus.publish(
+            "ai.autonomous.finished",
+            {"bundle_id": bmeta.id, "plan_run_artifact_id": res.get("artifact_id")},
         )
 
     def tick(self) -> None:

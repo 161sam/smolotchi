@@ -1,0 +1,62 @@
+actions:
+  - id: net.host_discovery
+    name: Host Discovery
+    category: network_scan
+    description: Identify live hosts in scope
+    driver: command
+    command: ["nmap", "-sn", "{scope}"]
+    timeout_s: 120
+    risk: safe
+    allow_autonomous: true
+    inputs_schema:
+      scope: {type: string, required: true}
+
+  - id: net.port_scan
+    name: Port Scan
+    category: network_scan
+    description: TCP port scan + service detection (read-only)
+    driver: command
+    command: ["nmap", "-sV", "-Pn", "{target}"]
+    timeout_s: 300
+    risk: caution
+    allow_autonomous: true
+    inputs_schema:
+      target: {type: string, required: true}
+
+  - id: vuln.assess_basic
+    name: Vulnerability Assessment (basic)
+    category: vuln_assess
+    description: Non-exploitative NSE/metadata assessment
+    driver: command
+    command: ["nmap", "--script", "vuln", "-sV", "-Pn", "{target}"]
+    timeout_s: 600
+    risk: caution
+    allow_autonomous: false
+    requires_confirmation: true
+    inputs_schema:
+      target: {type: string, required: true}
+
+  - id: attack.bruteforce_ssh
+    name: Brute Force SSH
+    category: system_attack
+    description: Stub slot for bjorn-like attack action
+    driver: external_stub
+    risk: danger
+    requires_confirmation: true
+    allow_autonomous: false
+    inputs_schema:
+      target: {type: string, required: true}
+      username: {type: string, required: false}
+      wordlist: {type: string, required: false}
+
+  - id: steal.files_smb
+    name: File Stealing SMB
+    category: file_steal
+    description: Stub slot for bjorn-like exfil action
+    driver: external_stub
+    risk: danger
+    requires_confirmation: true
+    allow_autonomous: false
+    inputs_schema:
+      target: {type: string, required: true}
+      share: {type: string, required: false}

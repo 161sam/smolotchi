@@ -10,6 +10,7 @@ dependencies = [
     "flask>=2.3",
     "jinja2>=3.1",
     "pillow>=10.0",
+    "pyyaml>=6.0",
     "tomli; python_version < '3.11'",
 ]
 
@@ -18,4 +19,4 @@ smolotchi = "smolotchi.cli:main"
 smo = "smolotchi.cli:main"
 
 [tool.setuptools]
-packages = ["smolotchi"]
+packages = { find = { include = ["smolotchi*"] } }
