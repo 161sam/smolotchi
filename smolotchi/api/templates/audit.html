@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block page_title %}Audit{% endblock %}
+{% block page_sub %}Everything in one place (later: audit.* only){% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="events">
+    {% for e in events %}
+      <div class="evt">
+        <div class="evt-top">{{ e.topic }}</div>
+        <pre>{{ e.payload }}</pre>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

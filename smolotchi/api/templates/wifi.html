@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block page_title %}WiFi{% endblock %}
+{% block page_sub %}Telemetry & WiFi engine events (placeholder v0.0.2){% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="muted">Hier landen später wifi.* Events aus deiner WiFi-Engine.</div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">wifi.* events</h3>
+  <div class="events">
+    {% for e in events %}
+      <div class="evt">
+        <div class="evt-top">{{ e.topic }}</div>
+        <pre>{{ e.payload }}</pre>
+      </div>
+    {% else %}
+      <div class="muted">Keine wifi.* Events vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

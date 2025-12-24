@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block page_title %}LAN{% endblock %}
+{% block page_sub %}Jobs, Results & Reports (placeholder v0.0.2){% endblock %}
+
+{% block content %}
+<section class="card">
+  <form method="post" action="/lan_done" class="row">
+    <button type="submit">LAN done → WIFI_OBSERVE</button>
+    <span class="muted">später: Job Queue + Reports</span>
+  </form>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">lan.* events</h3>
+  <div class="events">
+    {% for e in events %}
+      <div class="evt">
+        <div class="evt-top">{{ e.topic }}</div>
+        <pre>{{ e.payload }}</pre>
+      </div>
+    {% else %}
+      <div class="muted">Keine lan.* Events vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

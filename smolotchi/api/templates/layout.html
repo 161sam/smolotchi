@@ -1,19 +1,63 @@
 <!doctype html>
-<html>
+<html lang="de">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Smolotchi</title>
+  <title>{% block title %}Smolotchi{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
 <body>
-  <div class="wrap">
-    <header class="topbar">
-      <div class="brand">Smolotchi</div>
-      <div class="sub">Pi Zero 2 W • Flask/Jinja • v0.0.1</div>
-    </header>
-    <main>
-      {% block content %}{% endblock %}
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          {% include "partials/icon.html" with context %}
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">Smolotchi</div>
+          <div class="brand-sub">Pi Zero 2 W • Flask</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a class="nav-item {{ nav_active('dashboard') }}" href="{{ url_for('dashboard') }}">
+          {% set icon='dashboard' %}{% include "partials/icon.html" %}
+          <span>Dashboard</span>
+        </a>
+        <a class="nav-item {{ nav_active('wifi') }}" href="{{ url_for('wifi') }}">
+          {% set icon='wifi' %}{% include "partials/icon.html" %}
+          <span>WiFi</span>
+        </a>
+        <a class="nav-item {{ nav_active('lan') }}" href="{{ url_for('lan') }}">
+          {% set icon='lan' %}{% include "partials/icon.html" %}
+          <span>LAN</span>
+        </a>
+        <a class="nav-item {{ nav_active('config') }}" href="{{ url_for('config') }}">
+          {% set icon='settings' %}{% include "partials/icon.html" %}
+          <span>Config</span>
+        </a>
+        <a class="nav-item {{ nav_active('audit') }}" href="{{ url_for('audit') }}">
+          {% set icon='shield' %}{% include "partials/icon.html" %}
+          <span>Audit</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="pill">v0.0.2</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title">{% block page_title %}Smolotchi{% endblock %}</h1>
+          <div class="page-sub">{% block page_sub %}{% endblock %}</div>
+        </div>
+      </header>
+
+      <div class="content">
+        {% block content %}{% endblock %}
+      </div>
     </main>
   </div>
 </body>
