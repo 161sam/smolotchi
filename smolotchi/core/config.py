@@ -52,6 +52,8 @@ class LanCfg:
     enabled: bool = True
     safe_mode: bool = True
     max_jobs_per_tick: int = 1
+    noisy_scripts: List[str] = field(default_factory=list)
+    allowlist_scripts: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -297,6 +299,8 @@ class ConfigStore:
                 enabled=bool(lan.get("enabled", True)),
                 safe_mode=bool(lan.get("safe_mode", True)),
                 max_jobs_per_tick=int(lan.get("max_jobs_per_tick", 1)),
+                noisy_scripts=list(lan.get("noisy_scripts", [])),
+                allowlist_scripts=list(lan.get("allowlist_scripts", [])),
             ),
             ai=ai_cfg,
             ui=UiCfg(

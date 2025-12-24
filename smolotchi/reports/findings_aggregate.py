@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from smolotchi.core.artifacts import ArtifactStore
-from smolotchi.reports.filtering import filter_findings_scripts
+from smolotchi.reports.filtering import apply_policy_suppression, filter_findings_scripts
 from smolotchi.reports.nmap_classify import classify_scripts
 from smolotchi.reports.nmap_findings import parse_nmap_xml_findings
 from smolotchi.reports.normalize import apply_normalization
@@ -115,6 +115,8 @@ def build_host_findings(
                     deny_contains=deny_contains,
                 )
                 scripts.extend(apply_normalization(filtered_scripts, normalize_cfg))
+
+        scripts = apply_policy_suppression(scripts, cfg)
 
         seen = set()
         deduped = []

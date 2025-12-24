@@ -106,6 +106,8 @@ def cmd_core(args) -> int:
                 enabled=cfg.lan.enabled,
                 safe_mode=cfg.lan.safe_mode,
                 max_jobs_per_tick=cfg.lan.max_jobs_per_tick,
+                noisy_scripts=cfg.lan.noisy_scripts,
+                allowlist_scripts=cfg.lan.allowlist_scripts,
             ),
             artifacts=artifacts,
             jobs=jobs,
@@ -154,6 +156,10 @@ def cmd_core(args) -> int:
                 "invalidate_on_port_change": cfg.invalidation.invalidate_on_port_change,
             },
             report_cfg={
+                "lan": {
+                    "noisy_scripts": cfg.lan.noisy_scripts,
+                    "allowlist_scripts": cfg.lan.allowlist_scripts,
+                },
                 "findings": {
                     "enabled": cfg.report_findings.enabled,
                     "allowlist": cfg.report_findings.allowlist,
