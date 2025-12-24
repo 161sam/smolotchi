@@ -1,8 +1,9 @@
 import time
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, abort, redirect, render_template, request, url_for
 
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
+from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 
@@ -12,6 +13,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
     bus = SQLiteBus()
     store = ConfigStore(config_path)
     store.load()
+    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
 
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
@@ -54,6 +56,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def lan():
         events = bus.tail(limit=80, topic_prefix="lan.")
         return render_template("lan.html", events=events)
+
+    @app.get("/lan/results")
+    def lan_results():
+        items = artifacts.list(limit=50, kind="lan_result")
+        return render_template("lan_results.html", items=items)
+
+    @app.get("/artifact/<artifact_id>")
+    def artifact_view(artifact_id: str):
+        data = artifacts.get_json(artifact_id)
+        if data is None:
+            abort(404)
+        return render_template("artifact.html", artifact_id=artifact_id, data=data)
 
     @app.get("/config")
     def config():

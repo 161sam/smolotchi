@@ -40,6 +40,8 @@ def cmd_core(args) -> int:
     """
     from smolotchi.core.engines import EngineRegistry
     from smolotchi.core.config import ConfigStore
+    from smolotchi.core.artifacts import ArtifactStore
+    from smolotchi.core.resources import ResourceManager
     from smolotchi.engines.lan_engine import LanConfig, LanEngine
     from smolotchi.engines.wifi_engine import WifiConfig, WifiEngine
 
@@ -51,6 +53,9 @@ def cmd_core(args) -> int:
     if args.allowed_tags:
         allowed_tags = args.allowed_tags
     policy = Policy(allowed_tags=allowed_tags)
+
+    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    resources = ResourceManager("/run/smolotchi/locks")
 
     reg = EngineRegistry()
     reg.register(
@@ -70,10 +75,11 @@ def cmd_core(args) -> int:
                 safe_mode=cfg.lan.safe_mode,
                 max_jobs_per_tick=cfg.lan.max_jobs_per_tick,
             ),
+            artifacts=artifacts,
         )
     )
 
-    core = SmolotchiCore(bus=bus, policy=policy, engines=reg)
+    core = SmolotchiCore(bus=bus, policy=policy, engines=reg, resources=resources)
     core.set_state(cfg.core.default_state, "default from config")
 
     bus.publish("core.started", {"pid": os.getpid(), "config": args.config})

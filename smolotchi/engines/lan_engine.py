@@ -3,6 +3,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Deque, Optional
 
+from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.engines import EngineHealth
 
@@ -26,9 +27,10 @@ class LanConfig:
 class LanEngine:
     name = "lan"
 
-    def __init__(self, bus: SQLiteBus, cfg: LanConfig):
+    def __init__(self, bus: SQLiteBus, cfg: LanConfig, artifacts: ArtifactStore):
         self.bus = bus
         self.cfg = cfg
+        self.artifacts = artifacts
         self._running = False
         self._q: Deque[LanJob] = deque()
         self._active: Optional[LanJob] = None
@@ -64,10 +66,34 @@ class LanEngine:
             )
 
         if self._active is not None:
+            result = {
+                "job": {
+                    "id": self._active.id,
+                    "kind": self._active.kind,
+                    "scope": self._active.scope,
+                    "note": self._active.note,
+                },
+                "summary": "stub result (v0.0.5)",
+                "ts": time.time(),
+            }
+
+            meta = self.artifacts.put_json(
+                kind="lan_result",
+                title=f"LAN {self._active.kind} • {self._active.scope}",
+                payload=result,
+            )
+
             self.bus.publish("lan.job.progress", {"id": self._active.id, "pct": 100})
             self.bus.publish(
                 "lan.job.finished",
-                {"id": self._active.id, "result": {"summary": "stub"}},
+                {
+                    "id": self._active.id,
+                    "result": {
+                        "summary": "stub",
+                        "artifact_id": meta.id,
+                        "artifact_path": meta.path,
+                    },
+                },
             )
             self._active = None
 

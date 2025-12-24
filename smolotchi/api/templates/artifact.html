@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block page_title %}Artifact{% endblock %}
+{% block page_sub %}{{ artifact_id }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="row" style="justify-content:space-between">
+    <div class="muted">JSON payload</div>
+    <a href="{{ url_for('lan_results') }}" style="color:var(--accent); text-decoration:none; font-weight:900;">← Back to results</a>
+  </div>
+  <div class="evt" style="margin-top:12px">
+    <pre>{{ data }}</pre>
+  </div>
+</section>
+{% endblock %}
