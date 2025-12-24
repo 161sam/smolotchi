@@ -6,7 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "smolotchi"
 version = "0.0.1"
 requires-python = ">=3.9"
-dependencies = ["flask>=2.3", "pillow>=10.0"]
+dependencies = [
+    "flask>=2.3",
+    "pillow>=10.0",
+    "tomli; python_version < '3.11'",
+]
 
 [project.scripts]
 smolotchi = "smolotchi.cli:main"

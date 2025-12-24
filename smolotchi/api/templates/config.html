@@ -1,14 +1,31 @@
 {% extends "layout.html" %}
 {% block page_title %}Config{% endblock %}
-{% block page_sub %}Profiles, Policies, Theme (coming next){% endblock %}
+{% block page_sub %}{{ config_path }} • read-only view + reload{% endblock %}
 
 {% block content %}
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Next</h3>
-  <ul class="muted" style="margin:0; padding-left:18px">
-    <li>config.yaml / config.toml (policy allowlist, profiles)</li>
-    <li>theme.json (tokens) + icon set</li>
-    <li>UI controls (toggle safe-mode, confirmations)</li>
-  </ul>
+  <div class="row" style="justify-content:space-between">
+    <div>
+      <div class="muted">Aktive Konfiguration</div>
+    </div>
+    <form method="post" action="/config/reload">
+      <button type="submit" class="secondary">Reload config</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">core</h3>
+  <div class="events"><div class="evt"><pre>{{ cfg.core.__dict__ }}</pre></div></div>
+  <h3 style="margin:14px 0 10px 0">policy</h3>
+  <div class="events"><div class="evt"><pre>{{ cfg.policy.__dict__ }}</pre></div></div>
+  <h3 style="margin:14px 0 10px 0">wifi</h3>
+  <div class="events"><div class="evt"><pre>{{ cfg.wifi.__dict__ }}</pre></div></div>
+  <h3 style="margin:14px 0 10px 0">lan</h3>
+  <div class="events"><div class="evt"><pre>{{ cfg.lan.__dict__ }}</pre></div></div>
+  <h3 style="margin:14px 0 10px 0">ui</h3>
+  <div class="events"><div class="evt"><pre>{{ cfg.ui.__dict__ }}</pre></div></div>
+  <h3 style="margin:14px 0 10px 0">theme</h3>
+  <div class="events"><div class="evt"><pre>{{ cfg.theme.__dict__ }}</pre></div></div>
 </section>
 {% endblock %}

@@ -2,24 +2,33 @@ import time
 
 from flask import Flask, redirect, render_template, request, url_for
 
+from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.core.bus import SQLiteBus
-from smolotchi.core.engines import EngineRegistry
-from smolotchi.core.policy import Policy
-from smolotchi.core.state import SmolotchiCore
+from smolotchi.core.config import ConfigStore
 
 
-def create_app() -> Flask:
+def create_app(config_path: str = "config.toml") -> Flask:
     app = Flask(__name__)
     bus = SQLiteBus()
-    policy = Policy(allowed_tags=["lab-approved"])
-    core = SmolotchiCore(bus=bus, policy=policy, engines=EngineRegistry())
+    store = ConfigStore(config_path)
+    store.load()
 
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
 
     @app.context_processor
     def inject_globals():
-        return {"nav_active": nav_active}
+        cfg = store.get()
+        tokens = {}
+        if cfg.theme and cfg.theme.json_path:
+            tokens = load_theme_tokens(cfg.theme.json_path)
+        theme_css = tokens_to_css_vars(tokens) if tokens else ""
+        return {
+            "nav_active": nav_active,
+            "app_cfg": cfg,
+            "config_path": config_path,
+            "theme_css": theme_css,
+        }
 
     @app.get("/")
     def dashboard():
@@ -27,7 +36,7 @@ def create_app() -> Flask:
         status_evt = next(
             (event for event in events if event.topic == "core.state.changed"), None
         )
-        health_evts = bus.tail(limit=20, topic_prefix="core.health")
+        health_evts = bus.tail(limit=10, topic_prefix="core.health")
         health_evt = health_evts[0] if health_evts else None
         return render_template(
             "dashboard.html",
@@ -43,16 +52,23 @@ def create_app() -> Flask:
 
     @app.get("/lan")
     def lan():
-        events = bus.tail(limit=50, topic_prefix="lan.")
+        events = bus.tail(limit=80, topic_prefix="lan.")
         return render_template("lan.html", events=events)
 
     @app.get("/config")
     def config():
-        return render_template("config.html")
+        cfg = store.get()
+        return render_template("config.html", cfg=cfg)
+
+    @app.post("/config/reload")
+    def config_reload():
+        store.reload()
+        bus.publish("ui.config.reloaded", {"path": config_path, "ts": time.time()})
+        return redirect(url_for("config"))
 
     @app.get("/audit")
     def audit():
-        events = bus.tail(limit=100)
+        events = bus.tail(limit=120)
         return render_template("audit.html", events=events)
 
     @app.post("/handoff")
@@ -71,7 +87,6 @@ def create_app() -> Flask:
     def lan_enqueue():
         scope = request.form.get("scope", "10.0.10.0/24")
         note = request.form.get("note", "")
-        bus.publish("lan.job.enqueued.ui", {"scope": scope, "note": note})
         bus.publish(
             "ui.lan.enqueue",
             {
