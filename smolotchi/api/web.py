@@ -89,8 +89,61 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     @app.get("/wifi")
     def wifi():
-        events = bus.tail(limit=50, topic_prefix="wifi.")
-        return render_template("wifi.html", events=events)
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        iface = getattr(w, "iface", "wlan0") if w else "wlan0"
+
+        events = bus.tail(limit=80, topic_prefix="wifi.")
+        scan_evt = next((e for e in events if e.topic == "wifi.scan"), None)
+        conn_evt = next((e for e in events if e.topic == "wifi.connect"), None)
+
+        aps = []
+        if scan_evt and scan_evt.payload:
+            aps = (scan_evt.payload.get("aps") or [])[:50]
+
+        allow = set(getattr(w, "allow_ssids", []) or []) if w else set()
+        creds = getattr(w, "credentials", None) or {}
+        auto_connect = bool(getattr(w, "auto_connect", False)) if w else False
+        preferred = (getattr(w, "preferred_ssid", "") or "").strip() if w else ""
+
+        for ap in aps:
+            ssid = (ap.get("ssid") or "").strip()
+            ap["_allowed"] = (not allow) or (ssid in allow)
+            ap["_has_cred"] = ssid in creds
+            ap["_preferred"] = bool(preferred and ssid == preferred)
+
+        return render_template(
+            "wifi.html",
+            events=events,
+            iface=iface,
+            aps=aps,
+            scan_evt=scan_evt,
+            conn_evt=conn_evt,
+            auto_connect=auto_connect,
+            preferred_ssid=preferred,
+        )
+
+    @app.post("/wifi/connect")
+    def wifi_connect():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        iface = (request.form.get("iface") or getattr(w, "iface", "wlan0")).strip()
+
+        allow = set(getattr(w, "allow_ssids", []) or [])
+        creds = getattr(w, "credentials", None) or {}
+
+        if allow and ssid not in allow:
+            abort(403)
+        if ssid not in creds:
+            abort(400)
+
+        bus.publish("ui.wifi.connect", {"iface": iface, "ssid": ssid})
+
+        return redirect(url_for("wifi"))
 
     @app.get("/lan")
     def lan():

@@ -1,23 +1,100 @@
 {% extends "layout.html" %}
 {% block page_title %}WiFi{% endblock %}
-{% block page_sub %}Telemetry & WiFi engine events (placeholder v0.0.2){% endblock %}
+{% block page_sub %}scan + connect (lab-safe){% endblock %}
 
 {% block content %}
+
 <section class="card">
-  <div class="muted">Hier landen später wifi.* Events aus deiner WiFi-Engine.</div>
+  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <div>
+      <div class="muted">Interface</div>
+      <div style="font-weight:900">{{ iface }}</div>
+    </div>
+    <div class="row" style="gap:10px; flex-wrap:wrap;">
+      <a class="pill" href="{{ url_for('config') }}">Config</a>
+      <a class="pill" href="{{ url_for('lan') }}">LAN</a>
+      <a class="pill" href="{{ url_for('audit') }}">Audit</a>
+    </div>
+  </div>
+
+  <div style="margin-top:10px" class="row" style="gap:12px; flex-wrap:wrap;">
+    <span class="pill">auto_connect: {{ "on" if auto_connect else "off" }}</span>
+    {% if preferred_ssid %}
+      <span class="pill">preferred: {{ preferred_ssid }}</span>
+    {% endif %}
+    {% if conn_evt and conn_evt.payload %}
+      <span class="pill">last connect: {{ conn_evt.payload.get("ssid") }} (ok={{ conn_evt.payload.get("ok") }})</span>
+    {% endif %}
+    {% if scan_evt and scan_evt.payload %}
+      <span class="pill">last scan: {{ scan_evt.payload.get("count") }} APs</span>
+    {% endif %}
+  </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">wifi.* events</h3>
+  <h3 style="margin:0 0 10px 0">Nearby APs</h3>
+
+  {% if aps %}
+    <div style="overflow:auto">
+      <table style="width:100%; border-collapse:separate; border-spacing:0 10px;">
+        <thead>
+          <tr class="muted" style="text-align:left">
+            <th style="padding:0 10px">SSID</th>
+            <th style="padding:0 10px">BSSID</th>
+            <th style="padding:0 10px">Signal</th>
+            <th style="padding:0 10px">Security</th>
+            <th style="padding:0 10px">Freq</th>
+            <th style="padding:0 10px">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in aps %}
+            <tr style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.10); border-radius:14px;">
+              <td style="padding:10px; font-weight:900;">
+                {{ a.ssid or "(hidden)" }}
+                {% if a._preferred %}<span class="pill">preferred</span>{% endif %}
+                {% if not a._allowed %}<span class="pill">blocked</span>{% endif %}
+              </td>
+              <td style="padding:10px" class="muted">{{ a.bssid }}</td>
+              <td style="padding:10px">{{ a.signal }} dBm</td>
+              <td style="padding:10px">{{ a.sec or "unknown" }}</td>
+              <td style="padding:10px">{{ a.freq or "" }}</td>
+              <td style="padding:10px">
+                {% if a._has_cred and a._allowed and a.ssid %}
+                  <form method="post" action="/wifi/connect" style="margin:0">
+                    <input type="hidden" name="ssid" value="{{ a.ssid }}">
+                    <input type="hidden" name="iface" value="{{ iface }}">
+                    <button class="secondary" type="submit">Connect</button>
+                  </form>
+                {% elif a.ssid and not a._has_cred %}
+                  <span class="muted">no creds</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="muted" style="margin-top:10px">Tip: Add credentials in config (wifi.credentials).</div>
+  {% else %}
+    <div class="muted">No scan data yet. Wait for the next scan tick.</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Recent WiFi events</h3>
   <div class="events">
-    {% for e in events %}
+    {% for e in events[:25] %}
       <div class="evt">
         <div class="evt-top">{{ e.topic }}</div>
         <pre>{{ e.payload }}</pre>
       </div>
     {% else %}
-      <div class="muted">Keine wifi.* Events vorhanden.</div>
+      <div class="muted">none</div>
     {% endfor %}
   </div>
 </section>
+
 {% endblock %}
