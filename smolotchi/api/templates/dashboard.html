@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="card">
+  <h2>Status</h2>
+  <div class="row">
+    <div class="pill">{{ status.state }}</div>
+    <div class="muted">seit {{ (status.since)|round(0) }}</div>
+    <div class="muted">{{ status.note }}</div>
+  </div>
+
+  <form method="post" action="/handoff" class="row">
+    <input name="tag" value="lab-approved" />
+    <input name="note" placeholder="Reason / Ticket / Lab-Case" />
+    <button type="submit">Handoff → LAN_OPS</button>
+  </form>
+
+  <form method="post" action="/lan_done" class="row">
+    <button type="submit">LAN done → WIFI_OBSERVE</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Events</h2>
+  <div class="events">
+    {% for e in events %}
+      <div class="evt">
+        <div class="evt-top">{{ e.topic }}</div>
+        <pre class="evt-body">{{ e.payload }}</pre>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
