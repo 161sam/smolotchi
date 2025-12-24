@@ -50,6 +50,9 @@ class WifiCfg:
     allow_ssids: List[str] = field(default_factory=list)
     auto_connect: bool = True
     preferred_ssid: str = ""
+    disconnect_after_lan: bool = True
+    lock_during_lan: bool = True
+    reconnect_on_failure: bool = False
     credentials: Dict[str, str] = field(default_factory=dict)
 
 
@@ -314,6 +317,9 @@ class ConfigStore:
                 allow_ssids=list(wifi.get("allow_ssids", []) or []),
                 auto_connect=bool(wifi.get("auto_connect", True)),
                 preferred_ssid=str(wifi.get("preferred_ssid", "")),
+                disconnect_after_lan=bool(wifi.get("disconnect_after_lan", True)),
+                lock_during_lan=bool(wifi.get("lock_during_lan", True)),
+                reconnect_on_failure=bool(wifi.get("reconnect_on_failure", False)),
                 credentials=dict(wifi.get("credentials", {}) or {}),
             ),
             lan=LanCfg(
