@@ -1,31 +1,41 @@
 {% extends "layout.html" %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_sub %}State, Health, Quick Actions{% endblock %}
+
 {% block content %}
 <section class="card">
-  <h2>Status</h2>
-  <div class="row">
-    <div class="pill">{{ status.state }}</div>
-    <div class="muted">seit {{ (status.since)|round(0) }}</div>
-    <div class="muted">{{ status.note }}</div>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="label">Current state</div>
+      <div class="value">{{ status_evt.payload.state if status_evt else "unknown" }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Note</div>
+      <div class="value" style="font-size:14px">{{ status_evt.payload.note if status_evt else "" }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">DB</div>
+      <div class="value" style="font-size:14px">events.db</div>
+    </div>
   </div>
+</section>
 
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Quick actions</h3>
   <form method="post" action="/handoff" class="row">
     <input name="tag" value="lab-approved" />
-    <input name="note" placeholder="Reason / Ticket / Lab-Case" />
+    <input name="note" placeholder="Reason / Ticket / Lab-Case" style="min-width:280px" />
     <button type="submit">Handoff → LAN_OPS</button>
-  </form>
-
-  <form method="post" action="/lan_done" class="row">
-    <button type="submit">LAN done → WIFI_OBSERVE</button>
   </form>
 </section>
 
 <section class="card">
-  <h2>Events</h2>
+  <h3 style="margin:0 0 10px 0">Recent events</h3>
   <div class="events">
     {% for e in events %}
       <div class="evt">
         <div class="evt-top">{{ e.topic }}</div>
-        <pre class="evt-body">{{ e.payload }}</pre>
+        <pre>{{ e.payload }}</pre>
       </div>
     {% endfor %}
   </div>

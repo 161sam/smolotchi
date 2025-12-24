@@ -10,6 +10,7 @@ dependencies = ["flask>=2.3", "pillow>=10.0"]
 
 [project.scripts]
 smolotchi = "smolotchi.cli:main"
+smo = "smolotchi.cli:main"
 
 [tool.setuptools]
 packages = ["smolotchi"]
