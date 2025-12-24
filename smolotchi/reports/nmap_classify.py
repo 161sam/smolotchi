@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from smolotchi.reports.severity import infer_severity
+
 
 def classify_scripts(scripts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     out = []
@@ -19,5 +21,15 @@ def classify_scripts(scripts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         elif sid.startswith(("rdp-",)):
             tag = "rdp"
 
-        out.append({**script, "tag": tag})
+        sev, cvss, reason = infer_severity(script.get("output") or "", script_id=sid)
+
+        out.append(
+            {
+                **script,
+                "tag": tag,
+                "severity": sev,
+                "cvss": cvss,
+                "sev_reason": reason,
+            }
+        )
     return out

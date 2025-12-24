@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from smolotchi.core.artifacts import ArtifactStore
+from smolotchi.reports.badges import summarize_host_findings
 from smolotchi.reports.findings_aggregate import build_host_findings
 
 
@@ -86,6 +87,13 @@ def build_aggregate_report(
             )
         )
 
+        host_find = findings.get(host_ip) or {}
+        hf = {
+            "ports": host_find.get("ports", []),
+            "scripts": host_find.get("scripts", []),
+        }
+        badge = summarize_host_findings(hf, top_n=3)
+
         hosts.append(
             {
                 "ip": host_ip,
@@ -93,14 +101,21 @@ def build_aggregate_report(
                 "fp_by_key": fp_by_key,
                 "open_ports": open_ports,
                 "actions": per_host_actions.get(host_ip, []),
-                "findings": {
-                    "ports": (findings.get(host_ip) or {}).get("ports", []),
-                    "scripts": (findings.get(host_ip) or {}).get("scripts", []),
-                },
+                "findings": hf,
+                "badges": badge.get("badges", []),
+                "sev_counts": badge.get("counts", {}),
+                "sev_highest": badge.get("highest", "info"),
             }
         )
 
-    hosts.sort(key=lambda x: x["ip"])
+    hosts.sort(
+        key=lambda x: (
+            -{"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}.get(
+                x.get("sev_highest", "info"), 0
+            ),
+            x["ip"],
+        )
+    )
 
     env = Environment(
         loader=FileSystemLoader("smolotchi/reports/templates"),
