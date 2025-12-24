@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import difflib
 import json
 from typing import Any, Dict
 
@@ -109,6 +110,17 @@ def host_diff_html(
         if data is None:
             return "artifact not found"
         txt = pretty_json(data)
+        if len(txt) > 120_000:
+            return txt[:120_000] + "\n\n…(truncated)…"
+        return txt
+
+    def unified_diff_text(a: str, b: str, fromfile: str, tofile: str) -> str:
+        a_lines = (a or "").splitlines(keepends=True)
+        b_lines = (b or "").splitlines(keepends=True)
+        d = difflib.unified_diff(a_lines, b_lines, fromfile=fromfile, tofile=tofile, n=3)
+        txt = "".join(d)
+        if not txt.strip():
+            return "(no differences)"
         if len(txt) > 120_000:
             return txt[:120_000] + "\n\n…(truncated)…"
         return txt
@@ -282,6 +294,30 @@ def host_diff_html(
                 "</div>"
             )
 
+            if prev_ps and cur_ps:
+                prev_txt = load_artifact_json(prev_ps)
+                cur_txt = load_artifact_json(cur_ps)
+                diff_txt = unified_diff_text(prev_txt, cur_txt, f"prev:{prev_ps}", f"cur:{cur_ps}")
+                cards.append(
+                    "<div class='card'>"
+                    "<div class='h2'>Diff • net.port_scan (Prev → Cur)</div>"
+                    f"<pre class='diff'>{esc(diff_txt)}</pre>"
+                    "</div>"
+                )
+
+            if prev_v and cur_v:
+                _, prev_vid = prev_v
+                _, cur_vid = cur_v
+                prev_vtxt = load_artifact_json(prev_vid)
+                cur_vtxt = load_artifact_json(cur_vid)
+                vdiff = unified_diff_text(prev_vtxt, cur_vtxt, f"prev:{prev_vid}", f"cur:{cur_vid}")
+                cards.append(
+                    "<div class='card'>"
+                    "<div class='h2'>Diff • vuln selection (Prev → Cur)</div>"
+                    f"<pre class='diff'>{esc(vdiff)}</pre>"
+                    "</div>"
+                )
+
     if not cards:
         cards.append("<div class='card'><div class='muted'>No details for this host.</div></div>")
 
@@ -311,6 +347,7 @@ def host_diff_html(
   .det{{margin-top:10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;background:rgba(255,255,255,.02)}}
   .sum{{cursor:pointer;padding:10px 12px;font-weight:900}}
   .json{{margin:0;padding:12px;white-space:pre-wrap;word-break:break-word;max-height:55vh;overflow:auto;background:#0f1722}}
+  .diff{{margin:0;padding:12px;white-space:pre;overflow:auto;max-height:55vh;background:#0f1722;border-radius:14px;border:1px solid rgba(255,255,255,.08)}}
   @media (max-width: 820px){{.grid2{{grid-template-columns:1fr}}}}
 </style>
 </head>
