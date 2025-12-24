@@ -97,6 +97,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             rep_id = report_html.get("artifact_id")
             diff_report = reports.get("diff") or {}
             diff_summary = bundle.get("diff_summary") or {}
+            diff_badges = bundle.get("diff_badges") or {}
             return {
                 "bundle_id": bundle_id,
                 "bundle": bundle,
@@ -110,6 +111,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 or diff_summary.get("artifact_id"),
                 "diff_changed_hosts": diff_summary.get("changed_hosts", []),
                 "diff_changed_hosts_count": diff_summary.get("changed_hosts_count"),
+                "diff_badges": diff_badges,
             }
 
         idx = artifacts.list(limit=300)
@@ -140,6 +142,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "diff_json_id": None,
             "diff_changed_hosts": [],
             "diff_changed_hosts_count": None,
+            "diff_badges": {},
         }
 
     @app.get("/lan/result/<bundle_id>")
@@ -155,6 +158,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         report_id = report.get("artifact_id")
         diff_report = reports.get("diff") or {}
         diff_summary = bundle.get("diff_summary") or {}
+        diff_badges = bundle.get("diff_badges") or {}
         resolved = {
             "bundle_id": bundle_id,
             "bundle": bundle,
@@ -168,6 +172,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             or diff_summary.get("artifact_id"),
             "diff_changed_hosts": diff_summary.get("changed_hosts", []),
             "diff_changed_hosts_count": diff_summary.get("changed_hosts_count"),
+            "diff_badges": diff_badges,
         }
         return _render_result_details(resolved, job_id=bundle.get("job_id"))
 
@@ -191,6 +196,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         diff_json_id = resolved.get("diff_json_id")
         diff_changed_hosts = resolved.get("diff_changed_hosts") or []
         diff_changed_hosts_count = resolved.get("diff_changed_hosts_count")
+        diff_badges = resolved.get("diff_badges") or {}
         if diff_changed_hosts_count is None and diff_changed_hosts:
             diff_changed_hosts_count = len(diff_changed_hosts)
 
@@ -222,6 +228,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             diff_json_id=diff_json_id,
             diff_changed_hosts=diff_changed_hosts,
             diff_changed_hosts_count=diff_changed_hosts_count,
+            diff_badges=diff_badges,
             events=evts,
         )
 

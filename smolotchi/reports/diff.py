@@ -65,6 +65,8 @@ def diff_host_summaries(
     cur: Dict[str, Any],
     *,
     max_hosts: int = 50,
+    prev_links: Optional[Dict[str, Dict[str, List[str]]]] = None,
+    cur_links: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> Dict[str, Any]:
     prev_hosts = prev.get("hosts") or {}
     cur_hosts = cur.get("hosts") or {}
@@ -79,7 +81,12 @@ def diff_host_summaries(
     def _touch(host: str) -> None:
         per_host.setdefault(
             host,
-            {"ports": None, "fingerprints": None, "severity_counts": None},
+            {
+                "ports": None,
+                "fingerprints": None,
+                "severity_counts": None,
+                "links": None,
+            },
         )
 
     for host in all_hosts:
@@ -122,6 +129,11 @@ def diff_host_summaries(
             }
 
     changed_hosts = sorted(list(per_host.keys()))
+    for host in per_host.keys():
+        per_host[host]["links"] = {
+            "prev": (prev_links or {}).get(host, {}),
+            "cur": (cur_links or {}).get(host, {}),
+        }
     return {
         "prev_id": prev.get("artifact_id"),
         "cur_id": cur.get("artifact_id"),

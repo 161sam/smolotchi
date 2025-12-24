@@ -47,6 +47,14 @@
         <span class="pill">Changed hosts: {{ diff_changed_hosts_count }}</span>
       {% endif %}
     </div>
+    {% if diff_badges %}
+      <div class="btn-row" style="margin-top:10px; flex-wrap:wrap">
+        <span class="pill">Changed: {{ diff_badges.changed_hosts or 0 }}</span>
+        {% for k, v in (diff_badges.transitions or {}).items() %}
+          <span class="pill">{{ k }}: {{ v }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
     {% if diff_changed_hosts and bundle_id %}
       <div class="small" style="margin-top:10px">Changed hosts</div>
       <div class="btn-row" style="flex-wrap:wrap">
