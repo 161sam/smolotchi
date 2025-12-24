@@ -20,6 +20,7 @@ from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.toml_patch import (
+    cleanup_baseline_scopes,
     patch_baseline_add,
     patch_baseline_remove,
     patch_lan_lists,
@@ -332,6 +333,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_baseline_add(text, scope=scope, finding_id=fid)
+        patched = cleanup_baseline_scopes(patched)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
@@ -355,6 +357,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_baseline_remove(text, scope=scope, finding_id=fid)
+        patched = cleanup_baseline_scopes(patched)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
@@ -364,6 +367,16 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
         back = request.form.get("back") or ""
         return redirect(back or url_for("lan_baseline_overview"))
+
+    @app.post("/lan/baseline/cleanup")
+    def lan_baseline_cleanup():
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = cleanup_baseline_scopes(text)
+        _atomic_write_text(cfg_file, patched)
+        store.reload()
+        bus.publish("ui.baseline.cleaned", {"ts": time.time()})
+        return redirect(url_for("lan_baseline_overview"))
 
     @app.get("/lan/finding/<fid>/jump")
     def lan_finding_jump(fid: str):
