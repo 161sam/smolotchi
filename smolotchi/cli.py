@@ -139,6 +139,13 @@ def cmd_core(args) -> int:
                 "portscan_ttl_seconds": cfg.ai.cache.portscan_ttl_seconds,
                 "use_cached_vuln": cfg.ai.cache.use_cached_vuln,
                 "vuln_ttl_seconds": cfg.ai.cache.vuln_ttl_seconds,
+                "vuln_ttl_http_seconds": cfg.ai.cache.vuln_ttl_http_seconds,
+                "vuln_ttl_ssh_seconds": cfg.ai.cache.vuln_ttl_ssh_seconds,
+                "vuln_ttl_smb_seconds": cfg.ai.cache.vuln_ttl_smb_seconds,
+            },
+            invalidation={
+                "enabled": cfg.invalidation.enabled,
+                "invalidate_on_port_change": cfg.invalidation.invalidate_on_port_change,
             },
         )
     )
@@ -191,6 +198,13 @@ def cmd_core(args) -> int:
                     "portscan_ttl_seconds": new_cfg.ai.cache.portscan_ttl_seconds,
                     "use_cached_vuln": new_cfg.ai.cache.use_cached_vuln,
                     "vuln_ttl_seconds": new_cfg.ai.cache.vuln_ttl_seconds,
+                    "vuln_ttl_http_seconds": new_cfg.ai.cache.vuln_ttl_http_seconds,
+                    "vuln_ttl_ssh_seconds": new_cfg.ai.cache.vuln_ttl_ssh_seconds,
+                    "vuln_ttl_smb_seconds": new_cfg.ai.cache.vuln_ttl_smb_seconds,
+                }
+                lan.invalidation = {
+                    "enabled": new_cfg.invalidation.enabled,
+                    "invalidate_on_port_change": new_cfg.invalidation.invalidate_on_port_change,
                 }
             if not hasattr(cmd_core, "_last_prune"):
                 cmd_core._last_prune = 0.0  # type: ignore[attr-defined]

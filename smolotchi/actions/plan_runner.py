@@ -20,6 +20,7 @@ from smolotchi.actions.parse_services import (
 )
 from smolotchi.actions.registry import ActionRegistry
 from smolotchi.actions.runner import ActionRunner
+from smolotchi.actions.summary import build_host_summary
 from smolotchi.actions.throttle import (
     decide_multiplier,
     read_cpu_temp_c,
@@ -84,8 +85,12 @@ class PlanRunner:
         batch_strategy: str = "phases",
         throttle_cfg: dict | None = None,
         service_map: dict | None = None,
+        cache_cfg: dict | None = None,
+        invalidation_cfg: dict | None = None,
     ) -> Dict[str, Any]:
         throttle_cfg = throttle_cfg or {}
+        cache_cfg = cache_cfg or {}
+        invalidation_cfg = invalidation_cfg or {}
         if service_map is None:
             service_map = {
                 "http": ["vuln.http_basic"],
@@ -130,6 +135,30 @@ class PlanRunner:
         current_services_by_host: dict[str, list] = {}
         current_fp_all_by_host: dict[str, str] = {}
         current_fp_bykey_by_host: dict[str, dict[str, str]] = {}
+        dirty_keys_by_host: dict[str, set[str]] = {}
+        latest_fp_payload_by_host: dict[str, dict] = {}
+
+        def diff_ports(prev: dict, cur: dict) -> dict:
+            out = {}
+            for key in ("http", "ssh", "smb"):
+                a = set((prev or {}).get(key, []) or [])
+                b = set((cur or {}).get(key, []) or [])
+                if a != b:
+                    out[key] = {"prev": sorted(a), "cur": sorted(b)}
+            return out
+
+        def vuln_ttl_for_key(key: str) -> int:
+            base = int(cache_cfg.get("vuln_ttl_seconds", vuln_ttl_s))
+            if key == "http":
+                value = int(cache_cfg.get("vuln_ttl_http_seconds", 0))
+                return value if value > 0 else base
+            if key == "ssh":
+                value = int(cache_cfg.get("vuln_ttl_ssh_seconds", 0))
+                return value if value > 0 else base
+            if key == "smb":
+                value = int(cache_cfg.get("vuln_ttl_smb_seconds", 0))
+                return value if value > 0 else base
+            return base
         i = 0
         last_host = None
         while i < len(steps):
@@ -236,6 +265,31 @@ class PlanRunner:
                                 "artifact_id": fp_art_id,
                             },
                         )
+                        fp_payload = self.artifacts.get_json(fp_art_id) or {}
+                        latest_fp_payload_by_host[host] = fp_payload
+                        dirty = set()
+                        if invalidation_cfg.get("enabled", True) and invalidation_cfg.get(
+                            "invalidate_on_port_change", True
+                        ):
+                            prev = None
+                            fps = self.artifacts.list(limit=10, kind="svc_fingerprint")
+                            for item in fps:
+                                if item.id == fp_art_id:
+                                    continue
+                                data = self.artifacts.get_json(item.id) or {}
+                                if data.get("host") == host:
+                                    prev = data
+                                    break
+                            cur_ports = (fp_payload or {}).get("ports_by_key", {}) or {}
+                            prev_ports = (prev or {}).get("ports_by_key", {}) or {}
+                            changes = diff_ports(prev_ports, cur_ports)
+                            if changes:
+                                self.bus.publish(
+                                    "svc.ports.changed",
+                                    {"host": host, "changes": changes},
+                                )
+                                dirty = set(changes.keys())
+                        dirty_keys_by_host[host] = dirty
 
                         keys = summarize_service_keys(services)
                         injected: List[Dict[str, Any]] = []
@@ -284,19 +338,33 @@ class PlanRunner:
             if use_cached_vuln and spec.category == "vuln_assess":
                 host = str(payload.get("target") or "")
                 if host:
+                    svc_key = str(payload.get("_svc_key") or "all")
                     expected_fp = current_fp_all_by_host.get(host) or str(
                         payload.get("_svc_fp") or ""
                     )
-                    if expected_fp:
-                        cache_vuln = find_fresh_vuln_for_host_action(
-                            self.artifacts,
-                            host=host,
-                            action_id=spec.id,
-                            ttl_s=vuln_ttl_s,
-                            expected_fp=expected_fp,
+                    if svc_key in (dirty_keys_by_host.get(host) or set()):
+                        self.bus.publish(
+                            "plan.cache.vuln_bypass_dirty",
+                            {
+                                "plan_id": plan.get("id"),
+                                "host": host,
+                                "svc_key": svc_key,
+                                "action_id": spec.id,
+                            },
                         )
-                    else:
                         cache_vuln = None
+                    else:
+                        ttl = vuln_ttl_for_key(svc_key)
+                        if expected_fp:
+                            cache_vuln = find_fresh_vuln_for_host_action(
+                                self.artifacts,
+                                host=host,
+                                action_id=spec.id,
+                                ttl_s=ttl,
+                                expected_fp=expected_fp,
+                            )
+                        else:
+                            cache_vuln = None
                     if cache_vuln:
                         self.bus.publish(
                             "plan.cache.vuln_hit",
@@ -304,6 +372,8 @@ class PlanRunner:
                                 "plan_id": plan.get("id"),
                                 "host": host,
                                 "action_id": spec.id,
+                                "svc_key": svc_key,
+                                "ttl_s": vuln_ttl_for_key(svc_key),
                                 "artifact_id": cache_vuln["artifact_id"],
                                 "age_s": int(
                                     time.time() - float(cache_vuln["ts"])
@@ -324,7 +394,9 @@ class PlanRunner:
                         time.sleep(max(0, effective_action_ms) / 1000.0)
                         i += 1
                         continue
-                    if expected_fp and not cache_vuln:
+                    if expected_fp and not cache_vuln and svc_key not in (
+                        dirty_keys_by_host.get(host) or set()
+                    ):
                         self.bus.publish(
                             "plan.cache.vuln_miss_fp",
                             {
@@ -387,6 +459,31 @@ class PlanRunner:
                         "artifact_id": fp_art_id,
                     },
                 )
+                fp_payload = self.artifacts.get_json(fp_art_id) or {}
+                latest_fp_payload_by_host[host] = fp_payload
+                dirty = set()
+                if invalidation_cfg.get("enabled", True) and invalidation_cfg.get(
+                    "invalidate_on_port_change", True
+                ):
+                    prev = None
+                    fps = self.artifacts.list(limit=10, kind="svc_fingerprint")
+                    for item in fps:
+                        if item.id == fp_art_id:
+                            continue
+                        data = self.artifacts.get_json(item.id) or {}
+                        if data.get("host") == host:
+                            prev = data
+                            break
+                    cur_ports = (fp_payload or {}).get("ports_by_key", {}) or {}
+                    prev_ports = (prev or {}).get("ports_by_key", {}) or {}
+                    changes = diff_ports(prev_ports, cur_ports)
+                    if changes:
+                        self.bus.publish(
+                            "svc.ports.changed",
+                            {"host": host, "changes": changes},
+                        )
+                        dirty = set(changes.keys())
+                dirty_keys_by_host[host] = dirty
 
                 injected: List[Dict[str, Any]] = []
                 for key in sorted(keys):
@@ -462,9 +559,20 @@ class PlanRunner:
             title=f"Plan run • {plan.get('id')}",
             payload=result,
         )
+        summary = build_host_summary(result, latest_fp_payload_by_host)
+        smeta = self.artifacts.put_json(
+            kind="host_summary",
+            title=f"Host Summary • {plan.get('id')}",
+            payload=summary,
+        )
+        self.bus.publish(
+            "host.summary.created",
+            {"plan_id": plan.get("id"), "artifact_id": smeta.id},
+        )
         self.bus.publish(
             "plan.finished",
             {"id": plan.get("id"), "artifact_id": meta.id, "ok": all(s["ok"] for s in out_steps)},
         )
         result["artifact_id"] = meta.id
+        result["host_summary_artifact_id"] = smeta.id
         return result
