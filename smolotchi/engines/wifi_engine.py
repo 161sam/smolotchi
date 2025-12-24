@@ -6,20 +6,41 @@ from typing import Optional
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.engines import EngineHealth
+from smolotchi.core.jobs import JobStore
+from smolotchi.core.lan_state import lan_is_busy
 from smolotchi.engines.net_detect import detect_scope_for_iface
-from smolotchi.engines.wifi_connect import connect_wpa_psk
+from smolotchi.engines.wifi_connect import connect_wpa_psk, disconnect_wpa
 from smolotchi.engines.wifi_scan import scan_iw
 
 
 class WifiEngine:
     name = "wifi"
 
-    def __init__(self, bus: SQLiteBus, config: ConfigStore):
+    def __init__(self, bus: SQLiteBus, config: ConfigStore, jobstore: JobStore):
         self.bus = bus
         self.config = config
+        self.jobstore = jobstore
         self._running = False
         self._last_scan = 0.0
         self._connected_ssid: Optional[str] = None
+        self._lan_locked = False
+        self._lan_was_busy = False
+
+    def _maybe_disconnect_after_lan(
+        self, busy: bool, lan_was_busy: bool, iface: str, w
+    ) -> None:
+        if (
+            self._connected_ssid
+            and (not busy)
+            and lan_was_busy
+            and w.disconnect_after_lan
+        ):
+            ok, out = disconnect_wpa(iface)
+            self.bus.publish(
+                "wifi.disconnect",
+                {"iface": iface, "ssid": self._connected_ssid, "ok": ok, "note": out},
+            )
+            self._connected_ssid = None
 
     def start(self) -> None:
         self._running = True
@@ -39,10 +60,25 @@ class WifiEngine:
         if not w.enabled:
             return
 
+        busy = lan_is_busy(self.jobstore)
+        lan_was_busy = self._lan_was_busy
+        self._lan_was_busy = busy
+        if busy and w.lock_during_lan:
+            if not self._lan_locked:
+                self.bus.publish("wifi.lock", {"reason": "lan_busy"})
+            self._lan_locked = True
+        else:
+            if self._lan_locked:
+                self.bus.publish("wifi.unlock", {"reason": "lan_idle"})
+            self._lan_locked = False
+
         iface = w.iface or "wlan0"
+        if self._lan_locked and self._connected_ssid:
+            return
+
         ui_evts = self.bus.tail(limit=20, topic_prefix="ui.wifi.")
         req = next((e for e in ui_evts if e.topic == "ui.wifi.connect"), None)
-        if req and req.payload:
+        if req and req.payload and not self._lan_locked:
             ssid = (req.payload.get("ssid") or "").strip()
             iface_req = (req.payload.get("iface") or iface).strip()
             creds = w.credentials or {}
@@ -63,6 +99,7 @@ class WifiEngine:
 
         now = time.time()
         if now - self._last_scan < w.scan_interval_sec:
+            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
         self._last_scan = now
 
@@ -87,6 +124,10 @@ class WifiEngine:
         )
 
         if not w.auto_connect:
+            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
+            return
+        if self._lan_locked:
+            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         allow = set(w.allow_ssids or [])
@@ -106,9 +147,11 @@ class WifiEngine:
                 chosen = chosen or ap.ssid
 
         if not chosen:
+            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         if self._connected_ssid == chosen:
+            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         ok, out = connect_wpa_psk(iface, chosen, creds[chosen])
@@ -117,6 +160,7 @@ class WifiEngine:
             {"iface": iface, "ssid": chosen, "ok": ok, "note": out[-500:]},
         )
         if not ok:
+            self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
             return
 
         self._connected_ssid = chosen
@@ -134,6 +178,7 @@ class WifiEngine:
                 }
             },
         )
+        self._maybe_disconnect_after_lan(busy, lan_was_busy, iface, w)
 
     def health(self) -> EngineHealth:
         cfg = self.config.get()

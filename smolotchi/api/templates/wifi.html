@@ -36,6 +36,9 @@
     {% if scan_evt and scan_evt.payload %}
       <span class="pill">last scan: {{ scan_evt.payload.get("count") }} APs</span>
     {% endif %}
+    {% if events and events|selectattr("topic","equalto","wifi.lock")|list %}
+      <span class="pill">LAN lock active</span>
+    {% endif %}
   </div>
 </section>
 

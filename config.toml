@@ -17,6 +17,9 @@ scan_interval_sec = 30
 allow_ssids = ["LAB-1", "LAB-2"]
 auto_connect = true
 preferred_ssid = "LAB-1"
+disconnect_after_lan = true
+lock_during_lan = true
+reconnect_on_failure = false
 
 [wifi.credentials]
 "LAB-1" = "testtest12345"
