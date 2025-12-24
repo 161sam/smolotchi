@@ -15,12 +15,23 @@
       <div class="evt">
         <div class="evt-top">
           <span class="pill sev-{{ f.severity }}">{{ f.severity|upper }}</span>
-          {{ f.title }}
+          <a href="{{ url_for('lan_finding_jump', fid=f.id) }}"
+             style="color:var(--accent); text-decoration:none; font-weight:900;">
+            {{ f.title }}
+          </a>
         </div>
         <div class="muted">
           affected hosts: {{ f.count }}
           {% if f.hosts %}
             · {{ f.hosts|join(", ") }}
+          {% endif %}
+
+          {% if f.suppressed_count and f.suppressed_count > 0 %}
+            <br>
+            <span class="pill">suppressed: {{ f.suppressed_count }}</span>
+            {% if f.suppressed_hosts %}
+              · {{ f.suppressed_hosts|join(", ") }}
+            {% endif %}
           {% endif %}
         </div>
       </div>
@@ -30,7 +41,20 @@
 {% endif %}
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Latest bundles</h3>
+  <div class="row" style="justify-content:space-between; align-items:center;">
+    <h3 style="margin:0 0 10px 0">Latest bundles</h3>
+    <div class="row" style="gap:10px;">
+      <a href="/lan/summary" style="color:var(--accent); text-decoration:none; font-weight:900;">
+        Executive Summary
+      </a>
+      <a href="/lan/summary.md" style="color:var(--accent); text-decoration:none; font-weight:900;">
+        MD
+      </a>
+      <a href="/lan/summary.json" style="color:var(--accent); text-decoration:none; font-weight:900;">
+        JSON
+      </a>
+    </div>
+  </div>
   <div class="events">
     {% for a in items %}
       <div class="evt">
