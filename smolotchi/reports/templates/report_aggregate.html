@@ -16,6 +16,12 @@
     .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px}
     .ports{display:flex;gap:8px;flex-wrap:wrap}
     .pill{padding:4px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);font-weight:700;font-size:12px}
+    .sev{padding:4px 10px;border-radius:999px;font-weight:900;font-size:12px;border:1px solid rgba(255,255,255,.10)}
+    .sev-info{background:rgba(255,255,255,.04)}
+    .sev-low{background:rgba(120,255,170,.10)}
+    .sev-medium{background:rgba(255,210,120,.12)}
+    .sev-high{background:rgba(255,140,120,.14)}
+    .sev-critical{background:rgba(255,90,90,.18)}
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;text-align:left;vertical-align:top}
     th{color:rgba(231,238,247,.75);font-size:12px}
@@ -45,6 +51,7 @@
       <div class="row" style="justify-content:space-between">
         <div style="font-weight:900;font-size:16px">{{ host.ip }}</div>
         <div class="row">
+          <span class="sev sev-{{ host.sev_highest }}">{{ host.sev_highest | upper }}</span>
           <span class="tag">fp http {{ (host.fp_by_key.http or "")[:8] }}</span>
           <span class="tag">fp ssh {{ (host.fp_by_key.ssh or "")[:8] }}</span>
           <span class="tag">fp smb {{ (host.fp_by_key.smb or "")[:8] }}</span>
@@ -71,11 +78,28 @@
         <div class="mono">{{ host.ports_by_key.smb | join(", ") if host.ports_by_key.smb else "—" }}</div>
       </div>
 
+      <div style="margin-top:12px;font-weight:900">Top Badges</div>
+      {% if host.badges and host.badges|length > 0 %}
+        <div class="ports" style="margin-top:6px">
+          {% for b in host.badges %}
+            <span class="pill mono">{{ b }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="muted">No notable findings.</div>
+      {% endif %}
+
+      <div class="muted" style="margin-top:8px">
+        counts: C={{ host.sev_counts.critical or 0 }} · H={{ host.sev_counts.high or 0 }} · M={{ host.sev_counts.medium or 0 }} · L={{ host.sev_counts.low or 0 }} · I={{ host.sev_counts.info or 0 }}
+      </div>
+
       <div style="margin-top:12px;font-weight:900">Findings (safe)</div>
       {% if host.findings.scripts and host.findings.scripts|length > 0 %}
         <table>
           <thead>
             <tr>
+              <th style="width:110px">Severity</th>
+              <th style="width:90px">CVSS</th>
               <th style="width:110px">Tag</th>
               <th style="width:140px">Scope</th>
               <th style="width:220px">Script</th>
@@ -85,6 +109,8 @@
           <tbody>
             {% for f in host.findings.scripts[:12] %}
               <tr>
+                <td class="mono">{{ f.severity }}</td>
+                <td class="mono">{{ f.cvss if f.cvss is not none else "—" }}</td>
                 <td class="mono">{{ f.tag }}</td>
                 <td class="mono">{{ f.scope }}</td>
                 <td class="mono">{{ f.id }}</td>
