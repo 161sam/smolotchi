@@ -135,6 +135,8 @@ def cmd_core(args) -> int:
             ai_cache={
                 "use_cached_discovery": cfg.ai.cache.use_cached_discovery,
                 "discovery_ttl_seconds": cfg.ai.cache.discovery_ttl_seconds,
+                "use_cached_portscan": cfg.ai.cache.use_cached_portscan,
+                "portscan_ttl_seconds": cfg.ai.cache.portscan_ttl_seconds,
             },
         )
     )
@@ -183,6 +185,8 @@ def cmd_core(args) -> int:
                 lan.ai_cache = {
                     "use_cached_discovery": new_cfg.ai.cache.use_cached_discovery,
                     "discovery_ttl_seconds": new_cfg.ai.cache.discovery_ttl_seconds,
+                    "use_cached_portscan": new_cfg.ai.cache.use_cached_portscan,
+                    "portscan_ttl_seconds": new_cfg.ai.cache.portscan_ttl_seconds,
                 }
             if not hasattr(cmd_core, "_last_prune"):
                 cmd_core._last_prune = 0.0  # type: ignore[attr-defined]
