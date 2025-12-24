@@ -9,6 +9,7 @@ from smolotchi.core.engines import EngineHealth
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.lan_state import lan_is_busy
 from smolotchi.engines.net_detect import detect_scope_for_iface
+from smolotchi.engines.net_health import health_check
 from smolotchi.engines.wifi_connect import connect_wpa_psk, disconnect_wpa
 from smolotchi.engines.wifi_scan import scan_iw
 
@@ -22,6 +23,8 @@ class WifiEngine:
         self.jobstore = jobstore
         self._running = False
         self._last_scan = 0.0
+        self._last_health = 0.0
+        self._last_health_ok = None
         self._connected_ssid: Optional[str] = None
         self._lan_locked = False
         self._lan_was_busy = False
@@ -73,8 +76,6 @@ class WifiEngine:
             self._lan_locked = False
 
         iface = w.iface or "wlan0"
-        if self._lan_locked and self._connected_ssid:
-            return
 
         ui_evts = self.bus.tail(limit=20, topic_prefix="ui.wifi.")
         req = next((e for e in ui_evts if e.topic == "ui.wifi.connect"), None)
@@ -96,6 +97,55 @@ class WifiEngine:
                 )
                 if ok:
                     self._connected_ssid = ssid
+
+        if self._connected_ssid and getattr(w, "health_enabled", True):
+            interval = int(getattr(w, "health_interval_sec", 20) or 20)
+            if time.time() - self._last_health >= interval:
+                self._last_health = time.time()
+                h = health_check(
+                    iface,
+                    ping_gateway=bool(getattr(w, "health_ping_gateway", True)),
+                    ping_target=(getattr(w, "health_ping_target", None) or None),
+                )
+                self._last_health_ok = h["ok"]
+                self.bus.publish("wifi.health", h)
+
+                if (
+                    (not h["ok"])
+                    and bool(getattr(w, "auto_disconnect_on_broken", True))
+                    and (not self._lan_locked)
+                ):
+                    ssid = self._connected_ssid
+                    ok, out = disconnect_wpa(iface)
+                    self.bus.publish(
+                        "wifi.disconnect",
+                        {
+                            "iface": iface,
+                            "ssid": ssid,
+                            "ok": ok,
+                            "reason": "health_failed",
+                        },
+                    )
+                    self._connected_ssid = None
+
+                    if bool(getattr(w, "auto_reconnect_on_broken", False)):
+                        creds = getattr(w, "credentials", None) or {}
+                        if ssid and ssid in creds:
+                            ok2, out2 = connect_wpa_psk(iface, ssid, creds[ssid])
+                            self.bus.publish(
+                                "wifi.connect",
+                                {
+                                    "iface": iface,
+                                    "ssid": ssid,
+                                    "ok": ok2,
+                                    "note": out2[-500:],
+                                },
+                            )
+                            if ok2:
+                                self._connected_ssid = ssid
+
+        if self._lan_locked and self._connected_ssid:
+            return
 
         now = time.time()
         if now - self._last_scan < w.scan_interval_sec:
@@ -164,7 +214,13 @@ class WifiEngine:
             return
 
         self._connected_ssid = chosen
-        scope = detect_scope_for_iface(iface) or getattr(
+        scope_map = getattr(w, "scope_map", None) or {}
+        mapped = (
+            (scope_map.get(chosen) or "").strip()
+            if isinstance(scope_map, dict)
+            else ""
+        )
+        scope = mapped or detect_scope_for_iface(iface) or getattr(
             getattr(cfg, "lan", None), "default_scope", "10.0.10.0/24"
         )
         self.bus.publish(

@@ -36,9 +36,31 @@
     {% if scan_evt and scan_evt.payload %}
       <span class="pill">last scan: {{ scan_evt.payload.get("count") }} APs</span>
     {% endif %}
+    {% if events %}
+      {% for e in events %}
+        {% if e.topic == "wifi.health" %}
+          <span class="pill">health: {{ "ok" if e.payload.get("ok") else "bad" }}</span>
+          {% break %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
     {% if events and events|selectattr("topic","equalto","wifi.lock")|list %}
       <span class="pill">LAN lock active</span>
     {% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">WiFi → LAN timeline</h3>
+  <div class="events">
+    {% for e in events[:30] %}
+      {% if e.topic.startswith("wifi.") or e.topic.startswith("ui.wifi.") or e.topic.startswith("ui.lan.") or e.topic.startswith("lan.") %}
+        <div class="evt">
+          <div class="evt-top">{{ e.topic }}</div>
+          <pre>{{ e.payload }}</pre>
+        </div>
+      {% endif %}
+    {% endfor %}
   </div>
 </section>
 

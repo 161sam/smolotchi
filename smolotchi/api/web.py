@@ -98,7 +98,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
         ip_cidr = detect_ipv4_cidr(iface)
         scope = detect_scope_for_iface(iface)
 
-        events = bus.tail(limit=80, topic_prefix="wifi.")
+        events_wifi = bus.tail(limit=80, topic_prefix="wifi.")
+        events_ui = bus.tail(limit=40, topic_prefix="ui.")
+        events_lan = bus.tail(limit=40, topic_prefix="lan.")
+        events = events_wifi + events_ui + events_lan
+        events = sorted(events, key=lambda e: e.ts, reverse=True)[:120]
         scan_evt = next((e for e in events if e.topic == "wifi.scan"), None)
         conn_evt = next((e for e in events if e.topic == "wifi.connect"), None)
 

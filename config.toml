@@ -20,9 +20,19 @@ preferred_ssid = "LAB-1"
 disconnect_after_lan = true
 lock_during_lan = true
 reconnect_on_failure = false
+health_enabled = true
+health_interval_sec = 20
+health_ping_gateway = true
+health_ping_target = "1.1.1.1"
+auto_disconnect_on_broken = true
+auto_reconnect_on_broken = false
 
 [wifi.credentials]
 "LAB-1" = "testtest12345"
+
+[wifi.scope_map]
+"LAB-1" = "10.0.10.0/24"
+"LAB-2" = "10.0.20.0/24"
 
 [lan]
 enabled = true
