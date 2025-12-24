@@ -18,6 +18,11 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
+from smolotchi.reports.exec_summary import (
+    build_exec_summary,
+    render_exec_summary_html,
+    render_exec_summary_md,
+)
 from smolotchi.reports.host_diff import host_diff_html, host_diff_markdown
 from smolotchi.reports.top_findings import aggregate_top_findings
 
@@ -99,6 +104,67 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "lan_results.html",
             items=bundles,
             top_findings=top_findings,
+        )
+
+    def _find_latest_bundle_for_finding(fid: str) -> str | None:
+        metas = artifacts.list(limit=200, kind="lan_bundle")
+        for meta in metas:
+            bundle = artifacts.get_json(meta.id) or {}
+            summary = bundle.get("host_summary") or {}
+            findings = summary.get("findings") or []
+            for finding in findings:
+                finding_id = finding.get("id") or finding.get("title")
+                if str(finding_id) == fid:
+                    return meta.id
+        return None
+
+    def _load_recent_bundles(limit: int = 50) -> list[dict]:
+        metas = artifacts.list(limit=limit, kind="lan_bundle")
+        items = []
+        for meta in metas:
+            bundle = artifacts.get_json(meta.id) or {}
+            bundle.setdefault("id", meta.id)
+            items.append(bundle)
+        return items
+
+    @app.get("/lan/finding/<fid>/jump")
+    def lan_finding_jump(fid: str):
+        fid = fid.strip()
+        if not fid:
+            abort(400)
+        bundle_id = _find_latest_bundle_for_finding(fid)
+        if not bundle_id:
+            return redirect(url_for("lan_results") + f"?finding={fid}")
+        return redirect(url_for("lan_result_details", bundle_id=bundle_id))
+
+    @app.get("/lan/summary")
+    def lan_exec_summary():
+        bundles = _load_recent_bundles(limit=50)
+        top_findings = aggregate_top_findings(bundles, limit=10)
+        summary = build_exec_summary(bundles, top_findings)
+        html = render_exec_summary_html(summary)
+        return Response(html, mimetype="text/html")
+
+    @app.get("/lan/summary.md")
+    def lan_exec_summary_md():
+        bundles = _load_recent_bundles(limit=50)
+        top_findings = aggregate_top_findings(bundles, limit=10)
+        summary = build_exec_summary(bundles, top_findings)
+        md = render_exec_summary_md(summary)
+        return Response(md, mimetype="text/markdown; charset=utf-8")
+
+    @app.get("/lan/summary.json")
+    def lan_exec_summary_json():
+        bundles = _load_recent_bundles(limit=50)
+        top_findings = aggregate_top_findings(bundles, limit=10)
+        summary = build_exec_summary(bundles, top_findings)
+        return Response(
+            response=json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True),
+            status=200,
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": 'attachment; filename="smolotchi_lan_summary.json"'
+            },
         )
 
     def resolve_result_by_job_id(job_id: str):
