@@ -326,7 +326,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not diff_json_id:
             abort(404)
         diff = artifacts.get_json(diff_json_id) or {}
-        html = host_diff_html(diff, host, artifacts=artifacts)
+        prev_v = request.args.get("prev_v", "").strip()
+        cur_v = request.args.get("cur_v", "").strip()
+        html = host_diff_html(diff, host, artifacts=artifacts, prev_v=prev_v, cur_v=cur_v)
         return Response(html, mimetype="text/html")
 
     @app.get("/lan/diff/host/<bundle_id>/<host>.md")
