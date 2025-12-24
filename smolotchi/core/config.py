@@ -129,8 +129,11 @@ class RetentionCfg:
 @dataclass
 class WatchdogCfg:
     enabled: bool = True
-    running_stuck_after_seconds: int = 180
+    interval_sec: int = 30
+    stuck_after_sec: int = 300
+    min_runtime_sec: int = 60
     action: str = "reset"
+    max_resets: int = 2
 
 
 @dataclass
@@ -321,10 +324,16 @@ class ConfigStore:
             ),
             watchdog=WatchdogCfg(
                 enabled=bool(watchdog.get("enabled", True)),
-                running_stuck_after_seconds=int(
-                    watchdog.get("running_stuck_after_seconds", 180)
+                interval_sec=int(watchdog.get("interval_sec", 30)),
+                stuck_after_sec=int(
+                    watchdog.get(
+                        "stuck_after_sec",
+                        watchdog.get("running_stuck_after_seconds", 300),
+                    )
                 ),
+                min_runtime_sec=int(watchdog.get("min_runtime_sec", 60)),
                 action=str(watchdog.get("action", "reset")),
+                max_resets=int(watchdog.get("max_resets", 2)),
             ),
             reports=ReportsCfg(
                 enabled=bool(reports.get("enabled", True)),
