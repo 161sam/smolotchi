@@ -8,5 +8,8 @@ version = "0.0.1"
 requires-python = ">=3.9"
 dependencies = ["flask>=2.3", "pillow>=10.0"]
 
+[project.scripts]
+smolotchi = "smolotchi.cli:main"
+
 [tool.setuptools]
 packages = ["smolotchi"]
