@@ -3,28 +3,42 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from smolotchi.core.artifacts import ArtifactStore
+from smolotchi.reports.filtering import filter_findings_scripts
 from smolotchi.reports.nmap_classify import classify_scripts
 from smolotchi.reports.nmap_findings import parse_nmap_xml_findings
 
 
 def extract_findings_for_host_from_action_run(
-    artifacts: ArtifactStore, artifact_id: str, host: str
+    artifacts: ArtifactStore,
+    artifact_id: str,
+    host: str,
+    *,
+    max_lines: int = 6,
+    max_chars: int = 600,
 ) -> Dict[str, Any]:
     art = artifacts.get_json(artifact_id) or {}
     stdout = art.get("stdout") or ""
-    parsed = parse_nmap_xml_findings(stdout)
+    parsed = parse_nmap_xml_findings(stdout, max_lines=max_lines, max_chars=max_chars)
     host_data = (parsed.get("hosts") or {}).get(host) or {"ports": [], "scripts": []}
-    host_data["scripts"] = classify_scripts(host_data.get("scripts") or [])
     return host_data
 
 
 def build_host_findings(
     artifacts: ArtifactStore,
     host_summary: Dict[str, Any],
+    cfg: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
     Returns: { host: { ports:[...], scripts:[...], sources:[{action_id,artifact_id}] } }
     """
+    enabled = bool(cfg.get("enabled", True))
+    max_lines = int(cfg.get("max_output_lines", 6))
+    max_chars = int(cfg.get("max_output_chars", 600))
+    allowlist = cfg.get("allowlist", []) or []
+    denylist = cfg.get("denylist", []) or []
+    deny_contains = cfg.get("deny_contains", []) or []
+    max_per_host = int(cfg.get("max_findings_per_host", 12))
+
     hosts = host_summary.get("hosts") or {}
     refs = host_summary.get("artifacts") or []
 
@@ -60,16 +74,36 @@ def build_host_findings(
 
         if primary_portscan:
             parsed = extract_findings_for_host_from_action_run(
-                artifacts, primary_portscan, host
+                artifacts, primary_portscan, host, max_lines=max_lines, max_chars=max_chars
             )
             ports = parsed.get("ports") or []
-            scripts.extend(parsed.get("scripts") or [])
+            if enabled:
+                parsed_scripts = classify_scripts(parsed.get("scripts") or [])
+                scripts.extend(
+                    filter_findings_scripts(
+                        parsed_scripts,
+                        allowlist=allowlist,
+                        denylist=denylist,
+                        deny_contains=deny_contains,
+                    )
+                )
 
         for action_id, art_id in items:
             if not action_id.startswith("vuln."):
                 continue
-            parsed = extract_findings_for_host_from_action_run(artifacts, art_id, host)
-            scripts.extend(parsed.get("scripts") or [])
+            parsed = extract_findings_for_host_from_action_run(
+                artifacts, art_id, host, max_lines=max_lines, max_chars=max_chars
+            )
+            if enabled:
+                parsed_scripts = classify_scripts(parsed.get("scripts") or [])
+                scripts.extend(
+                    filter_findings_scripts(
+                        parsed_scripts,
+                        allowlist=allowlist,
+                        denylist=denylist,
+                        deny_contains=deny_contains,
+                    )
+                )
 
         seen = set()
         deduped = []
@@ -87,6 +121,10 @@ def build_host_findings(
                 x.get("id", ""),
             )
         )
-        out[host] = {"ports": ports, "scripts": deduped, "sources": sources}
+        out[host] = {
+            "ports": ports,
+            "scripts": deduped[:max_per_host] if enabled else [],
+            "sources": sources,
+        }
 
     return out

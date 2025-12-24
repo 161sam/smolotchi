@@ -37,6 +37,7 @@ class LanEngine:
         ai_exec: Optional[dict] = None,
         ai_cache: Optional[dict] = None,
         invalidation: Optional[dict] = None,
+        report_cfg: Optional[dict] = None,
     ):
         self.bus = bus
         self.cfg = cfg
@@ -54,6 +55,7 @@ class LanEngine:
         self.ai_exec = ai_exec or {}
         self.ai_cache = ai_cache or {}
         self.invalidation = invalidation or {}
+        self.report_cfg = report_cfg or {}
         self._running = False
         self._active: Optional[JobRow] = None
 
@@ -152,6 +154,7 @@ class LanEngine:
                     self.invalidation.get("invalidate_on_port_change", True)
                 ),
             },
+            report_cfg=self.report_cfg,
             service_map={
                 "http": ["vuln.http_basic"],
                 "ssh": ["vuln.ssh_basic"],
@@ -168,9 +171,19 @@ class LanEngine:
             "plan_artifact_id": plan_id,
             "plan_run_artifact_id": res.get("artifact_id"),
             "host_summary_artifact_id": res.get("host_summary_artifact_id"),
-            "report_html": {
-                "artifact_id": res.get("aggregate_report_artifact_id"),
-                "title": f"Aggregate Report • {plan.get('id')}",
+            "reports": {
+                "html": {
+                    "artifact_id": res.get("aggregate_report_artifact_id"),
+                    "title": f"Aggregate Report • {plan.get('id')}",
+                },
+                "md": {
+                    "artifact_id": res.get("aggregate_report_md_artifact_id"),
+                    "title": f"Aggregate Report (MD) • {plan.get('id')}",
+                },
+                "json": {
+                    "artifact_id": res.get("aggregate_report_json_artifact_id"),
+                    "title": f"Aggregate Report (JSON) • {plan.get('id')}",
+                },
             },
         }
         bmeta = self.artifacts.put_json(

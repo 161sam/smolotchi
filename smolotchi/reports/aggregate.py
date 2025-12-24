@@ -34,16 +34,18 @@ def _action_summary(art: Dict[str, Any]) -> str:
     return "ok"
 
 
-def build_aggregate_report(
+def build_aggregate_model(
     artifacts: ArtifactStore,
     host_summary_artifact_id: str,
     *,
     title: str = "Smolotchi • Aggregate Report",
+    scope_override: Optional[str] = None,
+    report_cfg: Optional[dict] = None,
     bundle_id: Optional[str] = None,
-) -> str:
+) -> Dict[str, Any]:
     hs = artifacts.get_json(host_summary_artifact_id) or {}
     plan_id = hs.get("plan_id")
-    scope = hs.get("scope")
+    scope = scope_override or hs.get("scope")
     ts = float(hs.get("ts", time.time()) or time.time())
 
     hosts_map = hs.get("hosts") or {}
@@ -68,7 +70,7 @@ def build_aggregate_report(
             }
         )
 
-    findings = build_host_findings(artifacts, hs)
+    findings = build_host_findings(artifacts, hs, cfg=report_cfg or {})
 
     hosts: List[Dict[str, Any]] = []
     for host_ip, hdata in hosts_map.items():
@@ -117,18 +119,44 @@ def build_aggregate_report(
         )
     )
 
+    return {
+        "title": title,
+        "plan_id": plan_id,
+        "scope": scope,
+        "ts": ts,
+        "hosts": hosts,
+        "host_summary_artifact_id": host_summary_artifact_id,
+        "bundle_id": bundle_id,
+    }
+
+
+def build_aggregate_report(
+    artifacts: ArtifactStore,
+    host_summary_artifact_id: str,
+    *,
+    title: str = "Smolotchi • Aggregate Report",
+    bundle_id: Optional[str] = None,
+    report_cfg: Optional[dict] = None,
+) -> str:
+    model = build_aggregate_model(
+        artifacts,
+        host_summary_artifact_id,
+        title=title,
+        report_cfg=report_cfg,
+        bundle_id=bundle_id,
+    )
     env = Environment(
         loader=FileSystemLoader("smolotchi/reports/templates"),
         autoescape=select_autoescape(["html"]),
     )
     tpl = env.get_template("report_aggregate.html")
     html = tpl.render(
-        title=title,
-        plan_id=plan_id,
-        scope=scope,
-        ts_human=_ts_human(ts),
-        hosts=hosts,
-        host_summary_artifact_id=host_summary_artifact_id,
-        bundle_id=bundle_id,
+        title=model.get("title"),
+        plan_id=model.get("plan_id"),
+        scope=model.get("scope"),
+        ts_human=_ts_human(float(model.get("ts", 0) or 0)),
+        hosts=model.get("hosts", []),
+        host_summary_artifact_id=model.get("host_summary_artifact_id"),
+        bundle_id=model.get("bundle_id"),
     )
     return html

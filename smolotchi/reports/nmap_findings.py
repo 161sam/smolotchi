@@ -17,7 +17,9 @@ def _summarize_output(output: str, max_lines: int = 6, max_chars: int = 600) -> 
     return snippet
 
 
-def parse_nmap_xml_findings(xml_text: str) -> Dict[str, Any]:
+def parse_nmap_xml_findings(
+    xml_text: str, *, max_lines: int = 6, max_chars: int = 600
+) -> Dict[str, Any]:
     """
     Safe extraction:
       - open_ports with service product/version
@@ -89,7 +91,9 @@ def parse_nmap_xml_findings(xml_text: str) -> Dict[str, Any]:
                         {
                             "scope": f"{proto}/{portid}",
                             "id": sid,
-                            "output": _summarize_output(output),
+                            "output": _summarize_output(
+                                output, max_lines=max_lines, max_chars=max_chars
+                            ),
                             "raw_len": len(output),
                         }
                     )
@@ -101,7 +105,9 @@ def parse_nmap_xml_findings(xml_text: str) -> Dict[str, Any]:
                 {
                     "scope": "host",
                     "id": sid,
-                    "output": _summarize_output(output),
+                    "output": _summarize_output(
+                        output, max_lines=max_lines, max_chars=max_chars
+                    ),
                     "raw_len": len(output),
                 }
             )

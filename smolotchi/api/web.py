@@ -89,12 +89,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if bundle_id:
             bundle = artifacts.get_json(bundle_id)
             json_id = (bundle.get("result_json") or {}).get("artifact_id")
-            rep_id = ((bundle.get("report_html") or {}) or {}).get("artifact_id")
+            reports = bundle.get("reports") or {}
+            report_html = reports.get("html") or bundle.get("report_html") or {}
+            report_md = reports.get("md") or {}
+            report_json = reports.get("json") or {}
+            rep_id = report_html.get("artifact_id")
             return {
                 "bundle_id": bundle_id,
                 "bundle": bundle,
                 "json_id": json_id,
                 "report_id": rep_id,
+                "report_md_id": report_md.get("artifact_id"),
+                "report_json_id": report_json.get("artifact_id"),
             }
 
         idx = artifacts.list(limit=300)
@@ -118,6 +124,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "bundle": None,
             "json_id": json_id,
             "report_id": report_id,
+            "report_md_id": None,
+            "report_json_id": None,
         }
 
     @app.get("/lan/result/<bundle_id>")
@@ -126,13 +134,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not bundle:
             abort(404)
         json_id = (bundle.get("result_json") or {}).get("artifact_id")
-        report = bundle.get("report_html") or {}
+        reports = bundle.get("reports") or {}
+        report = reports.get("html") or bundle.get("report_html") or {}
+        report_md = reports.get("md") or {}
+        report_json = reports.get("json") or {}
         report_id = report.get("artifact_id")
         resolved = {
             "bundle_id": bundle_id,
             "bundle": bundle,
             "json_id": json_id,
             "report_id": report_id,
+            "report_md_id": report_md.get("artifact_id"),
+            "report_json_id": report_json.get("artifact_id"),
         }
         return _render_result_details(resolved, job_id=bundle.get("job_id"))
 
@@ -149,6 +162,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
         bundle = resolved.get("bundle")
         json_id = resolved.get("json_id")
         report_id = resolved.get("report_id")
+        report_md_id = resolved.get("report_md_id")
+        report_json_id = resolved.get("report_json_id")
 
         result_json = artifacts.get_json(json_id) if json_id else None
         bundle_pretty = pretty(bundle) if bundle else ""
@@ -171,6 +186,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
             result_json_id=json_id,
             result_pretty=result_pretty,
             report_id=report_id,
+            report_md_id=report_md_id,
+            report_json_id=report_json_id,
             events=evts,
         )
 
