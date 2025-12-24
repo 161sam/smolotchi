@@ -20,6 +20,20 @@
   </div>
 </section>
 
+{% if health_evt %}
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Engine health</h3>
+  <div class="events">
+    {% for h in health_evt.payload.engines %}
+      <div class="evt">
+        <div class="evt-top">{{ h.name }} — {{ "OK" if h.ok else "FAIL" }}</div>
+        <pre>{{ h.detail }}</pre>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <h3 style="margin:0 0 10px 0">Quick actions</h3>
   <form method="post" action="/handoff" class="row">
