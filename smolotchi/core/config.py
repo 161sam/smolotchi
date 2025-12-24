@@ -53,6 +53,13 @@ class WifiCfg:
     disconnect_after_lan: bool = True
     lock_during_lan: bool = True
     reconnect_on_failure: bool = False
+    health_enabled: bool = True
+    health_interval_sec: int = 20
+    health_ping_gateway: bool = True
+    health_ping_target: str = ""
+    auto_disconnect_on_broken: bool = True
+    auto_reconnect_on_broken: bool = False
+    scope_map: Dict[str, str] = field(default_factory=dict)
     credentials: Dict[str, str] = field(default_factory=dict)
 
 
@@ -320,6 +327,17 @@ class ConfigStore:
                 disconnect_after_lan=bool(wifi.get("disconnect_after_lan", True)),
                 lock_during_lan=bool(wifi.get("lock_during_lan", True)),
                 reconnect_on_failure=bool(wifi.get("reconnect_on_failure", False)),
+                health_enabled=bool(wifi.get("health_enabled", True)),
+                health_interval_sec=int(wifi.get("health_interval_sec", 20)),
+                health_ping_gateway=bool(wifi.get("health_ping_gateway", True)),
+                health_ping_target=str(wifi.get("health_ping_target", "")),
+                auto_disconnect_on_broken=bool(
+                    wifi.get("auto_disconnect_on_broken", True)
+                ),
+                auto_reconnect_on_broken=bool(
+                    wifi.get("auto_reconnect_on_broken", False)
+                ),
+                scope_map=dict(wifi.get("scope_map", {}) or {}),
                 credentials=dict(wifi.get("credentials", {}) or {}),
             ),
             lan=LanCfg(
