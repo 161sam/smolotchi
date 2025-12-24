@@ -1,10 +1,12 @@
+import json
 import time
 
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, redirect, render_template, request, url_for
 
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
+from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
 
 
@@ -14,6 +16,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
     store = ConfigStore(config_path)
     store.load()
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    jobstore = JobStore(bus.db_path)
 
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
@@ -68,6 +71,34 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if data is None:
             abort(404)
         return render_template("artifact.html", artifact_id=artifact_id, data=data)
+
+    @app.get("/artifact/<artifact_id>.json")
+    def artifact_download(artifact_id: str):
+        data = artifacts.get_json(artifact_id)
+        if data is None:
+            abort(404)
+        return Response(
+            response=json.dumps(data, ensure_ascii=False, indent=2),
+            status=200,
+            mimetype="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{artifact_id}.json"'
+            },
+        )
+
+    @app.get("/lan/jobs")
+    def lan_jobs():
+        queued = jobstore.list(limit=30, status="queued")
+        running = jobstore.list(limit=10, status="running")
+        done = jobstore.list(limit=30, status="done")
+        failed = jobstore.list(limit=30, status="failed")
+        return render_template(
+            "lan_jobs.html",
+            queued=queued,
+            running=running,
+            done=done,
+            failed=failed,
+        )
 
     @app.get("/config")
     def config():

@@ -41,6 +41,7 @@ def cmd_core(args) -> int:
     from smolotchi.core.engines import EngineRegistry
     from smolotchi.core.config import ConfigStore
     from smolotchi.core.artifacts import ArtifactStore
+    from smolotchi.core.jobs import JobStore
     from smolotchi.core.resources import ResourceManager
     from smolotchi.engines.lan_engine import LanConfig, LanEngine
     from smolotchi.engines.wifi_engine import WifiConfig, WifiEngine
@@ -55,6 +56,7 @@ def cmd_core(args) -> int:
     policy = Policy(allowed_tags=allowed_tags)
 
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    jobs = JobStore(args.db)
     resources = ResourceManager("/run/smolotchi/locks")
 
     reg = EngineRegistry()
@@ -76,6 +78,7 @@ def cmd_core(args) -> int:
                 max_jobs_per_tick=cfg.lan.max_jobs_per_tick,
             ),
             artifacts=artifacts,
+            jobs=jobs,
         )
     )
 
