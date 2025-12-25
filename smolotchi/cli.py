@@ -5,6 +5,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from smolotchi.ai.replay import evaluate_plan_run, metrics_row
 from smolotchi.cli_artifacts import add_artifacts_subcommands
 from smolotchi.cli_profiles import add_profiles_subcommands
 from smolotchi.core.artifacts import ArtifactStore
@@ -615,6 +616,101 @@ def cmd_finding_history(args) -> int:
     return 0
 
 
+def _write_text(out_path: str | None, text: str) -> None:
+    if out_path:
+        Path(out_path).write_text(text, encoding="utf-8")
+    else:
+        print(text)
+
+
+def _write_json(out_path: str | None, obj) -> None:
+    data = json.dumps(obj, ensure_ascii=False, indent=2)
+    _write_text(out_path, data)
+
+
+def cmd_ai_replay(args) -> int:
+    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    plan = artifacts.get_json(args.plan) or {}
+    run = artifacts.get_json(args.run) or {}
+    res = evaluate_plan_run(plan, run)
+
+    if args.format == "json":
+        _write_json(args.out, res)
+        return 0
+
+    m = res["metrics"]
+    md = []
+    md.append("# AI Replay")
+    md.append("")
+    md.append(f"- plan_id: `{m['plan_id']}`")
+    md.append(f"- run_id: `{m['run_id']}`")
+    md.append(f"- status: **{m['run_status']}**")
+    md.append(f"- steps: {m['steps_executed']}/{m['steps_planned']}")
+    md.append(f"- total_time_s: {m['total_time_s']}")
+    md.append(f"- reward_proxy: {res['reward_proxy']}")
+    if m.get("error"):
+        md.append(f"- error: `{m['error']}`")
+    md.append("")
+    _write_text(args.out, "\n".join(md))
+    return 0
+
+
+def cmd_ai_replay_batch(args) -> int:
+    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+
+    runs = artifacts.list(limit=max(args.last, 1), kind="ai_plan_run")
+
+    rows = []
+    full = []
+    for run_meta in runs[: args.last]:
+        run_doc = artifacts.get_json(run_meta.id) or {}
+        plan_id = run_doc.get("plan_id")
+
+        plan_doc = {}
+        if plan_id:
+            plans = artifacts.list(limit=200, kind="ai_plan")
+            for plan_meta in plans:
+                plan_payload = artifacts.get_json(plan_meta.id) or {}
+                if plan_payload.get("id") == plan_id:
+                    plan_doc = plan_payload
+                    break
+
+        res = evaluate_plan_run(plan_doc, run_doc)
+        row = metrics_row(res)
+        full.append(res)
+        rows.append(row)
+
+    if args.format == "json":
+        _write_json(args.out, {"rows": rows, "results": full})
+        return 0
+
+    if args.format == "jsonl":
+        lines = [json.dumps(r, ensure_ascii=False) for r in rows]
+        _write_text(args.out, "\n".join(lines))
+        return 0
+
+    header = list(rows[0].keys()) if rows else [
+        "plan_id",
+        "run_id",
+        "status",
+        "steps_planned",
+        "steps_executed",
+        "total_time_s",
+        "avg_step_s",
+        "artifacts_linked",
+        "reports_linked",
+        "bundles_linked",
+        "jobs_linked",
+        "reward_proxy",
+        "error",
+    ]
+    out_lines = [",".join(header)]
+    for row in rows:
+        out_lines.append(",".join([str(row.get(k, "")).replace(",", ";") for k in header]))
+    _write_text(args.out, "\n".join(out_lines))
+    return 0
+
+
 def _write_unit(dst: Path, content: str) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(content, encoding="utf-8")
@@ -696,6 +792,24 @@ WantedBy=multi-user.target
     print("ok: installed units. Enable/start with:")
     print("  sudo systemctl enable --now smolotchi-core smolotchi-web smolotchi-display")
     return 0
+
+
+def add_ai_subcommands(subparsers) -> None:
+    ai = subparsers.add_parser("ai", help="AI tools (planner replay/eval)")
+    ai_sub = ai.add_subparsers(dest="ai_cmd", required=True)
+
+    replay = ai_sub.add_parser("replay", help="Evaluate one plan+run (offline)")
+    replay.add_argument("--plan", required=True, help="ai_plan artifact_id")
+    replay.add_argument("--run", required=True, help="ai_plan_run artifact_id")
+    replay.add_argument("--out", default=None, help="Write output to file (default: stdout)")
+    replay.add_argument("--format", choices=["json", "md"], default="json")
+    replay.set_defaults(fn=cmd_ai_replay)
+
+    batch = ai_sub.add_parser("replay-batch", help="Evaluate last N ai_plan_run artifacts")
+    batch.add_argument("--last", type=int, default=20, help="How many runs to evaluate")
+    batch.add_argument("--out", default=None, help="Write output to file (default: stdout)")
+    batch.add_argument("--format", choices=["jsonl", "csv", "json"], default="jsonl")
+    batch.set_defaults(fn=cmd_ai_replay_batch)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -826,6 +940,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--db", default=DEFAULT_DB)
     s.set_defaults(fn=cmd_install_systemd)
 
+    add_ai_subcommands(sub)
     add_profiles_subcommands(sub)
     add_artifacts_subcommands(sub)
 

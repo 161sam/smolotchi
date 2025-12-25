@@ -171,6 +171,7 @@ class PlanRunner:
         start_ts = time.time()
         result = action.run(**step.payload)
         duration = time.time() - start_ts
+        links = self._extract_links(result)
 
         step_rec = {
             "step": step_index,
@@ -180,6 +181,7 @@ class PlanRunner:
             "why": step.why,
             "duration_s": round(duration, 3),
             "result_summary": self._summarize_result(result),
+            "links": links,
         }
         try:
             self._run_doc["steps"].append(step_rec)  # type: ignore[attr-defined]
@@ -237,6 +239,7 @@ class PlanRunner:
                 "artifact_id": artifact_id,
             },
         )
+        self._record_job_link(job_id, plan.id, artifact_id)
 
     def _emit_cancel(self, plan, job_id: str) -> None:
         self.jobstore.mark_cancelled(job_id)
@@ -260,6 +263,7 @@ class PlanRunner:
                 "artifact_id": artifact_id,
             },
         )
+        self._record_job_link(job_id, plan.id, artifact_id)
 
     def _emit_failed(self, plan, job_id: str, exc: Exception) -> None:
         self.jobstore.mark_failed(job_id, note=str(exc))
@@ -285,6 +289,7 @@ class PlanRunner:
                 "artifact_id": artifact_id,
             },
         )
+        self._record_job_link(job_id, plan.id, artifact_id)
 
     def _summarize_result(self, result) -> Dict[str, str]:
         """
@@ -300,6 +305,64 @@ class PlanRunner:
             }
 
         return {"type": type(result).__name__}
+
+    def _extract_links(self, result) -> dict:
+        """
+        Best-effort link extraction from action results.
+
+        Convention (optional):
+        result may include any of:
+          - artifact_id / artifact_ids
+          - report_id / report_ids
+          - bundle_id / bundle_ids
+          - job_id / job_ids
+        """
+        links = {"artifacts": [], "reports": [], "bundles": [], "jobs": []}
+
+        if not isinstance(result, dict):
+            return links
+
+        def add(key, val):
+            if not val:
+                return
+            if isinstance(val, list):
+                links[key].extend([str(x) for x in val if x])
+            else:
+                links[key].append(str(val))
+
+        add("artifacts", result.get("artifact_id"))
+        add("artifacts", result.get("artifact_ids"))
+        add("reports", result.get("report_id"))
+        add("reports", result.get("report_ids"))
+        add("bundles", result.get("bundle_id"))
+        add("bundles", result.get("bundle_ids"))
+        add("jobs", result.get("job_id"))
+        add("jobs", result.get("job_ids"))
+
+        for key in links:
+            links[key] = sorted(set(links[key]))
+        return links
+
+    def _record_job_link(
+        self, job_id: str, plan_id: str, artifact_id: str | None
+    ) -> None:
+        if not (self.artifacts and artifact_id):
+            return
+        try:
+            self.artifacts.put_json(
+                kind="ai_job_link",
+                title=f"AI Job Link {job_id}",
+                payload={
+                    "job_id": job_id,
+                    "run_artifact_id": artifact_id,
+                    "plan_id": plan_id,
+                    "ts": time.time(),
+                },
+                tags=["ai", "link"],
+                meta={"job_id": job_id, "plan_id": plan_id},
+            )
+        except Exception:
+            pass
 
 
 class BatchPlanRunner:
