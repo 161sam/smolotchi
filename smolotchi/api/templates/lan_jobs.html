@@ -14,6 +14,9 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% if j.meta %}
+          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+        {% endif %}
         <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" style="margin-top:8px">
           <button class="secondary" type="submit">Reset to queued</button>
         </form>
@@ -29,6 +32,9 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% if j.meta %}
+          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+        {% endif %}
         <form method="post" action="{{ url_for('lan_job_cancel', job_id=j.id) }}" style="margin-top:8px">
           <button class="secondary" type="submit">Cancel</button>
         </form>
@@ -44,6 +50,9 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
+        {% if j.meta %}
+          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+        {% endif %}
         <div class="btn-row" style="margin-top:8px">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>
@@ -62,6 +71,9 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% if j.meta %}
+          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+        {% endif %}
         <div class="btn-row" style="margin-top:8px">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>

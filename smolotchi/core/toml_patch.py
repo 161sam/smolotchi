@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 def _ensure_wifi_section(toml_text: str) -> str:
@@ -86,6 +86,117 @@ def parse_wifi_credentials_text(text: str) -> Dict[str, str]:
         if key and value:
             out[key] = value
     return out
+
+
+def parse_wifi_profiles_text(text: str) -> Dict[str, Dict[str, Any]]:
+    """
+    INI-like:
+      [SSID]
+      key=value
+    Supported value types:
+      true/false -> bool
+      int/float
+      otherwise string
+    """
+    cur = None
+    out: Dict[str, Dict[str, Any]] = {}
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "#" in line:
+            line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+
+        if line.startswith("[") and line.endswith("]"):
+            ssid = line[1:-1].strip()
+            if ssid:
+                cur = ssid
+                out.setdefault(cur, {})
+            else:
+                cur = None
+            continue
+
+        if cur is None:
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip()
+
+        vl: Any
+        if v.lower() in ("true", "false"):
+            vl = v.lower() == "true"
+        else:
+            try:
+                if "." in v:
+                    vl = float(v)
+                else:
+                    vl = int(v)
+            except Exception:
+                vl = v
+
+        if k:
+            out[cur][k] = vl
+    return out
+
+
+def patch_wifi_profiles_set(toml_text: str, profiles: Dict[str, Dict[str, Any]]) -> str:
+    """
+    Writes profiles as:
+      [wifi.profiles."SSID"]
+      key = value
+    Replaces the whole wifi.profiles tree (all SSIDs) deterministically.
+    Keeps other parts of config intact.
+    """
+    toml_text = _ensure_wifi_section(toml_text)
+
+    lines = toml_text.splitlines(True)
+    out_lines = []
+    i = 0
+
+    def is_profiles_header(s: str) -> bool:
+        return bool(re.match(r'^\s*\[wifi\.profiles\."[^"]+"\]\s*$', s))
+
+    def is_any_header(s: str) -> bool:
+        return bool(re.match(r"^\s*\[[^\]]+\]\s*$", s))
+
+    while i < len(lines):
+        line = lines[i]
+        if is_profiles_header(line):
+            i += 1
+            while i < len(lines) and not is_any_header(lines[i]):
+                i += 1
+            continue
+        out_lines.append(line)
+        i += 1
+
+    base = "".join(out_lines).rstrip() + "\n"
+
+    def toml_value(v: Any) -> str:
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, (int, float)):
+            return str(v)
+        s = str(v).replace('"', '\\"')
+        return f"\"{s}\""
+
+    blocks = []
+    for ssid in sorted((profiles or {}).keys()):
+        ssid_s = ssid.replace('"', '\\"')
+        data = profiles.get(ssid) or {}
+        if not isinstance(data, dict):
+            continue
+        blocks.append(f'\n[wifi.profiles."{ssid_s}"]\n')
+        for k in sorted(data.keys()):
+            v = data[k]
+            if v is None:
+                continue
+            blocks.append(f"{k} = {toml_value(v)}\n")
+
+    return base + "".join(blocks)
 
 
 def patch_wifi_allow_add(toml_text: str, ssid: str) -> str:

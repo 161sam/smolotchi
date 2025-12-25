@@ -66,6 +66,15 @@
     <div class="hr"></div>
   {% endif %}
 
+  {% if job_meta %}
+    <div style="margin-bottom:16px">
+      <h3 style="margin:0 0 10px 0">Job meta / overrides</h3>
+      <div class="events">
+        <div class="evt"><pre>{{ job_meta }}</pre></div>
+      </div>
+    </div>
+  {% endif %}
+
   <div data-tabs data-tabs-key="result-details-tabs" data-default-tab="meta">
     <div class="tabs">
       <button class="tab-btn" type="button" data-tab="meta">Meta</button>

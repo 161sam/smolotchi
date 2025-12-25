@@ -199,6 +199,31 @@
 </section>
 
 <section class="card">
+  <h3 style="margin:0 0 10px 0">WiFi profiles (per SSID)</h3>
+  <div class="muted" style="margin-bottom:10px">
+    Format:
+    <code>[SSID]</code> then <code>key=value</code>.
+    Types: true/false, int/float, strings.
+  </div>
+
+  <form method="post" action="/wifi/profiles/save">
+    <textarea name="profiles" spellcheck="false"
+      style="width:100%; min-height:26vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,monospace; font-size:12px; line-height:1.4;"
+    >{% for ssid, p in (profiles or {}).items()|dictsort %}
+[{{ ssid }}]
+{% for k,v in (p or {}).items()|dictsort %}{{ k }}={{ v }}
+{% endfor %}
+
+{% endfor %}</textarea>
+
+    <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
+      <button class="btn" type="submit">Save</button>
+      <button class="btn" type="submit" formaction="/wifi/profiles/save_reload" formmethod="post">Save + Reload</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
   <h3 style="margin:0 0 10px 0">Recent WiFi sessions</h3>
   <div class="events">
     {% for s in sessions %}
