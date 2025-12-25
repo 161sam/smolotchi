@@ -172,6 +172,13 @@ class PlanRunner:
         result = action.run(**step.payload)
         duration = time.time() - start_ts
         links = self._extract_links(result)
+        try:
+            links.setdefault("jobs", [])
+            links["jobs"] = sorted(
+                set([str(x) for x in (links.get("jobs") or []) if x] + [str(job_id)])
+            )
+        except Exception:
+            pass
 
         step_rec = {
             "step": step_index,
@@ -379,10 +386,40 @@ class BatchPlanRunner:
         self.artifacts = artifacts
 
     @staticmethod
-    def _links_from_artifact_id(artifact_id: str | None) -> dict:
+    def _links_from_artifact_id(
+        artifact_id: str | None, job_id: str | None = None
+    ) -> dict:
         links = {"artifacts": [], "reports": [], "bundles": [], "jobs": []}
         if artifact_id:
             links["artifacts"] = [str(artifact_id)]
+        if job_id:
+            links["jobs"] = [str(job_id)]
+        return links
+
+    @staticmethod
+    def _ensure_job_link(links: dict | None, job_id: str | None) -> dict:
+        links = (
+            links
+            if isinstance(links, dict)
+            else {"artifacts": [], "reports": [], "bundles": [], "jobs": []}
+        )
+        links.setdefault("artifacts", [])
+        links.setdefault("reports", [])
+        links.setdefault("bundles", [])
+        links.setdefault("jobs", [])
+        if job_id:
+            links["jobs"] = sorted(
+                set([str(x) for x in (links.get("jobs") or []) if x] + [str(job_id)])
+            )
+        for key in ("artifacts", "reports", "bundles", "jobs"):
+            value = links.get(key)
+            if value is None:
+                links[key] = []
+            elif isinstance(value, list):
+                links[key] = [str(item) for item in value if item]
+            else:
+                links[key] = [str(value)]
+            links[key] = sorted(set(links[key]))
         return links
 
     @staticmethod
@@ -441,6 +478,11 @@ class BatchPlanRunner:
                 "ssh": ["vuln.ssh_basic"],
                 "smb": ["vuln.smb_basic"],
             }
+        job_id = str(
+            plan.get("job_id")
+            or plan.get("job_id_hint")
+            or f"plan-{plan.get('id') or int(time.time())}"
+        )
         t0 = time.time()
         out_steps: List[Dict[str, Any]] = []
         self.bus.publish("plan.started", {"id": plan.get("id"), "mode": mode})
@@ -581,8 +623,11 @@ class BatchPlanRunner:
                                 "action_id": aid,
                                 "ok": True,
                                 "artifact_id": cache_portscan["artifact_id"],
-                                "links": self._links_from_artifact_id(
-                                    cache_portscan["artifact_id"]
+                                "links": self._ensure_job_link(
+                                    self._links_from_artifact_id(
+                                        cache_portscan["artifact_id"]
+                                    ),
+                                    job_id,
                                 ),
                                 "summary": "cache_hit",
                                 "meta": {"cache": True},
@@ -733,8 +778,11 @@ class BatchPlanRunner:
                                 "action_id": spec.id,
                                 "ok": True,
                                 "artifact_id": cache_vuln["artifact_id"],
-                                "links": self._links_from_artifact_id(
-                                    cache_vuln["artifact_id"]
+                                "links": self._ensure_job_link(
+                                    self._links_from_artifact_id(
+                                        cache_vuln["artifact_id"]
+                                    ),
+                                    job_id,
                                 ),
                                 "summary": "cache_hit",
                                 "meta": {"cache": True},
@@ -773,8 +821,11 @@ class BatchPlanRunner:
                     "action_id": aid,
                     "ok": res.ok,
                     "artifact_id": res.artifact_id,
-                    "links": self._links_from_artifact_id(
-                        getattr(res, "artifact_id", None)
+                    "links": self._ensure_job_link(
+                        self._links_from_artifact_id(
+                            getattr(res, "artifact_id", None)
+                        ),
+                        job_id,
                     ),
                     "summary": res.summary,
                     "meta": res.meta or {},
@@ -987,6 +1038,29 @@ class BatchPlanRunner:
                 "json": rmeta_json.id,
             },
         )
+        out_steps.append(
+            {
+                "action_id": "report.aggregate",
+                "ok": True,
+                "summary": "aggregate_report",
+                "links": self._ensure_job_link(
+                    {
+                        "artifacts": [str(meta.id), str(smeta.id)],
+                        "reports": [str(rmeta.id)],
+                        "bundles": [],
+                        "jobs": [],
+                    },
+                    job_id,
+                ),
+                "meta": {
+                    "plan_run_artifact_id": str(meta.id),
+                    "host_summary_id": str(smeta.id),
+                    "report_html": str(rmeta.id),
+                    "report_md": str(rmeta_md.id),
+                    "report_json": str(rmeta_json.id),
+                },
+            }
+        )
         diff_cfg = (
             report_cfg.get("diff") if isinstance(report_cfg.get("diff"), dict) else {}
         )
@@ -1067,9 +1141,41 @@ class BatchPlanRunner:
                         "json": diff_json_meta.id,
                     },
                 )
+                out_steps.append(
+                    {
+                        "action_id": "report.diff",
+                        "ok": True,
+                        "summary": "diff_report",
+                        "links": self._ensure_job_link(
+                            {
+                                "artifacts": [str(prev_id), str(smeta.id)],
+                                "reports": [str(diff_html_meta.id)],
+                                "bundles": [],
+                                "jobs": [],
+                            },
+                            job_id,
+                        ),
+                        "meta": {
+                            "prev_host_summary_id": str(prev_id),
+                            "cur_host_summary_id": str(smeta.id),
+                            "diff_html": str(diff_html_meta.id),
+                            "diff_md": str(diff_md_meta.id),
+                            "diff_json": str(diff_json_meta.id),
+                        },
+                    }
+                )
                 result["diff_report_html_artifact_id"] = diff_html_meta.id
                 result["diff_report_md_artifact_id"] = diff_md_meta.id
                 result["diff_report_json_artifact_id"] = diff_json_meta.id
+        result["steps"] = out_steps
+        try:
+            self.artifacts.put_json(
+                kind="plan_run",
+                title=f"Plan run • {plan.get('id')} (enriched)",
+                payload=result,
+            )
+        except Exception:
+            pass
         self.bus.publish(
             "plan.finished",
             {"id": plan.get("id"), "artifact_id": meta.id, "ok": all(s["ok"] for s in out_steps)},
