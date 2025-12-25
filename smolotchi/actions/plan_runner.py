@@ -73,16 +73,17 @@ class PlanRunner:
     # Public API
     # ==========================
 
-    def run(self, plan) -> None:
+    def run(self, plan, *, job_id: str | None = None, enqueue: bool = True) -> None:
         """
         Execute a plan synchronously.
         (Async execution can wrap this later.)
         """
-        job_id = f"job-{plan.id}"
+        if not job_id:
+            job_id = f"job-{plan.id}"
         created_ts = time.time()
         run_doc = {
             "plan_id": plan.id,
-            "job_id": None,
+            "job_id": job_id,
             "started_ts": created_ts,
             "mode": getattr(plan, "mode", None),
             "scope": getattr(plan, "scope", None),
@@ -93,16 +94,16 @@ class PlanRunner:
         }
         self._run_doc = run_doc
 
-        # ---- register job
-        self.jobstore.enqueue(
-            {
-                "id": job_id,
-                "kind": "ai_plan",
-                "scope": plan.scope,
-                "note": plan.note or "AI plan execution",
-            }
-        )
-        run_doc["job_id"] = job_id
+        # ---- register job (optional)
+        if enqueue and not self.jobstore.get(job_id):
+            self.jobstore.enqueue(
+                {
+                    "id": job_id,
+                    "kind": "ai_plan",
+                    "scope": plan.scope,
+                    "note": plan.note or "AI plan execution",
+                }
+            )
 
         self.bus.publish(
             "ai.plan.started",
@@ -125,6 +126,10 @@ class PlanRunner:
                     step_index=idx,
                     step=step,
                 )
+
+                if self._job_cancelled(job_id):
+                    self._emit_cancel(plan, job_id)
+                    return
 
             self._emit_done(plan, job_id, created_ts)
 
