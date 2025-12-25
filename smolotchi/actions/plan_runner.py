@@ -379,6 +379,13 @@ class BatchPlanRunner:
         self.artifacts = artifacts
 
     @staticmethod
+    def _links_from_artifact_id(artifact_id: str | None) -> dict:
+        links = {"artifacts": [], "reports": [], "bundles": [], "jobs": []}
+        if artifact_id:
+            links["artifacts"] = [str(artifact_id)]
+        return links
+
+    @staticmethod
     def _build_batched_steps(
         hosts: List[str],
         per_host_actions: List[str],
@@ -574,6 +581,9 @@ class BatchPlanRunner:
                                 "action_id": aid,
                                 "ok": True,
                                 "artifact_id": cache_portscan["artifact_id"],
+                                "links": self._links_from_artifact_id(
+                                    cache_portscan["artifact_id"]
+                                ),
                                 "summary": "cache_hit",
                                 "meta": {"cache": True},
                             }
@@ -723,6 +733,9 @@ class BatchPlanRunner:
                                 "action_id": spec.id,
                                 "ok": True,
                                 "artifact_id": cache_vuln["artifact_id"],
+                                "links": self._links_from_artifact_id(
+                                    cache_vuln["artifact_id"]
+                                ),
                                 "summary": "cache_hit",
                                 "meta": {"cache": True},
                             }
@@ -760,6 +773,9 @@ class BatchPlanRunner:
                     "action_id": aid,
                     "ok": res.ok,
                     "artifact_id": res.artifact_id,
+                    "links": self._links_from_artifact_id(
+                        getattr(res, "artifact_id", None)
+                    ),
                     "summary": res.summary,
                     "meta": res.meta or {},
                 }

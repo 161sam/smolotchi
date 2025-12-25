@@ -38,6 +38,27 @@
 </section>
 
 <section class="card">
+  <h3 style="margin:0 0 10px 0">Links</h3>
+  <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:6px">
+    {% for rid in links.reports %}
+      <a class="pill" href="{{ url_for('report_view', artifact_id=rid) }}">report: {{ rid }}</a>
+    {% endfor %}
+    {% for aid in links.artifacts %}
+      <a class="pill" href="{{ url_for('artifact_view', artifact_id=aid) }}">artifact: {{ aid }}</a>
+    {% endfor %}
+    {% for bid in links.bundles %}
+      <a class="pill" href="{{ url_for('lan_result_details', bundle_id=bid) }}">bundle: {{ bid }}</a>
+    {% endfor %}
+    {% for jid in links.jobs %}
+      <a class="pill" href="{{ url_for('lan_result_by_job') }}?job_id={{ jid }}">job: {{ jid }}</a>
+    {% endfor %}
+    {% if (links.reports|length + links.artifacts|length + links.bundles|length + links.jobs|length) == 0 %}
+      <div class="muted">No links captured in this run yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card">
   <h3 style="margin:0 0 10px 0">Steps</h3>
   <div class="events">
     {% for s in run.steps %}

@@ -1688,11 +1688,28 @@ def create_app(config_path: str = "config.toml") -> Flask:
                     plan_artifact_id = plan_meta.id
                     break
 
+        links = {"artifacts": [], "reports": [], "bundles": [], "jobs": []}
+        for step in run.get("steps") or []:
+            if not isinstance(step, dict):
+                continue
+            step_links = step.get("links")
+            if not isinstance(step_links, dict):
+                continue
+            for key in links:
+                values = step_links.get(key) or []
+                if isinstance(values, list):
+                    links[key].extend([str(value) for value in values if value])
+                elif values:
+                    links[key].append(str(values))
+        for key in links:
+            links[key] = sorted(set(links[key]))
+
         return render_template(
             "ai_run_detail.html",
             run=run,
             run_artifact_id=artifact_id,
             plan_artifact_id=plan_artifact_id,
+            links=links,
             run_pretty=pretty(run),
         )
 
