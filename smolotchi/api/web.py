@@ -1691,12 +1691,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "note": note,
             "ts": time.time(),
         }
-        req_id = artifacts.put_json(
+        req_meta = artifacts.put_json(
             kind="ai_run_request",
             title=f"AI Run Request {int(time.time())}",
             payload=req,
             tags=["ai", "run_request"],
         )
+        req_id = req_meta.id
 
         job_id = f"ai-{int(time.time())}"
         jobstore.enqueue(
