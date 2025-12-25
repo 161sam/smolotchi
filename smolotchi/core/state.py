@@ -102,11 +102,15 @@ class SmolotchiCore:
         required = ("id", "kind", "scope")
         if not all(key in payload for key in required):
             return None
+        meta = payload.get("meta") or {}
+        if not isinstance(meta, dict):
+            meta = {}
         return {
             "id": str(payload["id"]),
             "kind": str(payload["kind"]),
             "scope": str(payload["scope"]),
             "note": str(payload.get("note", "")),
+            "meta": meta,
             "created_ts": float(payload.get("created_ts", time.time())),
         }
 

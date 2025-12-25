@@ -27,11 +27,13 @@ class WifiEngine:
         self._last_health = 0.0
         self._last_health_ok = None
         self._connected_ssid: Optional[str] = None
+        self._connected_profile: Optional[dict] = None
         self._session_started_ts = None
         self._session_id = None
         self._lan_busy = False
         self._lan_locked = False
         self._last_lan_evt_ts = 0.0
+        self._forced_profile_ssid: Optional[str] = None
 
     def start(self) -> None:
         self._running = True
@@ -150,7 +152,17 @@ class WifiEngine:
                     self._lan_busy = False
                     self.bus.publish("wifi.lan.idle", {"reason": e.topic})
 
-        if self._lan_busy and w.lock_during_lan:
+        profile = self._connected_profile or {}
+        if "lock_during_lan" in profile:
+            lock_during_lan = bool(profile.get("lock_during_lan"))
+        else:
+            lock_during_lan = bool(w.lock_during_lan)
+        if "disconnect_after_lan" in profile:
+            disconnect_after_lan = bool(profile.get("disconnect_after_lan"))
+        else:
+            disconnect_after_lan = bool(getattr(w, "disconnect_after_lan", False))
+
+        if self._lan_busy and lock_during_lan:
             if not self._lan_locked:
                 self.bus.publish("wifi.lock", {"reason": "lan_busy"})
             self._lan_locked = True
@@ -161,7 +173,7 @@ class WifiEngine:
 
         if (
             saw_lan_done
-            and getattr(w, "disconnect_after_lan", False)
+            and disconnect_after_lan
             and self._connected_ssid
             and (not self._lan_locked)
         ):
@@ -178,8 +190,15 @@ class WifiEngine:
             )
             self._end_session(iface, "lan_done")
             self._connected_ssid = None
+            self._connected_profile = None
 
         ui_evts = self.bus.tail(limit=20, topic_prefix="ui.wifi.")
+        app = next((e for e in ui_evts if e.topic == "ui.wifi.profile.apply"), None)
+        if app and app.payload:
+            self._forced_profile_ssid = (app.payload.get("ssid") or "").strip() or None
+            self.bus.publish(
+                "wifi.profile.selected", {"ssid": self._forced_profile_ssid}
+            )
         req = next((e for e in ui_evts if e.topic == "ui.wifi.connect"), None)
         if req and req.payload and not self._lan_locked:
             ssid = (req.payload.get("ssid") or "").strip()
@@ -198,7 +217,19 @@ class WifiEngine:
                     },
                 )
                 if ok:
+                    profiles = getattr(w, "profiles", None) or {}
+                    profile = {}
+                    if isinstance(profiles, dict):
+                        profile = profiles.get(ssid) or {}
+                    if not isinstance(profile, dict):
+                        profile = {}
+                    apply_on_connect = bool(
+                        getattr(w, "apply_profile_on_connect", True)
+                    )
+                    self._connected_profile = profile if apply_on_connect else {}
                     self._start_session(iface_req, ssid)
+                    if self._forced_profile_ssid == ssid:
+                        self._forced_profile_ssid = None
 
         dis = next((e for e in ui_evts if e.topic == "ui.wifi.disconnect"), None)
         if dis and dis.payload:
@@ -226,6 +257,7 @@ class WifiEngine:
                 )
                 self._end_session(iface, "ui_request")
                 self._connected_ssid = None
+                self._connected_profile = None
 
         if self._connected_ssid and getattr(w, "health_enabled", True):
             interval = int(getattr(w, "health_interval_sec", 20) or 20)
@@ -257,6 +289,7 @@ class WifiEngine:
                     )
                     self._end_session(iface, "health_failed")
                     self._connected_ssid = None
+                    self._connected_profile = None
 
                     if bool(getattr(w, "auto_reconnect_on_broken", False)):
                         creds = getattr(w, "credentials", None) or {}
@@ -272,6 +305,18 @@ class WifiEngine:
                                 },
                             )
                             if ok2:
+                                profiles = getattr(w, "profiles", None) or {}
+                                profile = {}
+                                if isinstance(profiles, dict):
+                                    profile = profiles.get(ssid) or {}
+                                if not isinstance(profile, dict):
+                                    profile = {}
+                                apply_on_connect = bool(
+                                    getattr(w, "apply_profile_on_connect", True)
+                                )
+                                self._connected_profile = (
+                                    profile if apply_on_connect else {}
+                                )
                                 self._start_session(iface, ssid)
 
         if self._lan_locked and self._connected_ssid:
@@ -337,15 +382,21 @@ class WifiEngine:
 
         allow = set(w.allow_ssids or [])
         creds = w.credentials or {}
+        forced = (self._forced_profile_ssid or "").strip()
 
         preferred = w.preferred_ssid or ""
         chosen = None
         for ap in aps:
             if not ap.ssid:
                 continue
+            if forced and ap.ssid != forced:
+                continue
             if allow and ap.ssid not in allow:
                 continue
             if ap.ssid in creds:
+                if forced and ap.ssid == forced:
+                    chosen = ap.ssid
+                    break
                 if preferred and ap.ssid == preferred:
                     chosen = ap.ssid
                     break
@@ -357,6 +408,14 @@ class WifiEngine:
         if self._connected_ssid == chosen:
             return
 
+        profiles = getattr(w, "profiles", None) or {}
+        profile = {}
+        if isinstance(profiles, dict):
+            profile = profiles.get(chosen) or {}
+        if not isinstance(profile, dict):
+            profile = {}
+        apply_on_connect = bool(getattr(w, "apply_profile_on_connect", True))
+
         ok, out = connect_wpa_psk(iface, chosen, creds[chosen])
         self.bus.publish(
             "wifi.connect",
@@ -365,6 +424,7 @@ class WifiEngine:
         if not ok:
             return
 
+        self._connected_profile = profile if apply_on_connect else {}
         self._start_session(iface, chosen)
         scope_map = getattr(w, "scope_map", None) or {}
         mapped = (
@@ -372,9 +432,21 @@ class WifiEngine:
             if isinstance(scope_map, dict)
             else ""
         )
-        scope = mapped or detect_scope_for_iface(iface) or getattr(
-            getattr(cfg, "lan", None), "default_scope", "10.0.10.0/24"
+        p_scope = (profile.get("scope") or "").strip() if apply_on_connect else ""
+        scope = (
+            p_scope
+            or mapped
+            or detect_scope_for_iface(iface)
+            or getattr(getattr(cfg, "lan", None), "default_scope", "10.0.10.0/24")
         )
+        lan_overrides = {}
+        if apply_on_connect:
+            if profile.get("lan_pack"):
+                lan_overrides["pack"] = profile.get("lan_pack")
+            if profile.get("lan_throttle_rps") is not None:
+                lan_overrides["throttle_rps"] = profile.get("lan_throttle_rps")
+            if profile.get("lan_batch_size") is not None:
+                lan_overrides["batch_size"] = profile.get("lan_batch_size")
         self.bus.publish(
             "ui.lan.enqueue",
             {
@@ -383,9 +455,17 @@ class WifiEngine:
                     "kind": "inventory",
                     "scope": scope,
                     "note": f"triggered by wifi ssid={chosen} iface={iface}",
+                    "meta": {
+                        "wifi_ssid": chosen,
+                        "wifi_iface": iface,
+                        "wifi_profile": profile if apply_on_connect else {},
+                        "lan_overrides": lan_overrides,
+                    },
                 }
             },
         )
+        if self._forced_profile_ssid == chosen:
+            self._forced_profile_ssid = None
 
     def health(self) -> EngineHealth:
         cfg = self.config.get()

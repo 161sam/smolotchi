@@ -60,6 +60,7 @@ class LanEngine:
         self.report_cfg = report_cfg or {}
         self._running = False
         self._active: Optional[JobRow] = None
+        self._active_overrides: dict | None = None
 
     def start(self) -> None:
         self._running = True
@@ -226,23 +227,31 @@ class LanEngine:
         if self._active is None:
             self._active = self.jobs.pop_next()
             if self._active:
+                meta = self._active.meta if isinstance(self._active.meta, dict) else {}
+                overrides = meta.get("lan_overrides") or {}
+                if not isinstance(overrides, dict):
+                    overrides = {}
+                self._active_overrides = overrides
                 self.bus.publish(
                     "lan.job.started",
                     {
                         "id": self._active.id,
                         "kind": self._active.kind,
                         "scope": self._active.scope,
+                        "overrides": overrides,
                     },
                 )
 
         if self._active is not None:
             try:
+                overrides = self._active_overrides or {}
                 result = {
                     "job": {
                         "id": self._active.id,
                         "kind": self._active.kind,
                         "scope": self._active.scope,
                         "note": self._active.note,
+                        "overrides": overrides,
                     },
                     "summary": "stub result (persist queue v0.0.6)",
                     "ts": time.time(),
@@ -315,6 +324,7 @@ class LanEngine:
                 self.jobs.mark_failed(self._active.id, note=str(ex))
             finally:
                 self._active = None
+                self._active_overrides = None
 
     def health(self) -> EngineHealth:
         if not self.cfg.enabled:

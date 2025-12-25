@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ class JobRow:
     kind: str
     scope: str
     note: str
+    meta: Dict[str, Any]
     status: str
     created_ts: float
     updated_ts: float
@@ -34,6 +36,7 @@ class JobStore:
                   kind TEXT NOT NULL,
                   scope TEXT NOT NULL,
                   note TEXT NOT NULL,
+                  meta TEXT NOT NULL,
                   status TEXT NOT NULL,
                   created_ts REAL NOT NULL,
                   updated_ts REAL NOT NULL
@@ -42,17 +45,23 @@ class JobStore:
             )
             con.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
             con.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_ts)")
+            cols = {row[1] for row in con.execute("PRAGMA table_info(jobs)").fetchall()}
+            if "meta" not in cols:
+                con.execute("ALTER TABLE jobs ADD COLUMN meta TEXT NOT NULL DEFAULT '{}'")
 
     def enqueue(self, job: Dict[str, Any]) -> None:
         now = time.time()
+        meta = job.get("meta") or {}
+        meta_json = json.dumps(meta, ensure_ascii=False)
         with self._conn() as con:
             con.execute(
-                "INSERT OR REPLACE INTO jobs(id, kind, scope, note, status, created_ts, updated_ts) VALUES(?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO jobs(id, kind, scope, note, meta, status, created_ts, updated_ts) VALUES(?,?,?,?,?,?,?,?)",
                 (
                     str(job["id"]),
                     str(job["kind"]),
                     str(job["scope"]),
                     str(job.get("note", "")),
+                    meta_json,
                     "queued",
                     float(job.get("created_ts", now)),
                     now,
@@ -62,7 +71,7 @@ class JobStore:
     def pop_next(self) -> Optional[JobRow]:
         with self._conn() as con:
             row = con.execute(
-                "SELECT id, kind, scope, note, status, created_ts, updated_ts FROM jobs WHERE status='queued' ORDER BY created_ts ASC LIMIT 1"
+                "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts FROM jobs WHERE status='queued' ORDER BY created_ts ASC LIMIT 1"
             ).fetchone()
             if not row:
                 return None
@@ -72,7 +81,17 @@ class JobStore:
                 "UPDATE jobs SET status='running', updated_ts=? WHERE id=?",
                 (now, job_id),
             )
-            return JobRow(*row[:5], float(row[5]), now)
+            meta = json.loads(row[4] or "{}")
+            return JobRow(
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                meta,
+                row[5],
+                float(row[6]),
+                now,
+            )
 
     def mark_done(self, job_id: str) -> None:
         with self._conn() as con:
@@ -92,7 +111,7 @@ class JobStore:
             )
 
     def list(self, limit: int = 50, status: Optional[str] = None) -> List[JobRow]:
-        q = "SELECT id, kind, scope, note, status, created_ts, updated_ts FROM jobs "
+        q = "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts FROM jobs "
         params: List[Any] = []
         if status:
             q += "WHERE status=? "
@@ -109,9 +128,10 @@ class JobStore:
                         row[1],
                         row[2],
                         row[3],
-                        row[4],
-                        float(row[5]),
+                        json.loads(row[4] or "{}"),
+                        row[5],
                         float(row[6]),
+                        float(row[7]),
                     )
                 )
         return out
@@ -123,7 +143,7 @@ class JobStore:
         out: List[JobRow] = []
         with self._conn() as con:
             for row in con.execute(
-                "SELECT id, kind, scope, note, status, created_ts, updated_ts "
+                "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts "
                 "FROM jobs WHERE status='running' AND updated_ts < ? "
                 "ORDER BY updated_ts ASC LIMIT ?",
                 (cutoff, limit),
@@ -134,9 +154,10 @@ class JobStore:
                         row[1],
                         row[2],
                         row[3],
-                        row[4],
-                        float(row[5]),
+                        json.loads(row[4] or "{}"),
+                        row[5],
                         float(row[6]),
+                        float(row[7]),
                     )
                 )
         return out
