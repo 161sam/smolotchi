@@ -66,6 +66,29 @@
     <div class="hr"></div>
   {% endif %}
 
+  {% if eff %}
+  <section class="card">
+    <h3 style="margin:0 0 10px 0">Effective overrides</h3>
+    <div class="row" style="gap:10px; flex-wrap:wrap;">
+      {% if eff.wifi_ssid %}<span class="pill">ssid: {{ eff.wifi_ssid }}</span>{% endif %}
+      {% if eff.wifi_iface %}<span class="pill">iface: {{ eff.wifi_iface }}</span>{% endif %}
+      <span class="pill">pack: {{ eff.pack }}</span>
+      <span class="pill">rps: {{ eff.throttle_rps }}</span>
+      <span class="pill">batch: {{ eff.batch_size }}</span>
+    </div>
+
+    {% if eff.wifi_profile %}
+      <div style="margin-top:12px" class="muted">profile (applied)</div>
+      <div class="events"><div class="evt"><pre>{{ eff.wifi_profile }}</pre></div></div>
+    {% endif %}
+
+    {% if eff.lan_overrides %}
+      <div style="margin-top:12px" class="muted">overrides (job meta)</div>
+      <div class="events"><div class="evt"><pre>{{ eff.lan_overrides }}</pre></div></div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if job_meta %}
     <div style="margin-bottom:16px">
       <h3 style="margin:0 0 10px 0">Job meta / overrides</h3>
