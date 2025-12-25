@@ -4,6 +4,18 @@
 
 {% block content %}
 
+{% if profiles_error %}
+<section class="card">
+  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <div>
+      <div style="font-weight:900">Profiles not saved</div>
+      <div class="muted">Validation failed. Check the Audit tab for details (ui.wifi.profiles.invalid).</div>
+    </div>
+    <a class="pill" href="{{ url_for('audit') }}">Open audit</a>
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
     <div>

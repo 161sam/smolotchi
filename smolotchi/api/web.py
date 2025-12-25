@@ -15,10 +15,12 @@ from flask import (
 )
 
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
+from smolotchi.api.view_models import effective_lan_overrides
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
+from smolotchi.core.validate import validate_profiles
 from smolotchi.core.toml_patch import (
     cleanup_baseline_scopes,
     patch_baseline_add,
@@ -104,6 +106,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         iface = getattr(w, "iface", "wlan0") if w else "wlan0"
         ip_cidr = detect_ipv4_cidr(iface)
         scope = detect_scope_for_iface(iface)
+        profiles_error = request.args.get("profiles_error") == "1"
 
         events_wifi = bus.tail(limit=80, topic_prefix="wifi.")
         events_ui = bus.tail(limit=40, topic_prefix="ui.")
@@ -187,6 +190,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             profiles=profiles,
             wifi_profiles=profiles,
             selected_profile_evt=selected_profile_evt,
+            profiles_error=profiles_error,
         )
 
     @app.post("/wifi/connect")
@@ -314,6 +318,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def wifi_profiles_save():
         body = request.form.get("profiles", "")
         prof = parse_wifi_profiles_text(body)
+        errs = validate_profiles(prof)
+        if errs:
+            bus.publish(
+                "ui.wifi.profiles.invalid",
+                {"errors": errs[:10], "count": len(errs), "ts": time.time()},
+            )
+            return redirect(url_for("wifi") + "?profiles_error=1")
 
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
@@ -327,6 +338,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def wifi_profiles_save_reload():
         body = request.form.get("profiles", "")
         prof = parse_wifi_profiles_text(body)
+        errs = validate_profiles(prof)
+        if errs:
+            bus.publish(
+                "ui.wifi.profiles.invalid",
+                {"errors": errs[:10], "count": len(errs), "ts": time.time()},
+            )
+            return redirect(url_for("wifi") + "?profiles_error=1")
 
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
@@ -494,6 +512,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         only_suppressed = request.args.get("only_suppressed", "0") in ("1", "true", "yes")
 
         metas = artifacts.list(limit=50, kind="lan_bundle")
+        cfg = store.get()
 
         bundles = []
         for meta in metas:
@@ -515,6 +534,16 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
                 bundle["_finding_state"] = state
                 bundle["_finding_id"] = fid
+
+            try:
+                meta_info = (
+                    (bundle.get("job") or {}).get("meta") or bundle.get("job_meta") or {}
+                )
+                bundle["eff"] = effective_lan_overrides(
+                    cfg, meta_info if isinstance(meta_info, dict) else {}
+                )
+            except Exception:
+                bundle["eff"] = None
 
             bundles.append(bundle)
 
@@ -951,6 +980,10 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not job_meta and bundle and isinstance(bundle, dict):
             job_meta = (bundle.get("job") or {}).get("meta") or bundle.get("job_meta")
 
+        eff = effective_lan_overrides(
+            store.get(), job_meta if isinstance(job_meta, dict) else {}
+        )
+
         evts = []
         if job_id:
             raw = bus.tail(limit=300)
@@ -978,6 +1011,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             diff_badges=diff_badges,
             events=evts,
             job_meta=job_meta,
+            eff=eff,
         )
 
     @app.get("/lan/reports")
