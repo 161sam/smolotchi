@@ -1678,6 +1678,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not run:
             abort(404)
 
+        # ---- normalize per-step links so template can render safely
         steps = run.get("steps") or []
         if not isinstance(steps, list):
             steps = []
@@ -1703,25 +1704,31 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 links[key] = sorted(set(links[key]))
             step["links"] = links
 
-        run["steps"] = steps
-
-        agg = {"artifacts": set(), "reports": set(), "bundles": set(), "jobs": set()}
+        # ---- aggregate run-level links from steps (for the top "Links" section)
+        run_links = {"artifacts": set(), "reports": set(), "bundles": set(), "jobs": set()}
         for step in steps:
             if not isinstance(step, dict):
                 continue
             links = step.get("links") or {}
+            if not isinstance(links, dict):
+                continue
             for key in ("artifacts", "reports", "bundles", "jobs"):
-                for value in links.get(key) or []:
-                    if value:
-                        agg[key].add(str(value))
+                vals = links.get(key) or []
+                if isinstance(vals, list):
+                    for value in vals:
+                        if value:
+                            run_links[key].add(str(value))
+                elif vals:
+                    run_links[key].add(str(vals))
 
         links = {
-            "artifacts": sorted(agg["artifacts"]),
-            "reports": sorted(agg["reports"]),
-            "bundles": sorted(agg["bundles"]),
-            "jobs": sorted(agg["jobs"]),
+            "artifacts": sorted(run_links["artifacts"]),
+            "reports": sorted(run_links["reports"]),
+            "bundles": sorted(run_links["bundles"]),
+            "jobs": sorted(run_links["jobs"]),
         }
 
+        # ---- resolve plan_artifact_id (so "Open Plan" button works)
         plan_artifact_id = None
         plan_id = run.get("plan_id")
         if plan_id:
@@ -1732,6 +1739,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
                     plan_artifact_id = plan_meta.id
                     break
 
+        # ---- render
         return render_template(
             "ai_run_detail.html",
             run=run,
