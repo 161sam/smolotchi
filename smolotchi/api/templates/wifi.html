@@ -104,7 +104,10 @@
                     <button class="secondary" type="submit">Allow</button>
                   </form>
                 {% elif a.ssid and a._allowed %}
-                  <span class="pill">allowed</span>
+                  <form method="post" action="/wifi/allowlist/remove" style="margin:0" class="row">
+                    <input type="hidden" name="ssid" value="{{ a.ssid }}">
+                    <button class="secondary" type="submit">Remove</button>
+                  </form>
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
@@ -121,6 +124,10 @@
                   </form>
                   {% if a._mapped_scope %}
                     <div class="muted" style="margin-top:6px">mapped</div>
+                    <form method="post" action="/wifi/scope_map/remove" style="margin-top:8px">
+                      <input type="hidden" name="ssid" value="{{ a.ssid }}">
+                      <button class="secondary" type="submit">Undo</button>
+                    </form>
                   {% endif %}
                 {% else %}
                   <span class="muted">—</span>

@@ -125,6 +125,41 @@ def patch_wifi_allow_add(toml_text: str, ssid: str) -> str:
     return toml_text[:start] + block + toml_text[end:]
 
 
+def patch_wifi_allow_remove(toml_text: str, ssid: str) -> str:
+    ssid = (ssid or "").strip()
+    if not ssid:
+        return toml_text
+
+    match = re.search(r"^\[wifi\]\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+
+    block = toml_text[start:end]
+    rx = re.compile(r"^\s*allow_ssids\s*=\s*\[(.*?)\]\s*$", flags=re.MULTILINE)
+    mm = rx.search(block)
+    if not mm:
+        return toml_text
+
+    inner = (mm.group(1) or "").strip()
+    items = re.findall(r'"([^"]+)"', inner) if inner else []
+    items = [x for x in items if x.strip() and x.strip() != ssid]
+
+    if not items:
+        block2 = rx.sub("", block, count=1)
+        block2 = re.sub(r"\n{3,}", "\n\n", block2)
+        return toml_text[:start] + block2 + toml_text[end:]
+
+    items = sorted(set(items))
+    joined = ", ".join([f"\"{x.replace('\"', '\\\"')}\"" for x in items])
+    line = f"allow_ssids = [{joined}]"
+    block2 = rx.sub(line, block, count=1)
+    return toml_text[:start] + block2 + toml_text[end:]
+
+
 def patch_wifi_scope_map_set(toml_text: str, ssid: str, scope: str) -> str:
     ssid = (ssid or "").strip()
     scope = (scope or "").strip()
@@ -160,6 +195,42 @@ def patch_wifi_scope_map_set(toml_text: str, ssid: str, scope: str) -> str:
         lines.append(f'"{key_safe}" = "{value_safe}"')
 
     new_block = "\n" + "\n".join(lines) + "\n"
+    return toml_text[:start] + new_block + toml_text[end:]
+
+
+def patch_wifi_scope_map_remove(toml_text: str, ssid: str) -> str:
+    ssid = (ssid or "").strip()
+    if not ssid:
+        return toml_text
+
+    match = re.search(r"^\[wifi\.scope_map\]\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+
+    block = toml_text[start:end]
+
+    line_rx = re.compile(r'^\s*"([^"]+)"\s*=\s*"([^"]+)"\s*$', flags=re.MULTILINE)
+    mp: Dict[str, str] = {}
+    for mm in line_rx.finditer(block):
+        mp[mm.group(1).strip()] = mm.group(2).strip()
+
+    mp.pop(ssid, None)
+
+    if not mp:
+        new_block = "\n"
+    else:
+        lines = []
+        for key in sorted(mp.keys()):
+            value = mp[key]
+            key_safe = key.replace('"', '\\"')
+            value_safe = value.replace('"', '\\"')
+            lines.append(f'"{key_safe}" = "{value_safe}"')
+        new_block = "\n" + "\n".join(lines) + "\n"
+
     return toml_text[:start] + new_block + toml_text[end:]
 
 
