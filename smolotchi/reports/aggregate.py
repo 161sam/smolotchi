@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import time
 from datetime import datetime, timezone
+import json
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -119,6 +120,48 @@ def build_aggregate_model(
         )
     )
 
+    job = hs.get("job") if isinstance(hs.get("job"), dict) else {}
+    job_meta = {}
+    if isinstance(job, dict):
+        job_meta = job.get("meta") if isinstance(job.get("meta"), dict) else {}
+    if not job_meta and isinstance(hs.get("job_meta"), dict):
+        job_meta = hs.get("job_meta") or {}
+    wifi_profile = (
+        job_meta.get("wifi_profile") if isinstance(job_meta, dict) else {}
+    ) or {}
+    lan_overrides = (
+        job_meta.get("lan_overrides") if isinstance(job_meta, dict) else {}
+    ) or {}
+
+    applied = {
+        "wifi_ssid": job_meta.get("wifi_ssid") if isinstance(job_meta, dict) else None,
+        "wifi_iface": job_meta.get("wifi_iface") if isinstance(job_meta, dict) else None,
+        "wifi_profile": wifi_profile,
+        "lan_overrides": lan_overrides,
+        "wifi_profile_json": json.dumps(
+            wifi_profile, ensure_ascii=False, indent=2, sort_keys=True
+        )
+        if wifi_profile
+        else "",
+        "lan_overrides_json": json.dumps(
+            lan_overrides, ensure_ascii=False, indent=2, sort_keys=True
+        )
+        if lan_overrides
+        else "",
+        "effective": {
+            "scope": (job.get("scope") if isinstance(job, dict) else None) or scope,
+            "pack": lan_overrides.get("pack")
+            if isinstance(lan_overrides, dict)
+            else None,
+            "throttle_rps": lan_overrides.get("throttle_rps")
+            if isinstance(lan_overrides, dict)
+            else None,
+            "batch_size": lan_overrides.get("batch_size")
+            if isinstance(lan_overrides, dict)
+            else None,
+        },
+    }
+
     return {
         "title": title,
         "plan_id": plan_id,
@@ -127,6 +170,7 @@ def build_aggregate_model(
         "hosts": hosts,
         "host_summary_artifact_id": host_summary_artifact_id,
         "bundle_id": bundle_id,
+        "applied": applied,
     }
 
 
@@ -158,5 +202,6 @@ def build_aggregate_report(
         hosts=model.get("hosts", []),
         host_summary_artifact_id=model.get("host_summary_artifact_id"),
         bundle_id=model.get("bundle_id"),
+        applied=model.get("applied"),
     )
     return html

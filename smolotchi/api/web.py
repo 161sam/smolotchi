@@ -20,6 +20,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
+from smolotchi.core.presets import PRESETS
 from smolotchi.core.validate import validate_profiles
 from smolotchi.core.toml_patch import (
     cleanup_baseline_scopes,
@@ -281,6 +282,55 @@ def create_app(config_path: str = "config.toml") -> Flask:
         store.reload()
         bus.publish(
             "ui.wifi.profile.created", {"ssid": ssid, "scope": scope, "ts": time.time()}
+        )
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/profile/preset")
+    def wifi_profile_preset():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        lan = getattr(cfg, "lan", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        preset = (request.form.get("preset") or "").strip()
+        if not ssid or len(ssid) > 128:
+            abort(400)
+        if preset not in PRESETS:
+            abort(400)
+
+        scope_map = getattr(w, "scope_map", None) or {}
+        mapped = (scope_map.get(ssid) or "").strip() if isinstance(scope_map, dict) else ""
+        iface = getattr(w, "iface", "wlan0")
+        try:
+            derived = detect_scope_for_iface(iface) or ""
+        except Exception:
+            derived = ""
+
+        default_scope = (
+            getattr(lan, "default_scope", "10.0.10.0/24") if lan else "10.0.10.0/24"
+        )
+        scope = mapped or derived or default_scope
+
+        profiles = getattr(w, "profiles", None) or {}
+        existing = profiles.get(ssid) if isinstance(profiles, dict) else None
+        if not isinstance(existing, dict):
+            existing = {}
+
+        prof = dict(existing)
+        prof.update(PRESETS[preset])
+        prof["scope"] = scope
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=prof)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish(
+            "ui.wifi.profile.preset_applied",
+            {"ssid": ssid, "preset": preset, "scope": scope, "ts": time.time()},
         )
         return redirect(url_for("wifi"))
 
