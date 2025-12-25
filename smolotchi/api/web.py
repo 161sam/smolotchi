@@ -30,6 +30,7 @@ from smolotchi.core.toml_patch import (
     patch_wifi_credentials,
     parse_wifi_profiles_text,
     patch_wifi_profiles_set,
+    patch_wifi_profile_upsert,
     patch_wifi_scope_map_remove,
     patch_wifi_scope_map_set,
 )
@@ -227,6 +228,56 @@ def create_app(config_path: str = "config.toml") -> Flask:
         ssid = (request.form.get("ssid") or "").strip()
         iface = (request.form.get("iface") or "").strip()
         bus.publish("ui.wifi.profile.apply", {"ssid": ssid, "iface": iface})
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/profile/create")
+    def wifi_profile_create():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        lan = getattr(cfg, "lan", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        if not ssid or len(ssid) > 128:
+            abort(400)
+
+        scope_map = getattr(w, "scope_map", None) or {}
+        mapped = (scope_map.get(ssid) or "").strip() if isinstance(scope_map, dict) else ""
+        iface = getattr(w, "iface", "wlan0")
+
+        try:
+            derived = detect_scope_for_iface(iface) or ""
+        except Exception:
+            derived = ""
+
+        default_scope = (
+            getattr(lan, "default_scope", "10.0.10.0/24") if lan else "10.0.10.0/24"
+        )
+        scope = mapped or derived or default_scope
+
+        default_pack = getattr(lan, "default_pack", "bjorn_core") if lan else "bjorn_core"
+        default_rps = float(getattr(lan, "throttle_rps", 1.0) or 1.0) if lan else 1.0
+        default_batch = int(getattr(lan, "batch_size", 4) or 4) if lan else 4
+
+        profile = {
+            "scope": scope,
+            "disconnect_after_lan": bool(getattr(w, "disconnect_after_lan", True)),
+            "lock_during_lan": bool(getattr(w, "lock_during_lan", True)),
+            "lan_pack": default_pack,
+            "lan_throttle_rps": default_rps,
+            "lan_batch_size": default_batch,
+        }
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=profile)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish(
+            "ui.wifi.profile.created", {"ssid": ssid, "scope": scope, "ts": time.time()}
+        )
         return redirect(url_for("wifi"))
 
     @app.post("/wifi/credentials/save")
@@ -1074,6 +1125,46 @@ def create_app(config_path: str = "config.toml") -> Flask:
         running = jobstore.list(limit=10, status="running")
         done = jobstore.list(limit=30, status="done")
         failed = jobstore.list(limit=30, status="failed")
+
+        def _enrich_jobs(jobs):
+            cfg = store.get()
+            lan = getattr(cfg, "lan", None)
+
+            default_pack = (
+                getattr(lan, "default_pack", "bjorn_core") if lan else "bjorn_core"
+            )
+            default_rps = float(getattr(lan, "throttle_rps", 1.0) or 1.0) if lan else 1.0
+            default_batch = int(getattr(lan, "batch_size", 4) or 4) if lan else 4
+
+            for j in jobs:
+                meta = getattr(j, "meta", None) or {}
+                if not isinstance(meta, dict):
+                    meta = {}
+
+                over = meta.get("lan_overrides") or {}
+                if not isinstance(over, dict):
+                    over = {}
+
+                j.eff_pack = over.get("pack") or default_pack
+                j.eff_throttle_rps = (
+                    over.get("throttle_rps")
+                    if over.get("throttle_rps") is not None
+                    else default_rps
+                )
+                j.eff_batch_size = (
+                    over.get("batch_size")
+                    if over.get("batch_size") is not None
+                    else default_batch
+                )
+
+                j.wifi_ssid = (meta.get("wifi_ssid") or "")
+                j.wifi_iface = (meta.get("wifi_iface") or "")
+            return jobs
+
+        queued = _enrich_jobs(queued)
+        running = _enrich_jobs(running)
+        done = _enrich_jobs(done)
+        failed = _enrich_jobs(failed)
         return render_template(
             "lan_jobs.html",
             queued=queued,

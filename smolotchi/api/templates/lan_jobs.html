@@ -14,6 +14,13 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <span class="pill">scope: {{ j.scope }}</span>
+          <span class="pill">pack: {{ j.eff_pack }}</span>
+          <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
+          <span class="pill">batch: {{ j.eff_batch_size }}</span>
+          {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
+        </div>
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
         {% endif %}
@@ -32,6 +39,13 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <span class="pill">scope: {{ j.scope }}</span>
+          <span class="pill">pack: {{ j.eff_pack }}</span>
+          <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
+          <span class="pill">batch: {{ j.eff_batch_size }}</span>
+          {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
+        </div>
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
         {% endif %}
@@ -50,6 +64,13 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <span class="pill">scope: {{ j.scope }}</span>
+          <span class="pill">pack: {{ j.eff_pack }}</span>
+          <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
+          <span class="pill">batch: {{ j.eff_batch_size }}</span>
+          {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
+        </div>
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
         {% endif %}
@@ -71,6 +92,13 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <span class="pill">scope: {{ j.scope }}</span>
+          <span class="pill">pack: {{ j.eff_pack }}</span>
+          <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
+          <span class="pill">batch: {{ j.eff_batch_size }}</span>
+          {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
+        </div>
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
         {% endif %}
