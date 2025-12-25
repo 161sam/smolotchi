@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import json
 import time
 
@@ -62,10 +62,12 @@ class PlanRunner:
         bus: SQLiteBus,
         registry: ActionRegistry,
         jobstore: JobStore,
+        artifacts: Optional[ArtifactStore] = None,
     ) -> None:
         self.bus = bus
         self.registry = registry
         self.jobstore = jobstore
+        self.artifacts = artifacts
 
     # ==========================
     # Public API
@@ -78,6 +80,18 @@ class PlanRunner:
         """
         job_id = f"job-{plan.id}"
         created_ts = time.time()
+        run_doc = {
+            "plan_id": plan.id,
+            "job_id": None,
+            "started_ts": created_ts,
+            "mode": getattr(plan, "mode", None),
+            "scope": getattr(plan, "scope", None),
+            "note": getattr(plan, "note", ""),
+            "seed": getattr(plan, "seed", None),
+            "steps": [],
+            "status": "running",
+        }
+        self._run_doc = run_doc
 
         # ---- register job
         self.jobstore.enqueue(
@@ -88,6 +102,7 @@ class PlanRunner:
                 "note": plan.note or "AI plan execution",
             }
         )
+        run_doc["job_id"] = job_id
 
         self.bus.publish(
             "ai.plan.started",
@@ -152,6 +167,20 @@ class PlanRunner:
         result = action.run(**step.payload)
         duration = time.time() - start_ts
 
+        step_rec = {
+            "step": step_index,
+            "action": action_id,
+            "payload": step.payload,
+            "score": step.score,
+            "why": step.why,
+            "duration_s": round(duration, 3),
+            "result_summary": self._summarize_result(result),
+        }
+        try:
+            self._run_doc["steps"].append(step_rec)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
         self.bus.publish(
             "ai.action.done",
             {
@@ -178,33 +207,77 @@ class PlanRunner:
 
     def _emit_done(self, plan, job_id: str, started_ts: float) -> None:
         self.jobstore.mark_done(job_id)
+        artifact_id = None
+        if self.artifacts:
+            self._run_doc["status"] = "done"  # type: ignore[attr-defined]
+            self._run_doc["ended_ts"] = time.time()  # type: ignore[attr-defined]
+            meta = self.artifacts.put_json(
+                kind="ai_plan_run",
+                title=f"AI Plan Run {plan.id}",
+                payload=self._run_doc,  # type: ignore[attr-defined]
+                tags=["ai", "run", "done"],
+                meta={
+                    "plan_id": plan.id,
+                    "job_id": job_id,
+                    "scope": getattr(plan, "scope", None),
+                },
+            )
+            artifact_id = meta.id
         self.bus.publish(
             "ai.plan.completed",
             {
                 "plan_id": plan.id,
                 "job_id": job_id,
                 "duration_s": round(time.time() - started_ts, 3),
+                "artifact_id": artifact_id,
             },
         )
 
     def _emit_cancel(self, plan, job_id: str) -> None:
         self.jobstore.mark_cancelled(job_id)
+        artifact_id = None
+        if self.artifacts:
+            self._run_doc["status"] = "cancelled"  # type: ignore[attr-defined]
+            self._run_doc["ended_ts"] = time.time()  # type: ignore[attr-defined]
+            meta = self.artifacts.put_json(
+                kind="ai_plan_run",
+                title=f"AI Plan Run {plan.id} (cancelled)",
+                payload=self._run_doc,  # type: ignore[attr-defined]
+                tags=["ai", "run", "cancelled"],
+                meta={"plan_id": plan.id, "job_id": job_id},
+            )
+            artifact_id = meta.id
         self.bus.publish(
             "ai.plan.cancelled",
             {
                 "plan_id": plan.id,
                 "job_id": job_id,
+                "artifact_id": artifact_id,
             },
         )
 
     def _emit_failed(self, plan, job_id: str, exc: Exception) -> None:
         self.jobstore.mark_failed(job_id, note=str(exc))
+        artifact_id = None
+        if self.artifacts:
+            self._run_doc["status"] = "failed"  # type: ignore[attr-defined]
+            self._run_doc["ended_ts"] = time.time()  # type: ignore[attr-defined]
+            self._run_doc["error"] = str(exc)  # type: ignore[attr-defined]
+            meta = self.artifacts.put_json(
+                kind="ai_plan_run",
+                title=f"AI Plan Run {plan.id} (failed)",
+                payload=self._run_doc,  # type: ignore[attr-defined]
+                tags=["ai", "run", "failed"],
+                meta={"plan_id": plan.id, "job_id": job_id},
+            )
+            artifact_id = meta.id
         self.bus.publish(
             "ai.plan.failed",
             {
                 "plan_id": plan.id,
                 "job_id": job_id,
                 "error": str(exc),
+                "artifact_id": artifact_id,
             },
         )
 

@@ -38,12 +38,22 @@ class ArtifactStore:
             json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-    def put_json(self, kind: str, title: str, payload: Dict[str, Any]) -> ArtifactMeta:
+    def put_json(
+        self,
+        kind: str,
+        title: str,
+        payload: Dict[str, Any],
+        *,
+        tags: Optional[List[str]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> ArtifactMeta:
         aid = f"{int(time.time())}-{kind}"
         path = self.root / f"{aid}.json"
         path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+        tags = tags or []
+        meta_payload = meta or {}
 
         meta = ArtifactMeta(
             id=aid,
@@ -62,6 +72,8 @@ class ArtifactStore:
                 "created_ts": meta.created_ts,
                 "title": meta.title,
                 "path": meta.path,
+                "tags": tags,
+                **meta_payload,
             },
         )
         self._save_index(idx)

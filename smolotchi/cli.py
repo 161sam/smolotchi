@@ -97,7 +97,7 @@ def cmd_core(args) -> int:
     plan_runner = BatchPlanRunner(
         bus=bus, registry=actions, runner=action_runner, artifacts=artifacts
     )
-    planner = AIPlanner(bus=bus, registry=actions)
+    planner = AIPlanner(bus=bus, registry=actions, artifacts=artifacts)
 
     reg.register(
         LanEngine(
