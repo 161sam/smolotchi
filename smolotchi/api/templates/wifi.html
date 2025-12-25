@@ -157,6 +157,12 @@
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
+                {% if a.ssid and (not profiles or a.ssid not in profiles) %}
+                  <form method="post" action="/wifi/profile/create" style="margin-top:8px">
+                    <input type="hidden" name="ssid" value="{{ a.ssid }}">
+                    <button class="secondary" type="submit">Create profile</button>
+                  </form>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}

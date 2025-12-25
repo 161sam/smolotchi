@@ -199,6 +199,59 @@ def patch_wifi_profiles_set(toml_text: str, profiles: Dict[str, Dict[str, Any]])
     return base + "".join(blocks)
 
 
+def patch_wifi_profile_upsert(toml_text: str, ssid: str, profile: Dict[str, Any]) -> str:
+    """
+    Upsert a single profile block:
+      [wifi.profiles."SSID"]
+      ...
+    Leaves other SSID blocks intact (but normalizes this SSID).
+    """
+    ssid = (ssid or "").strip()
+    if not ssid or not isinstance(profile, dict):
+        return toml_text
+
+    toml_text = _ensure_wifi_section(toml_text)
+    ssid_esc = ssid.replace('"', '\\"')
+
+    lines = toml_text.splitlines(True)
+    out = []
+    i = 0
+
+    hdr = f'[wifi.profiles."{ssid_esc}"]'
+
+    def is_any_header(s: str) -> bool:
+        return bool(re.match(r"^\s*\[[^\]]+\]\s*$", s))
+
+    while i < len(lines):
+        line = lines[i]
+        if line.strip() == hdr:
+            i += 1
+            while i < len(lines) and not is_any_header(lines[i]):
+                i += 1
+            continue
+        out.append(line)
+        i += 1
+
+    base = "".join(out).rstrip() + "\n"
+
+    def toml_value(v: Any) -> str:
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, (int, float)):
+            return str(v)
+        s = str(v).replace('"', '\\"')
+        return f"\"{s}\""
+
+    block = [f'\n[wifi.profiles."{ssid_esc}"]\n']
+    for k in sorted(profile.keys()):
+        v = profile[k]
+        if v is None:
+            continue
+        block.append(f"{k} = {toml_value(v)}\n")
+
+    return base + "".join(block)
+
+
 def patch_wifi_allow_add(toml_text: str, ssid: str) -> str:
     ssid = (ssid or "").strip()
     if not ssid:
