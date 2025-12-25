@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 from dataclasses import dataclass
@@ -50,6 +51,8 @@ class AIWorker:
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.state = WorkerState()
+        self.watchdog_s = float(os.environ.get("SMO_AI_WATCHDOG_S", "300"))
+        self._last_progress_by_job: dict[str, float] = {}
 
     def _extract_req_id(self, note: str) -> Optional[str]:
         note = note or ""
@@ -82,6 +85,41 @@ class AIWorker:
             try:
                 self.state.last_tick = time.time()
                 self.bus.publish("ai.worker.tick", {"ts": self.state.last_tick})
+
+                ai_evts = self.bus.tail(limit=100, topic_prefix="ai.")
+                for event in ai_evts:
+                    payload = event.payload or {}
+                    jid = payload.get("job_id")
+                    if jid and event.topic in (
+                        "ai.action.started",
+                        "ai.action.done",
+                        "ai.plan.started",
+                    ):
+                        self._last_progress_by_job[str(jid)] = float(
+                            event.ts or time.time()
+                        )
+
+                running = [
+                    j
+                    for j in self.jobstore.list(limit=10, status="running")
+                    if getattr(j, "kind", "") == "ai_plan"
+                ]
+                now = time.time()
+                for job in running:
+                    jid = job.id
+                    last = self._last_progress_by_job.get(
+                        jid, float(getattr(job, "updated_ts", 0.0) or 0.0)
+                    )
+                    if last and (now - last) > self.watchdog_s:
+                        ok = False
+                        try:
+                            ok = self.jobstore.reset_running(jid)
+                        except Exception:
+                            ok = False
+                        self.bus.publish(
+                            "ai.worker.watchdog.reset",
+                            {"job_id": jid, "ok": ok, "age_s": round(now - last, 1)},
+                        )
 
                 queued = self.jobstore.list(limit=20, status="queued")
                 queued = [

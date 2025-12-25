@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+{% block page_title %}AI Run{% endblock %}
+{% block page_sub %}{{ run.plan_id }} • {{ run.status }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <div class="row" style="gap:10px; flex-wrap:wrap;">
+      <a href="{{ url_for('ai_jobs') }}" class="btn secondary">← Back to AI Jobs</a>
+      <a href="{{ url_for('ai_plans') }}" class="btn secondary">AI Plans</a>
+      {% if plan_artifact_id %}
+        <a href="{{ url_for('ai_plan_detail', artifact_id=plan_artifact_id) }}" class="btn">Open Plan</a>
+      {% endif %}
+    </div>
+    <div class="row" style="gap:10px; flex-wrap:wrap;">
+      <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=run_artifact_id) }}">Download JSON</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Summary</h3>
+  <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <span class="pill">status: {{ run.status }}</span>
+    {% if run.scope %}<span class="pill">scope: {{ run.scope }}</span>{% endif %}
+    {% if run.mode %}<span class="pill">mode: {{ run.mode }}</span>{% endif %}
+    {% if run.seed is not none %}<span class="pill">seed: {{ run.seed }}</span>{% endif %}
+    {% if run.started_ts %}<span class="pill">started: {{ run.started_ts }}</span>{% endif %}
+    {% if run.ended_ts %}<span class="pill">ended: {{ run.ended_ts }}</span>{% endif %}
+  </div>
+
+  {% if run.error %}
+    <div class="evt" style="margin-top:12px;">
+      <div class="evt-top">Error</div>
+      <pre>{{ run.error }}</pre>
+    </div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Steps</h3>
+  <div class="events">
+    {% for s in run.steps %}
+      <div class="evt">
+        <div class="evt-top">#{{ s.step }} • {{ s.action }}</div>
+        <pre>duration={{ s.duration_s }}s{% if s.score is not none %} • score={{ s.score }}{% endif %}</pre>
+        {% if s.why %}
+          <div class="muted" style="margin-top:8px">why</div>
+          <pre>{{ s.why }}</pre>
+        {% endif %}
+
+        {% if s.links %}
+          <div class="muted" style="margin-top:8px">links</div>
+          <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:6px">
+            {% if s.links.artifacts %}
+              {% for aid in s.links.artifacts %}
+                <a class="pill" href="{{ url_for('artifact_view', artifact_id=aid) }}">artifact: {{ aid }}</a>
+              {% endfor %}
+            {% endif %}
+            {% if s.links.reports %}
+              {% for rid in s.links.reports %}
+                <a class="pill" href="{{ url_for('report_view', artifact_id=rid) }}">report: {{ rid }}</a>
+              {% endfor %}
+            {% endif %}
+            {% if s.links.bundles %}
+              {% for bid in s.links.bundles %}
+                <a class="pill" href="{{ url_for('lan_result_details', bundle_id=bid) }}">bundle: {{ bid }}</a>
+              {% endfor %}
+            {% endif %}
+            {% if s.links.jobs %}
+              {% for jid in s.links.jobs %}
+                <a class="pill" href="{{ url_for('lan_result_by_job') }}?job_id={{ jid }}">job: {{ jid }}</a>
+              {% endfor %}
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if s.result_summary %}
+          <div class="muted" style="margin-top:8px">result</div>
+          <pre>{{ s.result_summary | tojson(indent=2) }}</pre>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="muted">No steps recorded.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Raw JSON</h3>
+  <pre>{{ run_pretty }}</pre>
+</section>
+{% endblock %}

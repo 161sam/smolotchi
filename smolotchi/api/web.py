@@ -1672,6 +1672,30 @@ def create_app(config_path: str = "config.toml") -> Flask:
             plan_pretty=pretty(plan),
         )
 
+    @app.get("/ai/run/<artifact_id>")
+    def ai_run_detail(artifact_id: str):
+        run = artifacts.get_json(artifact_id)
+        if not run:
+            abort(404)
+
+        plan_artifact_id = None
+        plan_id = run.get("plan_id")
+        if plan_id:
+            plans = artifacts.list(limit=100, kind="ai_plan")
+            for plan_meta in plans:
+                doc = artifacts.get_json(plan_meta.id) or {}
+                if doc.get("id") == plan_id:
+                    plan_artifact_id = plan_meta.id
+                    break
+
+        return render_template(
+            "ai_run_detail.html",
+            run=run,
+            run_artifact_id=artifact_id,
+            plan_artifact_id=plan_artifact_id,
+            run_pretty=pretty(run),
+        )
+
     @app.post("/ai/plan")
     def ai_plan():
         scope = request.form.get("scope", "10.0.10.0/24")
@@ -1728,12 +1752,23 @@ def create_app(config_path: str = "config.toml") -> Flask:
         failed = [
             j for j in jobstore.list(limit=30, status="failed") if j.kind == "ai_plan"
         ]
+
+        links = artifacts.list(limit=200, kind="ai_job_link")
+        run_by_job = {}
+        for link in links:
+            doc = artifacts.get_json(link.id) or {}
+            jid = doc.get("job_id")
+            rid = doc.get("run_artifact_id")
+            if jid and rid:
+                run_by_job[str(jid)] = str(rid)
+
         return render_template(
             "ai_jobs.html",
             queued=queued,
             running=running,
             done=done,
             failed=failed,
+            run_by_job=run_by_job,
         )
 
     @app.post("/ai/job/<job_id>/cancel")

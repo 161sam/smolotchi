@@ -19,6 +19,11 @@
         <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
           <button class="secondary" type="submit">Cancel / Stop</button>
         </form>
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
+        {% endif %}
       </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
@@ -46,6 +51,11 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
+        {% endif %}
       </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
@@ -58,6 +68,11 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
+        {% endif %}
       </div>
     {% else %}<div class="muted">none</div>{% endfor %}
   </div>
