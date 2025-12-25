@@ -56,6 +56,7 @@
           <a class="pill" href="{{ url_for('lan_finding_timeline', fid=f.id) }}">Timeline</a>
           <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
             <input type="hidden" name="scope" value="{{ app_cfg.lan.default_scope if app_cfg and app_cfg.lan else '' }}">
+            <input type="hidden" name="profile" value="{{ baseline_profile }}">
             <input type="hidden" name="fid" value="{{ f.id }}">
             <input type="hidden" name="back" value="{{ request.full_path }}">
             <button class="secondary" type="submit">Add to baseline</button>

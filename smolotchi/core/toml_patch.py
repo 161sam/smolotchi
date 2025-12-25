@@ -580,3 +580,118 @@ def cleanup_baseline_scopes(toml_text: str) -> str:
         new_block = "\n"
 
     return toml_text[:start] + new_block + toml_text[end:]
+
+
+def patch_baseline_profile_add(
+    toml_text: str, profile_key: str, finding_id: str
+) -> str:
+    profile_key = profile_key.strip()
+    finding_id = finding_id.strip()
+    if not profile_key or not finding_id:
+        return toml_text
+
+    if not re.search(r"^\[baseline\]\s*$", toml_text, flags=re.MULTILINE):
+        toml_text = toml_text.rstrip() + "\n\n[baseline]\nenabled = true\n"
+
+    header = f'[baseline.profiles."{profile_key}"]'
+    if not re.search(rf"^{re.escape(header)}\s*$", toml_text, flags=re.MULTILINE):
+        block = f'\n{header}\nexpected_findings = ["{finding_id}"]\n'
+        return toml_text.rstrip() + "\n" + block
+
+    match = re.search(rf"^{re.escape(header)}\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+    block = toml_text[start:end]
+
+    rx = re.compile(r"^\s*expected_findings\s*=\s*\[(.*?)\]\s*$", flags=re.MULTILINE)
+    if rx.search(block):
+        def repl(match: re.Match) -> str:
+            inner = match.group(1).strip()
+            items = re.findall(r'"([^"]+)"', inner) if inner else []
+            if finding_id not in items:
+                items.append(finding_id)
+            joined = ", ".join([f'"{x}"' for x in items])
+            return f"expected_findings = [{joined}]"
+
+        block = rx.sub(repl, block, count=1)
+    else:
+        if not block.endswith("\n"):
+            block += "\n"
+        block += f'expected_findings = ["{finding_id}"]\n'
+
+    return toml_text[:start] + block + toml_text[end:]
+
+
+def patch_baseline_profile_remove(
+    toml_text: str, profile_key: str, finding_id: str
+) -> str:
+    profile_key = profile_key.strip()
+    finding_id = finding_id.strip()
+    if not profile_key or not finding_id:
+        return toml_text
+
+    header = f'[baseline.profiles."{profile_key}"]'
+    match = re.search(rf"^{re.escape(header)}\s*$", toml_text, flags=re.MULTILINE)
+    if not match:
+        return toml_text
+
+    start = match.end()
+    next_header = re.search(r"^\[[^\]]+\]\s*$", toml_text[start:], flags=re.MULTILINE)
+    end = start + (next_header.start() if next_header else len(toml_text[start:]))
+    block = toml_text[start:end]
+
+    rx = re.compile(r"^\s*expected_findings\s*=\s*\[(.*?)\]\s*$", flags=re.MULTILINE)
+    if not rx.search(block):
+        return toml_text
+
+    def repl(match: re.Match) -> str:
+        inner = match.group(1).strip()
+        items = re.findall(r'"([^"]+)"', inner) if inner else []
+        items = [x for x in items if x != finding_id]
+        joined = ", ".join([f'"{x}"' for x in items])
+        return f"expected_findings = [{joined}]"
+
+    block = rx.sub(repl, block, count=1)
+    return toml_text[:start] + block + toml_text[end:]
+
+
+def cleanup_baseline_profiles(toml_text: str) -> str:
+    """
+    Normalize [baseline.profiles."..."] blocks:
+      - dedup + sort expected_findings
+      - remove empty expected_findings lists
+    """
+    profile_rx = re.compile(r'^\[baseline\.profiles\."([^"]+)"\]\s*$', flags=re.MULTILINE)
+    matches = list(profile_rx.finditer(toml_text))
+    if not matches:
+        return toml_text
+
+    updated = toml_text
+    offset = 0
+    for match in matches:
+        start = match.end() + offset
+        next_header = re.search(
+            r"^\[[^\]]+\]\s*$", updated[start:], flags=re.MULTILINE
+        )
+        end = start + (next_header.start() if next_header else len(updated[start:]))
+        block = updated[start:end]
+        rx = re.compile(r"^\s*expected_findings\s*=\s*\[(.*?)\]\s*$", flags=re.MULTILINE)
+        em = rx.search(block)
+        if not em:
+            continue
+        inner = em.group(1).strip()
+        items = re.findall(r'"([^"]+)"', inner) if inner else []
+        norm = sorted({x.strip() for x in items if x and x.strip()})
+        if not norm:
+            block = rx.sub("expected_findings = []", block, count=1)
+        else:
+            joined = ", ".join([f'"{x}"' for x in norm])
+            block = rx.sub(f"expected_findings = [{joined}]", block, count=1)
+        updated = updated[:start] + block + updated[end:]
+        offset += len(block) - (end - start)
+
+    return updated

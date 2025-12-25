@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import subprocess
 import time
@@ -172,6 +173,11 @@ def cmd_core(args) -> int:
                     "enabled": cfg.report_normalize.enabled,
                     "force_severity": cfg.report_normalize.force_severity,
                     "force_tag": cfg.report_normalize.force_tag,
+                },
+                "baseline": {
+                    "enabled": cfg.baseline.enabled,
+                    "scopes": cfg.baseline.scopes,
+                    "profiles": cfg.baseline.profiles,
                 },
                 "diff": {
                     "enabled": cfg.report_diff.enabled,
@@ -501,6 +507,114 @@ def cmd_diff_baseline_show(args) -> int:
     return 0
 
 
+def _resolve_profile_key(cfg, ssid_or_key: str, profile_hash_hint: str | None) -> str:
+    ssid_or_key = ssid_or_key.strip()
+    if "." in ssid_or_key:
+        return ssid_or_key
+    if profile_hash_hint:
+        return f"{ssid_or_key}.{profile_hash_hint}"
+    from smolotchi.core.normalize import normalize_profile, profile_hash
+
+    wcfg = getattr(cfg, "wifi", None)
+    profiles = getattr(wcfg, "profiles", None) if wcfg else None
+    profile = profiles.get(ssid_or_key) if isinstance(profiles, dict) else None
+    if isinstance(profile, dict):
+        norm, _ = normalize_profile(profile)
+        return f"{ssid_or_key}.{profile_hash(norm)}"
+    return ssid_or_key
+
+
+def cmd_profile_timeline(args) -> int:
+    artifacts = ArtifactStore()
+    items = []
+    for meta in artifacts.list(limit=args.limit, kind="profile_timeline"):
+        payload = artifacts.get_json(meta.id) or {}
+        if args.ssid and payload.get("ssid") != args.ssid:
+            continue
+        payload["artifact_id"] = meta.id
+        items.append(payload)
+    print(json.dumps(items, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_baseline_show(args) -> int:
+    from smolotchi.core.config import ConfigStore
+    from smolotchi.reports.baseline import expected_findings_for_profile
+
+    store = ConfigStore(args.config)
+    cfg = store.load()
+    profile_key = _resolve_profile_key(cfg, args.profile, args.hash)
+    expected = sorted(expected_findings_for_profile(cfg, profile_key))
+    print(json.dumps({"profile": profile_key, "expected_findings": expected}, indent=2))
+    return 0
+
+
+def cmd_baseline_diff(args) -> int:
+    from smolotchi.core.config import ConfigStore
+    from smolotchi.reports.baseline import expected_findings_for_profile
+
+    store = ConfigStore(args.config)
+    cfg = store.load()
+    from_key = _resolve_profile_key(cfg, args.profile, args.from_hash)
+    to_key = _resolve_profile_key(cfg, args.profile, args.to_hash)
+    from_expected = set(expected_findings_for_profile(cfg, from_key))
+    to_expected = set(expected_findings_for_profile(cfg, to_key))
+    added = sorted(to_expected - from_expected)
+    removed = sorted(from_expected - to_expected)
+    print(
+        json.dumps(
+            {
+                "profile_from": from_key,
+                "profile_to": to_key,
+                "added": added,
+                "removed": removed,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+def cmd_finding_history(args) -> int:
+    from smolotchi.reports.baseline import profile_key_for_job_meta
+
+    artifacts = ArtifactStore()
+    history = []
+    for meta in artifacts.list(limit=args.limit, kind="lan_bundle"):
+        bundle = artifacts.get_json(meta.id) or {}
+        summary = bundle.get("host_summary") or {}
+        state = None
+        for finding in (summary.get("findings") or []):
+            fid = str(finding.get("id") or finding.get("title") or "")
+            if fid != args.finding_id:
+                continue
+            suppressed = bool(
+                finding.get("suppressed") or finding.get("suppressed_by_policy")
+            )
+            state = "suppressed" if suppressed else "active"
+            break
+        if state is None:
+            continue
+        job_meta = (
+            (bundle.get("job") or {}).get("meta")
+            if isinstance(bundle.get("job"), dict)
+            else {}
+        )
+        if not job_meta and isinstance(bundle.get("job_meta"), dict):
+            job_meta = bundle.get("job_meta") or {}
+        history.append(
+            {
+                "bundle_id": meta.id,
+                "state": state,
+                "ts": meta.created_ts,
+                "profile": profile_key_for_job_meta(job_meta),
+            }
+        )
+    history.sort(key=lambda x: x.get("ts") or 0)
+    print(json.dumps(history, indent=2))
+    return 0
+
+
 def _write_unit(dst: Path, content: str) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(content, encoding="utf-8")
@@ -679,6 +793,32 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("diff-baseline-show", help="Show baseline host_summary artifact id")
     s.set_defaults(fn=cmd_diff_baseline_show)
+
+    profile = sub.add_parser("profile", help="Profile timeline utilities")
+    profile_sub = profile.add_subparsers(dest="profile_cmd", required=True)
+    s = profile_sub.add_parser("timeline", help="Show profile timeline by SSID")
+    s.add_argument("ssid")
+    s.add_argument("--limit", type=int, default=50)
+    s.set_defaults(fn=cmd_profile_timeline)
+
+    baseline = sub.add_parser("baseline", help="Baseline utilities")
+    baseline_sub = baseline.add_subparsers(dest="baseline_cmd", required=True)
+    s = baseline_sub.add_parser("show", help="Show baseline for profile")
+    s.add_argument("profile")
+    s.add_argument("--hash", dest="hash", default=None)
+    s.set_defaults(fn=cmd_baseline_show)
+    s = baseline_sub.add_parser("diff", help="Diff baseline between profile hashes")
+    s.add_argument("profile")
+    s.add_argument("--from", dest="from_hash", required=True)
+    s.add_argument("--to", dest="to_hash", required=True)
+    s.set_defaults(fn=cmd_baseline_diff)
+
+    finding = sub.add_parser("finding", help="Finding history utilities")
+    finding_sub = finding.add_subparsers(dest="finding_cmd", required=True)
+    s = finding_sub.add_parser("history", help="Show finding history across bundles")
+    s.add_argument("finding_id")
+    s.add_argument("--limit", type=int, default=200)
+    s.set_defaults(fn=cmd_finding_history)
 
     s = sub.add_parser("install-systemd", help="Install systemd units (needs sudo)")
     s.add_argument("--project-dir", default=".", help="Path to smolotchi project root")

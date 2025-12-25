@@ -10,6 +10,12 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.reports.badges import summarize_host_findings
+from smolotchi.reports.baseline import (
+    expected_findings_for_profile_dict,
+    expected_findings_for_scope_dict,
+    profile_key_for_job_meta,
+    summarize_baseline_status,
+)
 from smolotchi.reports.findings_aggregate import build_host_findings
 
 
@@ -155,6 +161,40 @@ def build_aggregate_model(
                 "drift": bool(cur_hash and wifi_profile_hash != cur_hash),
             }
 
+    baseline_cfg = (
+        report_cfg.get("baseline")
+        if isinstance(report_cfg, dict) and isinstance(report_cfg.get("baseline"), dict)
+        else {}
+    )
+    profile_key = profile_key_for_job_meta(job_meta if isinstance(job_meta, dict) else {})
+    baseline_expected: set[str] = set()
+    baseline_other: set[str] = set()
+    if baseline_cfg and baseline_cfg.get("enabled", False):
+        baseline_expected = expected_findings_for_profile_dict(baseline_cfg, profile_key)
+        if not baseline_expected:
+            baseline_expected = expected_findings_for_scope_dict(baseline_cfg, scope)
+        profiles = baseline_cfg.get("profiles")
+        if isinstance(profiles, dict):
+            for key, ids in profiles.items():
+                if profile_key and key == profile_key:
+                    continue
+                if isinstance(ids, list):
+                    baseline_other |= {str(x) for x in ids}
+
+    if baseline_expected or baseline_other:
+        for host in hosts:
+            scripts = (host.get("findings") or {}).get("scripts") or []
+            for script in scripts:
+                fid = str(script.get("id") or "")
+                if not fid:
+                    continue
+                if fid in baseline_expected:
+                    script["baseline_state"] = "expected"
+                elif fid in baseline_other:
+                    script["baseline_state"] = "drifted"
+                else:
+                    script["baseline_state"] = "new"
+
     applied = {
         "wifi_ssid": job_meta.get("wifi_ssid") if isinstance(job_meta, dict) else None,
         "wifi_iface": job_meta.get("wifi_iface") if isinstance(job_meta, dict) else None,
@@ -185,6 +225,15 @@ def build_aggregate_model(
         },
     }
 
+    baseline_summary = None
+    if baseline_cfg and baseline_cfg.get("enabled", False):
+        baseline_summary = summarize_baseline_status(
+            findings=hs.get("findings") or [],
+            expected=baseline_expected,
+            baseline_profiles=baseline_cfg.get("profiles"),
+            profile_key=profile_key,
+        )
+
     return {
         "title": title,
         "plan_id": plan_id,
@@ -195,6 +244,7 @@ def build_aggregate_model(
         "bundle_id": bundle_id,
         "applied": applied,
         "profile_drift": profile_drift,
+        "baseline": baseline_summary,
     }
 
 

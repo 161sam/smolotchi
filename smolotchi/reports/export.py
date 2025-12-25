@@ -47,6 +47,15 @@ def build_report_markdown(model: Dict[str, Any]) -> str:
     else:
         lines.append("- (none)")
     lines.append("")
+    baseline = model.get("baseline") or {}
+    if baseline:
+        lines.append("## Baseline summary")
+        lines.append(f"- profile: {baseline.get('profile') or '—'}")
+        lines.append(f"- expected: {baseline.get('expected', 0)}")
+        lines.append(f"- new: {baseline.get('new', 0)}")
+        lines.append(f"- disappeared: {baseline.get('disappeared', 0)}")
+        lines.append(f"- drifted: {baseline.get('drifted', 0)}")
+        lines.append("")
 
     hosts = model.get("hosts", []) or []
     for host in hosts:

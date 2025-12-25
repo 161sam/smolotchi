@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block page_title %}Baseline Overview{% endblock %}
-{% block page_sub %}scope={{ scope }} · window={{ window }}{% endblock %}
+{% block page_sub %}{% if profile %}profile={{ profile }} · {% endif %}scope={{ scope }} · window={{ window }}{% endblock %}
 
 {% block content %}
 <section class="card">
@@ -19,6 +19,14 @@
     <h3 style="margin:0 0 10px 0">Baseline drift</h3>
     <form method="get" action="{{ url_for('lan_baseline_overview') }}" class="row" style="gap:10px; flex-wrap:wrap;">
       <input type="hidden" name="window" value="{{ window }}">
+      {% if profiles %}
+        <div class="muted">Profile</div>
+        <select name="profile" style="background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:8px 10px;">
+          {% for p in profiles %}
+            <option value="{{ p }}" {% if p == profile %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
       <div class="muted">Scope</div>
       <select name="scope" style="background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:8px 10px;">
         {% for s in scopes %}
@@ -45,6 +53,7 @@
             <a class="pill" href="{{ url_for('lan_results') }}?finding={{ fid }}&include_suppressed=1">{{ fid }}</a>
             <form method="post" action="{{ url_for('lan_baseline_remove') }}" style="display:inline">
               <input type="hidden" name="scope" value="{{ scope }}">
+              <input type="hidden" name="profile" value="{{ profile }}">
               <input type="hidden" name="fid" value="{{ fid }}">
               <input type="hidden" name="back" value="{{ request.full_path }}">
               <button class="secondary" type="submit">Remove</button>
@@ -64,6 +73,7 @@
             <a class="pill sev-high" href="{{ url_for('lan_results') }}?finding={{ fid }}">{{ fid }}</a>
             <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
               <input type="hidden" name="scope" value="{{ scope }}">
+              <input type="hidden" name="profile" value="{{ profile }}">
               <input type="hidden" name="fid" value="{{ fid }}">
               <input type="hidden" name="back" value="{{ request.full_path }}">
               <button class="secondary" type="submit">Add to baseline</button>
@@ -83,6 +93,7 @@
             <a class="pill" href="{{ url_for('lan_results') }}?finding={{ fid }}&only_suppressed=1">{{ fid }}</a>
             <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
               <input type="hidden" name="scope" value="{{ scope }}">
+              <input type="hidden" name="profile" value="{{ profile }}">
               <input type="hidden" name="fid" value="{{ fid }}">
               <input type="hidden" name="back" value="{{ request.full_path }}">
               <button class="secondary" type="submit">Add to baseline</button>

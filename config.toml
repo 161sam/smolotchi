@@ -159,3 +159,9 @@ enabled = false
 
 [baseline.scopes]
 "10.0.10.0/24" = []
+
+[baseline.profiles."LAB-1.15c2135d845a"]
+expected_findings = []
+
+[baseline.profiles."LAB-2.a72e30a8c2aa"]
+expected_findings = []

@@ -141,3 +141,42 @@ def build_host_findings(
         }
 
     return out
+
+
+def summarize_findings(
+    host_findings: Dict[str, Any],
+    *,
+    ssid: str | None = None,
+    profile_hash: str | None = None,
+    network_scope: str | None = None,
+    ts: float | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Returns per-host finding entries with minimal fields for timelines/baseline.
+    """
+    findings: List[Dict[str, Any]] = []
+    for host, data in (host_findings or {}).items():
+        scripts = (data or {}).get("scripts") or []
+        for script in scripts:
+            fid = (script.get("id") or "").strip()
+            if not fid:
+                continue
+            suppressed = bool(
+                script.get("suppressed") or script.get("suppressed_by_policy")
+            )
+            findings.append(
+                {
+                    "id": fid,
+                    "title": script.get("id") or fid,
+                    "severity": script.get("severity", "info"),
+                    "tag": script.get("tag"),
+                    "hosts": [host],
+                    "suppressed": suppressed,
+                    "suppressed_by_policy": bool(script.get("suppressed_by_policy")),
+                    "first_seen": ts,
+                    "profile_hash": profile_hash,
+                    "ssid": ssid,
+                    "scope": network_scope,
+                }
+            )
+    return findings
