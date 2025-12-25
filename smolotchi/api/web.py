@@ -24,9 +24,12 @@ from smolotchi.core.presets import PRESETS
 from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.core.validate import validate_profiles
 from smolotchi.core.toml_patch import (
+    cleanup_baseline_profiles,
     cleanup_baseline_scopes,
     patch_baseline_add,
     patch_baseline_remove,
+    patch_baseline_profile_add,
+    patch_baseline_profile_remove,
     patch_lan_lists,
     patch_wifi_allow_add,
     patch_wifi_allow_remove,
@@ -45,7 +48,12 @@ from smolotchi.reports.exec_summary import (
     render_exec_summary_md,
 )
 from smolotchi.reports.host_diff import host_diff_html, host_diff_markdown
-from smolotchi.reports.baseline import expected_findings_for_scope
+from smolotchi.reports.baseline import (
+    expected_findings_for_bundle,
+    expected_findings_for_profile,
+    expected_findings_for_scope,
+    profile_key_for_job_meta,
+)
 from smolotchi.reports.baseline_diff import compute_baseline_diff
 from smolotchi.reports.top_findings import aggregate_top_findings
 
@@ -598,13 +606,35 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "%Y-%m-%d %H:%M:%S UTC"
         )
 
+    def _load_profile_timeline(ssid: str | None, limit: int = 50) -> list[dict]:
+        if not ssid:
+            return []
+        metas = artifacts.list(limit=200, kind="profile_timeline")
+        rows = []
+        for meta in metas:
+            payload = artifacts.get_json(meta.id) or {}
+            if payload.get("ssid") != ssid:
+                continue
+            rows.append(
+                {
+                    "ssid": payload.get("ssid"),
+                    "profile_hash": payload.get("profile_hash"),
+                    "applied_at": payload.get("applied_at"),
+                    "job_id": payload.get("job_id"),
+                    "bundle_id": payload.get("bundle_id"),
+                    "profile": payload.get("profile") or {},
+                }
+            )
+            if len(rows) >= limit:
+                break
+        rows.sort(key=lambda x: x.get("applied_at") or 0, reverse=True)
+        return rows
+
     def _expected_findings_for_bundles(bundles: list[dict]) -> set[str]:
         cfg = store.get()
-        scope = None
         if bundles:
-            scope = bundles[0].get("scope")
-        if not scope:
-            scope = getattr(getattr(cfg, "lan", None), "default_scope", None)
+            return expected_findings_for_bundle(cfg, bundles[0])
+        scope = getattr(getattr(cfg, "lan", None), "default_scope", None)
         return expected_findings_for_scope(cfg, scope)
 
     @app.get("/lan/results")
@@ -659,6 +689,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             else [artifacts.get_json(meta.id) or {} for meta in metas]
         )
         expected = _expected_findings_for_bundles(bundles)
+        baseline_profile = _profile_key_for_bundle(bundles[0]) if bundles else ""
         top_findings = aggregate_top_findings(
             all_items,
             limit=6,
@@ -671,6 +702,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             finding_filter=fid,
             include_suppressed=include_suppressed,
             only_suppressed=only_suppressed,
+            baseline_profile=baseline_profile,
         )
 
     def _bundle_has_finding(bundle: dict, fid: str):
@@ -742,27 +774,63 @@ def create_app(config_path: str = "config.toml") -> Flask:
             return sorted([str(key) for key in scopes.keys()])
         return []
 
+    def _profile_key_for_bundle(bundle: dict) -> str | None:
+        job_meta = (
+            (bundle.get("job") or {}).get("meta") if isinstance(bundle.get("job"), dict) else {}
+        )
+        if not job_meta and isinstance(bundle.get("job_meta"), dict):
+            job_meta = bundle.get("job_meta") or {}
+        return profile_key_for_job_meta(job_meta)
+
+    def _baseline_profiles(cfg) -> list[str]:
+        baseline = getattr(cfg, "baseline", None)
+        profiles = getattr(baseline, "profiles", None) if baseline else None
+        if isinstance(profiles, dict):
+            return sorted([str(key) for key in profiles.keys()])
+        return []
+
+    def _pick_profile(cfg, bundles: list[dict]) -> str:
+        if bundles:
+            key = _profile_key_for_bundle(bundles[0]) or ""
+            if key:
+                return key
+        profiles = _baseline_profiles(cfg)
+        return profiles[0] if profiles else ""
+
     @app.get("/lan/baseline")
     def lan_baseline_overview():
         cfg = store.get()
         bundles = _load_recent_bundles(limit=200)
         scopes = _baseline_scopes(cfg)
+        profiles = _baseline_profiles(cfg)
+        profile_q = (request.args.get("profile") or "").strip()
         scope_q = (request.args.get("scope") or "").strip()
+        profile = profile_q or _pick_profile(cfg, bundles)
+        if profiles and profile not in profiles:
+            profile = profiles[0]
         scope = scope_q or _pick_scope(cfg, bundles)
         if scopes and scope not in scopes:
             scope = scopes[0]
-        expected = expected_findings_for_scope(cfg, scope)
+        expected = (
+            expected_findings_for_profile(cfg, profile)
+            if profile
+            else expected_findings_for_scope(cfg, scope)
+        )
 
         window = int(request.args.get("window", "50") or "50")
         window = max(5, min(window, 500))
-        window_bundles = bundles[:window]
+        window_bundles = [
+            b for b in bundles if not profile or _profile_key_for_bundle(b) == profile
+        ][:window]
 
-        diff = compute_baseline_diff(scope, expected, window_bundles)
+        diff = compute_baseline_diff(profile or scope, expected, window_bundles)
 
         return render_template(
             "lan_baseline.html",
             scope=scope,
+            profile=profile,
             scopes=scopes,
+            profiles=profiles,
             window=window,
             expected_count=len(expected),
             diff=diff,
@@ -773,19 +841,33 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg = store.get()
         bundles = _load_recent_bundles(limit=50)
         scopes = _baseline_scopes(cfg)
+        profiles = _baseline_profiles(cfg)
+        profile_q = (request.args.get("profile") or "").strip()
         scope_q = (request.args.get("scope") or "").strip()
+        profile = profile_q or _pick_profile(cfg, bundles)
+        if profiles and profile not in profiles:
+            profile = profiles[0]
         scope = scope_q or _pick_scope(cfg, bundles)
         if scopes and scope not in scopes:
             scope = scopes[0]
-        expected = expected_findings_for_scope(cfg, scope)
+        expected = (
+            expected_findings_for_profile(cfg, profile)
+            if profile
+            else expected_findings_for_scope(cfg, scope)
+        )
 
-        latest = bundles[0] if bundles else {}
-        diff = compute_baseline_diff(scope, expected, [latest] if latest else [])
+        filtered = [
+            b for b in bundles if not profile or _profile_key_for_bundle(b) == profile
+        ]
+        latest = filtered[0] if filtered else {}
+        diff = compute_baseline_diff(profile or scope, expected, [latest] if latest else [])
 
         return render_template(
             "lan_baseline_diff.html",
             scope=scope,
+            profile=profile,
             scopes=scopes,
+            profiles=profiles,
             bundle_id=(latest.get("id") if latest else None),
             diff=diff,
         )
@@ -795,6 +877,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg = store.get()
         bundles = _load_recent_bundles(limit=50)
         scope = (request.form.get("scope") or "").strip() or _pick_scope(cfg, bundles)
+        profile = (request.form.get("profile") or "").strip() or _pick_profile(cfg, bundles)
         fid = (request.form.get("fid") or "").strip()
 
         if not fid or "\n" in fid or "\r" in fid or len(fid) > 200:
@@ -802,12 +885,19 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
-        patched = patch_baseline_add(text, scope=scope, finding_id=fid)
-        patched = cleanup_baseline_scopes(patched)
+        if profile:
+            patched = patch_baseline_profile_add(text, profile_key=profile, finding_id=fid)
+            patched = cleanup_baseline_profiles(patched)
+        else:
+            patched = patch_baseline_add(text, scope=scope, finding_id=fid)
+            patched = cleanup_baseline_scopes(patched)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
-        bus.publish("ui.baseline.added", {"scope": scope, "fid": fid, "ts": time.time()})
+        bus.publish(
+            "ui.baseline.added",
+            {"scope": scope, "profile": profile, "fid": fid, "ts": time.time()},
+        )
 
         back = request.form.get("back") or ""
         if back:
@@ -819,6 +909,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg = store.get()
         bundles = _load_recent_bundles(limit=50)
         scope = (request.form.get("scope") or "").strip() or _pick_scope(cfg, bundles)
+        profile = (request.form.get("profile") or "").strip() or _pick_profile(cfg, bundles)
         fid = (request.form.get("fid") or "").strip()
 
         if not fid or "\n" in fid or "\r" in fid or len(fid) > 200:
@@ -826,13 +917,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
-        patched = patch_baseline_remove(text, scope=scope, finding_id=fid)
-        patched = cleanup_baseline_scopes(patched)
+        if profile:
+            patched = patch_baseline_profile_remove(text, profile_key=profile, finding_id=fid)
+            patched = cleanup_baseline_profiles(patched)
+        else:
+            patched = patch_baseline_remove(text, scope=scope, finding_id=fid)
+            patched = cleanup_baseline_scopes(patched)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
         bus.publish(
-            "ui.baseline.removed", {"scope": scope, "fid": fid, "ts": time.time()}
+            "ui.baseline.removed",
+            {"scope": scope, "profile": profile, "fid": fid, "ts": time.time()},
         )
 
         back = request.form.get("back") or ""
@@ -843,6 +939,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
         patched = cleanup_baseline_scopes(text)
+        patched = cleanup_baseline_profiles(patched)
         _atomic_write_text(cfg_file, patched)
         store.reload()
         bus.publish("ui.baseline.cleaned", {"ts": time.time()})
@@ -1101,6 +1198,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 },
             )
 
+        profile_timeline = _load_profile_timeline(eff.get("wifi_ssid"))
+
         evts = []
         if job_id:
             raw = bus.tail(limit=300)
@@ -1129,6 +1228,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             events=evts,
             job_meta=job_meta,
             eff=eff,
+            profile_timeline=profile_timeline,
         )
 
     @app.get("/lan/reports")

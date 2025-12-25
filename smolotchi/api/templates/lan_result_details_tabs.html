@@ -91,6 +91,25 @@
   </section>
   {% endif %}
 
+  {% if profile_timeline %}
+  <section class="card">
+    <h3 style="margin:0 0 10px 0">Profile Timeline</h3>
+    <div class="events">
+      {% for entry in profile_timeline %}
+        <div class="evt">
+          <div class="evt-top">{{ entry.ssid }} · {{ entry.profile_hash }}</div>
+          <div class="muted">
+            applied_at: {{ entry.applied_at }}
+            {% if entry.job_id %} · job: {{ entry.job_id }}{% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="muted">No profile timeline entries.</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if job_meta %}
     <div style="margin-bottom:16px">
       <h3 style="margin:0 0 10px 0">Job meta / overrides</h3>

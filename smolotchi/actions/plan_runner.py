@@ -38,7 +38,10 @@ from smolotchi.reports.diff import (
 from smolotchi.reports.diff_links import index_host_actions
 from smolotchi.reports.diff_export import diff_html, diff_json, diff_markdown
 from smolotchi.reports.export import build_report_json, build_report_markdown
-from smolotchi.reports.findings_aggregate import build_host_findings
+from smolotchi.reports.findings_aggregate import (
+    build_host_findings,
+    summarize_findings,
+)
 
 
 class PlanRunner:
@@ -585,6 +588,11 @@ class PlanRunner:
             }
         summary = build_host_summary(
             result, latest_fp_payload_by_host, host_sev=host_sev
+        )
+        summary["findings"] = summarize_findings(
+            host_findings,
+            network_scope=result.get("scope"),
+            ts=result.get("ts"),
         )
         smeta = self.artifacts.put_json(
             kind="host_summary",

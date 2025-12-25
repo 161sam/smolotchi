@@ -460,11 +460,26 @@ class WifiEngine:
                     "ts": time.time(),
                 },
             )
+        job_id = f"job-{int(time.time())}"
+        if apply_on_connect:
+            self.artifacts.put_json(
+                kind="profile_timeline",
+                title=f"Profile applied • {chosen}",
+                payload={
+                    "ssid": chosen,
+                    "profile_hash": prof_hash,
+                    "profile": profile_norm,
+                    "applied_at": time.time(),
+                    "job_id": job_id,
+                    "bundle_id": None,
+                    "reason": "wifi_connect",
+                },
+            )
         self.bus.publish(
             "ui.lan.enqueue",
             {
                 "job": {
-                    "id": f"job-{int(time.time())}",
+                    "id": job_id,
                     "kind": "inventory",
                     "scope": scope,
                     "note": f"triggered by wifi ssid={chosen} iface={iface}",

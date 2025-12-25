@@ -79,6 +79,16 @@
         <pre>{{ applied.lan_overrides_json }}</pre>
       {% endif %}
     {% endif %}
+    {% if baseline %}
+      <h3 style="margin-top:14px">Baseline summary</h3>
+      <div class="row">
+        <span class="pill">profile: {{ baseline.profile or "—" }}</span>
+        <span class="pill">expected: {{ baseline.expected or 0 }}</span>
+        <span class="pill">new: {{ baseline.new or 0 }}</span>
+        <span class="pill">disappeared: {{ baseline.disappeared or 0 }}</span>
+        <span class="pill">drifted: {{ baseline.drifted or 0 }}</span>
+      </div>
+    {% endif %}
   </section>
 
   {% for host in hosts %}
@@ -133,6 +143,7 @@
         <table>
           <thead>
             <tr>
+              <th style="width:120px">Baseline</th>
               <th style="width:110px">Severity</th>
               <th style="width:90px">CVSS</th>
               <th style="width:110px">Tag</th>
@@ -144,6 +155,13 @@
           <tbody>
             {% for f in host.findings.scripts[:12] %}
               <tr>
+                <td>
+                  {% if f.baseline_state %}
+                    <span class="pill mono">{{ f.baseline_state }}</span>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
                 <td class="mono">{{ f.severity }}</td>
                 <td class="mono">{{ f.cvss if f.cvss is not none else "—" }}</td>
                 <td class="mono">{{ f.tag }}</td>

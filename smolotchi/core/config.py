@@ -199,6 +199,7 @@ class InvalidationCfg:
 class BaselineCfg:
     enabled: bool = False
     scopes: Dict[str, List[str]] = field(default_factory=dict)
+    profiles: Dict[str, List[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -247,6 +248,16 @@ class ConfigStore:
         rd = report.get("diff", {}) if isinstance(report.get("diff"), dict) else {}
         inv = d.get("invalidation", {}) if isinstance(d.get("invalidation"), dict) else {}
         baseline = d.get("baseline", {}) if isinstance(d.get("baseline"), dict) else {}
+        baseline_profiles_raw = (
+            baseline.get("profiles") if isinstance(baseline.get("profiles"), dict) else {}
+        )
+        baseline_profiles: Dict[str, List[str]] = {}
+        for key, value in baseline_profiles_raw.items():
+            if not isinstance(value, dict):
+                continue
+            expected = value.get("expected_findings")
+            if isinstance(expected, list):
+                baseline_profiles[str(key)] = [str(x) for x in expected if str(x).strip()]
         aiexec = (ai.get("exec") or {}) if isinstance(ai.get("exec"), dict) else {}
         aicache = (ai.get("cache") or {}) if isinstance(ai.get("cache"), dict) else {}
         athrottle = (
@@ -426,6 +437,7 @@ class ConfigStore:
             baseline=BaselineCfg(
                 enabled=bool(baseline.get("enabled", False)),
                 scopes=dict(baseline.get("scopes", {}) or {}),
+                profiles=baseline_profiles,
             ),
         )
 
