@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from smolotchi.cli_artifacts import add_artifacts_subcommands
+from smolotchi.cli_profiles import add_profiles_subcommands
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.app_state import load_state, save_state, state_path_for_artifacts
 from smolotchi.core.bus import SQLiteBus
@@ -685,6 +686,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--db", default=DEFAULT_DB)
     s.set_defaults(fn=cmd_install_systemd)
 
+    add_profiles_subcommands(sub)
     add_artifacts_subcommands(sub)
 
     return p

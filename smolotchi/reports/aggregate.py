@@ -8,6 +8,7 @@ import json
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from smolotchi.core.artifacts import ArtifactStore
+from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.reports.badges import summarize_host_findings
 from smolotchi.reports.findings_aggregate import build_host_findings
 
@@ -43,6 +44,7 @@ def build_aggregate_model(
     scope_override: Optional[str] = None,
     report_cfg: Optional[dict] = None,
     bundle_id: Optional[str] = None,
+    current_profiles: Optional[dict] = None,
 ) -> Dict[str, Any]:
     hs = artifacts.get_json(host_summary_artifact_id) or {}
     plan_id = hs.get("plan_id")
@@ -129,14 +131,35 @@ def build_aggregate_model(
     wifi_profile = (
         job_meta.get("wifi_profile") if isinstance(job_meta, dict) else {}
     ) or {}
+    wifi_profile_hash = (
+        job_meta.get("wifi_profile_hash") if isinstance(job_meta, dict) else None
+    )
+    if wifi_profile and not wifi_profile_hash:
+        norm, _ = normalize_profile(wifi_profile)
+        wifi_profile_hash = profile_hash(norm) if norm else None
     lan_overrides = (
         job_meta.get("lan_overrides") if isinstance(job_meta, dict) else {}
     ) or {}
+    profile_drift = None
+    if wifi_profile_hash and current_profiles and isinstance(current_profiles, dict):
+        applied_ssid = (
+            job_meta.get("wifi_ssid") if isinstance(job_meta, dict) else None
+        )
+        cur = current_profiles.get(applied_ssid) if applied_ssid else {}
+        if isinstance(cur, dict):
+            cur_norm, _ = normalize_profile(cur)
+            cur_hash = profile_hash(cur_norm) if cur_norm else None
+            profile_drift = {
+                "applied_hash": wifi_profile_hash,
+                "current_hash": cur_hash,
+                "drift": bool(cur_hash and wifi_profile_hash != cur_hash),
+            }
 
     applied = {
         "wifi_ssid": job_meta.get("wifi_ssid") if isinstance(job_meta, dict) else None,
         "wifi_iface": job_meta.get("wifi_iface") if isinstance(job_meta, dict) else None,
         "wifi_profile": wifi_profile,
+        "wifi_profile_hash": wifi_profile_hash,
         "lan_overrides": lan_overrides,
         "wifi_profile_json": json.dumps(
             wifi_profile, ensure_ascii=False, indent=2, sort_keys=True
@@ -171,6 +194,7 @@ def build_aggregate_model(
         "host_summary_artifact_id": host_summary_artifact_id,
         "bundle_id": bundle_id,
         "applied": applied,
+        "profile_drift": profile_drift,
     }
 
 
@@ -181,6 +205,7 @@ def build_aggregate_report(
     title: str = "Smolotchi • Aggregate Report",
     bundle_id: Optional[str] = None,
     report_cfg: Optional[dict] = None,
+    current_profiles: Optional[dict] = None,
 ) -> str:
     model = build_aggregate_model(
         artifacts,
@@ -188,6 +213,7 @@ def build_aggregate_report(
         title=title,
         report_cfg=report_cfg,
         bundle_id=bundle_id,
+        current_profiles=current_profiles,
     )
     env = Environment(
         loader=FileSystemLoader("smolotchi/reports/templates"),
@@ -203,5 +229,6 @@ def build_aggregate_report(
         host_summary_artifact_id=model.get("host_summary_artifact_id"),
         bundle_id=model.get("bundle_id"),
         applied=model.get("applied"),
+        profile_drift=model.get("profile_drift"),
     )
     return html

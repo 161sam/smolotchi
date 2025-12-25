@@ -6,6 +6,7 @@ from typing import Optional
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.engines import EngineHealth
+from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.engines.net_detect import detect_scope_for_iface
 from smolotchi.engines.net_health import health_check
@@ -414,6 +415,8 @@ class WifiEngine:
             profile = profiles.get(chosen) or {}
         if not isinstance(profile, dict):
             profile = {}
+        profile_norm, warnings = normalize_profile(profile)
+        prof_hash = profile_hash(profile_norm)
         apply_on_connect = bool(getattr(w, "apply_profile_on_connect", True))
 
         ok, out = connect_wpa_psk(iface, chosen, creds[chosen])
@@ -424,7 +427,7 @@ class WifiEngine:
         if not ok:
             return
 
-        self._connected_profile = profile if apply_on_connect else {}
+        self._connected_profile = profile_norm if apply_on_connect else {}
         self._start_session(iface, chosen)
         scope_map = getattr(w, "scope_map", None) or {}
         mapped = (
@@ -432,7 +435,7 @@ class WifiEngine:
             if isinstance(scope_map, dict)
             else ""
         )
-        p_scope = (profile.get("scope") or "").strip() if apply_on_connect else ""
+        p_scope = (profile_norm.get("scope") or "").strip() if apply_on_connect else ""
         scope = (
             p_scope
             or mapped
@@ -441,12 +444,22 @@ class WifiEngine:
         )
         lan_overrides = {}
         if apply_on_connect:
-            if profile.get("lan_pack"):
-                lan_overrides["pack"] = profile.get("lan_pack")
-            if profile.get("lan_throttle_rps") is not None:
-                lan_overrides["throttle_rps"] = profile.get("lan_throttle_rps")
-            if profile.get("lan_batch_size") is not None:
-                lan_overrides["batch_size"] = profile.get("lan_batch_size")
+            if profile_norm.get("lan_pack"):
+                lan_overrides["pack"] = profile_norm.get("lan_pack")
+            if profile_norm.get("lan_throttle_rps") is not None:
+                lan_overrides["throttle_rps"] = profile_norm.get("lan_throttle_rps")
+            if profile_norm.get("lan_batch_size") is not None:
+                lan_overrides["batch_size"] = profile_norm.get("lan_batch_size")
+        if apply_on_connect:
+            self.bus.publish(
+                "lan.profile.applied",
+                {
+                    "ssid": chosen,
+                    "hash": prof_hash,
+                    "warnings": warnings,
+                    "ts": time.time(),
+                },
+            )
         self.bus.publish(
             "ui.lan.enqueue",
             {
@@ -458,7 +471,8 @@ class WifiEngine:
                     "meta": {
                         "wifi_ssid": chosen,
                         "wifi_iface": iface,
-                        "wifi_profile": profile if apply_on_connect else {},
+                        "wifi_profile": profile_norm if apply_on_connect else {},
+                        "wifi_profile_hash": prof_hash if apply_on_connect else None,
                         "lan_overrides": lan_overrides,
                     },
                 }

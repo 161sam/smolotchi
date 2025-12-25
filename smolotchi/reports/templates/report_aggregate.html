@@ -17,6 +17,8 @@
     .ports{display:flex;gap:8px;flex-wrap:wrap}
     .pill{padding:4px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);font-weight:700;font-size:12px}
     .sev{padding:4px 10px;border-radius:999px;font-weight:900;font-size:12px;border:1px solid rgba(255,255,255,.10)}
+    .alert{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.10);margin-top:12px}
+    .alert.warn{background:rgba(255,170,80,.10);border-color:rgba(255,170,80,.2)}
     .sev-info{background:rgba(255,255,255,.04)}
     .sev-low{background:rgba(120,255,170,.10)}
     .sev-medium{background:rgba(255,210,120,.12)}
@@ -56,7 +58,16 @@
         {% if applied.effective and applied.effective.pack %}<span class="pill">pack: {{ applied.effective.pack }}</span>{% endif %}
         {% if applied.effective and applied.effective.throttle_rps is not none %}<span class="pill">rps: {{ applied.effective.throttle_rps }}</span>{% endif %}
         {% if applied.effective and applied.effective.batch_size is not none %}<span class="pill">batch: {{ applied.effective.batch_size }}</span>{% endif %}
+        {% if applied.wifi_profile_hash %}<span class="pill">profile-hash: {{ applied.wifi_profile_hash }}</span>{% endif %}
       </div>
+
+      {% if profile_drift and profile_drift.drift %}
+        <div class="alert warn">
+          ⚠ Profile drift detected<br>
+          Applied: {{ profile_drift.applied_hash }}<br>
+          Current: {{ profile_drift.current_hash }}
+        </div>
+      {% endif %}
 
       {% if applied.wifi_profile_json %}
         <h3 style="margin-top:14px">Profile data</h3>
