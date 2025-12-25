@@ -5,6 +5,7 @@ import time
 from typing import Any, Dict, List, Literal, Optional
 
 from smolotchi.actions.registry import ActionRegistry
+from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 
 PlanMode = Literal["plan_only", "autonomous_safe"]
@@ -62,10 +63,12 @@ class AIPlanner:
         registry: ActionRegistry,
         *,
         seed: Optional[int] = None,
+        artifacts: Optional[ArtifactStore] = None,
     ) -> None:
         self.bus = bus
         self.registry = registry
         self.seed = seed
+        self.artifacts = artifacts
 
         self.weights = {
             "novelty": 2.0,
@@ -138,6 +141,35 @@ class AIPlanner:
             explain=explain,
         )
 
+        artifact_id = None
+        if self.artifacts:
+            plan_doc = {
+                "id": plan.id,
+                "created_ts": plan.created_ts,
+                "mode": plan.mode,
+                "scope": plan.scope,
+                "note": plan.note,
+                "seed": plan.seed,
+                "steps": [
+                    {
+                        "action_id": s.action_id,
+                        "payload": s.payload,
+                        "why": s.why,
+                        "score": s.score,
+                    }
+                    for s in plan.steps
+                ],
+                "explain": plan.explain,
+            }
+            meta = self.artifacts.put_json(
+                kind="ai_plan",
+                title=f"AI Plan {plan.id}",
+                payload=plan_doc,
+                tags=["ai", "plan", plan.mode],
+                meta={"scope": plan.scope},
+            )
+            artifact_id = meta.id
+
         self.bus.publish(
             "ai.plan.created",
             {
@@ -147,6 +179,7 @@ class AIPlanner:
                 "steps": [s.action_id for s in plan.steps],
                 "explain": plan.explain,
                 "seed": self.seed,
+                "artifact_id": artifact_id,
             },
         )
 
