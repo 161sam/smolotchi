@@ -209,9 +209,9 @@
   <form method="post" action="/wifi/profiles/save">
     <textarea name="profiles" spellcheck="false"
       style="width:100%; min-height:26vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,monospace; font-size:12px; line-height:1.4;"
-    >{% for ssid, p in (profiles or {}).items()|dictsort %}
+    >{% for ssid, p in (profiles or {})|dictsort %}
 [{{ ssid }}]
-{% for k,v in (p or {}).items()|dictsort %}{{ k }}={{ v }}
+{% for k,v in (p or {})|dictsort %}{{ k }}={{ v }}
 {% endfor %}
 
 {% endfor %}</textarea>
