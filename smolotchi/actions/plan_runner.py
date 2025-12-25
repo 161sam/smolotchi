@@ -29,6 +29,7 @@ from smolotchi.actions.throttle import (
 )
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
+from smolotchi.core.jobs import JobStore
 from smolotchi.reports.aggregate import build_aggregate_model, build_aggregate_report
 from smolotchi.reports.badges import summarize_host_findings
 from smolotchi.reports.diff import (
@@ -45,6 +46,185 @@ from smolotchi.reports.findings_aggregate import (
 
 
 class PlanRunner:
+    """
+    Executes an ActionPlan step-by-step.
+
+    Guarantees:
+    - registry validation
+    - policy gate (risk)
+    - progress events
+    - cancel / reset support
+    """
+
+    def __init__(
+        self,
+        *,
+        bus: SQLiteBus,
+        registry: ActionRegistry,
+        jobstore: JobStore,
+    ) -> None:
+        self.bus = bus
+        self.registry = registry
+        self.jobstore = jobstore
+
+    # ==========================
+    # Public API
+    # ==========================
+
+    def run(self, plan) -> None:
+        """
+        Execute a plan synchronously.
+        (Async execution can wrap this later.)
+        """
+        job_id = f"job-{plan.id}"
+        created_ts = time.time()
+
+        # ---- register job
+        self.jobstore.enqueue(
+            {
+                "id": job_id,
+                "kind": "ai_plan",
+                "scope": plan.scope,
+                "note": plan.note or "AI plan execution",
+            }
+        )
+
+        self.bus.publish(
+            "ai.plan.started",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+                "step_count": len(plan.steps),
+            },
+        )
+
+        try:
+            for idx, step in enumerate(plan.steps, start=1):
+                if self._job_cancelled(job_id):
+                    self._emit_cancel(plan, job_id)
+                    return
+
+                self._run_step(
+                    plan=plan,
+                    job_id=job_id,
+                    step_index=idx,
+                    step=step,
+                )
+
+            self._emit_done(plan, job_id, created_ts)
+
+        except Exception as exc:
+            self._emit_failed(plan, job_id, exc)
+
+    # ==========================
+    # Step Execution
+    # ==========================
+
+    def _run_step(self, *, plan, job_id: str, step_index: int, step) -> None:
+        action_id = step.action_id
+        action = self.registry.get(action_id)
+
+        if not action:
+            raise RuntimeError(f"Unknown action: {action_id}")
+
+        # ---- policy gate
+        risk = getattr(action, "risk", "safe")
+        if not self._risk_allowed(risk):
+            raise RuntimeError(
+                f"Action {action_id} blocked by policy (risk={risk})"
+            )
+
+        self.bus.publish(
+            "ai.action.started",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+                "step": step_index,
+                "action": action_id,
+                "payload": step.payload,
+                "why": step.why,
+                "score": step.score,
+            },
+        )
+
+        # ---- execute action
+        start_ts = time.time()
+        result = action.run(**step.payload)
+        duration = time.time() - start_ts
+
+        self.bus.publish(
+            "ai.action.done",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+                "step": step_index,
+                "action": action_id,
+                "duration_s": round(duration, 3),
+                "result": self._summarize_result(result),
+            },
+        )
+
+    # ==========================
+    # Helpers
+    # ==========================
+
+    def _risk_allowed(self, risk: str) -> bool:
+        # v1 hard gate
+        return risk in {"safe", "noisy"}
+
+    def _job_cancelled(self, job_id: str) -> bool:
+        j = self.jobstore.get(job_id)
+        return bool(j and j.status == "cancelled")
+
+    def _emit_done(self, plan, job_id: str, started_ts: float) -> None:
+        self.jobstore.mark_done(job_id)
+        self.bus.publish(
+            "ai.plan.completed",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+                "duration_s": round(time.time() - started_ts, 3),
+            },
+        )
+
+    def _emit_cancel(self, plan, job_id: str) -> None:
+        self.jobstore.mark_cancelled(job_id)
+        self.bus.publish(
+            "ai.plan.cancelled",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+            },
+        )
+
+    def _emit_failed(self, plan, job_id: str, exc: Exception) -> None:
+        self.jobstore.mark_failed(job_id, note=str(exc))
+        self.bus.publish(
+            "ai.plan.failed",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+                "error": str(exc),
+            },
+        )
+
+    def _summarize_result(self, result) -> Dict[str, str]:
+        """
+        Prevent leaking large objects into the bus.
+        """
+        if result is None:
+            return {"status": "ok"}
+
+        if isinstance(result, dict):
+            return {
+                "keys": list(result.keys())[:10],
+                "status": "ok",
+            }
+
+        return {"type": type(result).__name__}
+
+
+class BatchPlanRunner:
     def __init__(
         self,
         bus: SQLiteBus,
