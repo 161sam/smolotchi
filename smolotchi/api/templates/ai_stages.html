@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block page_title %}AI Stages{% endblock %}
+{% block page_sub %}Manual approvals (execution blocked){% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="row" style="justify-content:space-between; flex-wrap:wrap; gap:10px">
+    <a href="{{ url_for('ai_plans') }}" class="btn secondary">← Back to AI Plans</a>
+    <a href="{{ url_for('ai_stage_new') }}" class="btn">New stage request</a>
+  </div>
+  <div class="row" style="gap:10px; margin-top:10px; flex-wrap:wrap;">
+    <span class="pill">cap.intrusive: {{ 'ON' if intrusive_ok else 'OFF' }}</span>
+    <span class="pill">cap.dangerous: {{ 'ON' if dangerous_ok else 'OFF' }}</span>
+    <span class="pill">execution: OFF (v1)</span>
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Requests</h3>
+  <div class="events">
+    {% for r in reqs %}
+      <div class="evt">
+        <div class="evt-top">{{ r.title }}</div>
+        <div class="muted">id: {{ r.id }}</div>
+
+        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+          {% if r.id in approved %}
+            <span class="pill">approved</span>
+          {% else %}
+            <span class="pill">not approved</span>
+          {% endif %}
+          {% if r.tags %}
+            <span class="pill">risk: {{ r.tags[-1] }}</span>
+          {% endif %}
+        </div>
+
+        {% if r.id not in approved %}
+          <form method="post" action="/ai/stage/{{ r.id }}/approve" style="margin-top:10px">
+            <button class="secondary" type="submit">Approve (still blocked)</button>
+          </form>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="muted">No stage requests yet.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

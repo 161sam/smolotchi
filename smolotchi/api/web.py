@@ -1771,6 +1771,90 @@ def create_app(config_path: str = "config.toml") -> Flask:
             run_by_job=run_by_job,
         )
 
+    @app.get("/ai/stages")
+    def ai_stages():
+        reqs = artifacts.list(limit=50, kind="ai_stage_request")
+        approvals = artifacts.list(limit=200, kind="ai_stage_approval")
+
+        approved = set()
+        for a in approvals:
+            doc = artifacts.get_json(a.id) or {}
+            rid = doc.get("request_id")
+            if rid:
+                approved.add(str(rid))
+
+        cfg = store.get()
+        caps = getattr(getattr(cfg, "policy", None), "capabilities", None)
+        intrusive_ok = bool(getattr(caps, "intrusive", False)) if caps else False
+        dangerous_ok = bool(getattr(caps, "dangerous", False)) if caps else False
+
+        return render_template(
+            "ai_stages.html",
+            reqs=reqs,
+            approved=approved,
+            intrusive_ok=intrusive_ok,
+            dangerous_ok=dangerous_ok,
+        )
+
+    @app.get("/ai/stage/new")
+    def ai_stage_new():
+        cfg = store.get()
+        caps = getattr(getattr(cfg, "policy", None), "capabilities", None)
+        intrusive_ok = bool(getattr(caps, "intrusive", False)) if caps else False
+        dangerous_ok = bool(getattr(caps, "dangerous", False)) if caps else False
+        return render_template(
+            "ai_stage_new.html",
+            intrusive_ok=intrusive_ok,
+            dangerous_ok=dangerous_ok,
+        )
+
+    @app.post("/ai/stage/new")
+    def ai_stage_new_post():
+        plan_artifact_id = (request.form.get("plan_artifact_id") or "").strip()
+        stage = (request.form.get("stage") or "exploit").strip()
+        target = (request.form.get("target") or "").strip()
+        exploit = (request.form.get("exploit") or "").strip()
+        risk = (request.form.get("risk") or "intrusive").strip()
+
+        req_payload = {
+            "plan_artifact_id": plan_artifact_id,
+            "stage": stage,
+            "target": target,
+            "exploit": exploit,
+            "risk": risk,
+            "ts": time.time(),
+        }
+        req_meta = artifacts.put_json(
+            kind="ai_stage_request",
+            title=f"AI Stage Request {stage} {target or 'n/a'}",
+            payload=req_payload,
+            tags=["ai", "stage", "request", risk],
+            meta={"risk": risk, "stage": stage},
+        )
+
+        bus.publish("ui.ai.stage.requested", {"request_id": req_meta.id, "ts": time.time()})
+        return redirect(url_for("ai_stages"))
+
+    @app.post("/ai/stage/<request_id>/approve")
+    def ai_stage_approve(request_id: str):
+        appr_payload = {
+            "request_id": request_id,
+            "approved_by": "local-ui",
+            "ts": time.time(),
+        }
+        appr_meta = artifacts.put_json(
+            kind="ai_stage_approval",
+            title=f"AI Stage Approval {request_id}",
+            payload=appr_payload,
+            tags=["ai", "stage", "approval"],
+            meta={"request_id": request_id},
+        )
+        bus.publish(
+            "ui.ai.stage.approved",
+            {"approval_id": appr_meta.id, "request_id": request_id, "ts": time.time()},
+        )
+        return redirect(url_for("ai_stages"))
+
     @app.post("/ai/job/<job_id>/cancel")
     def ai_job_cancel(job_id: str):
         ok = jobstore.cancel(job_id)

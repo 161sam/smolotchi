@@ -45,6 +45,27 @@ def _collect_links(steps: List[Dict[str, Any]]) -> Dict[str, Set[str]]:
     }
 
 
+def baseline_delta_from_bundles(bundles: List[Dict[str, Any]]) -> Dict[str, Any]:
+    changed_hosts = 0
+    transitions: Dict[str, int] = {}
+
+    for b in bundles:
+        badges = b.get("diff_badges") or {}
+        changed_hosts += int(badges.get("changed_hosts") or 0)
+        tr = badges.get("transitions") or {}
+        for k, v in tr.items():
+            transitions[k] = transitions.get(k, 0) + int(v or 0)
+
+    pos = transitions.get("low→medium", 0) + 2 * transitions.get("medium→high", 0)
+    neg = transitions.get("high→medium", 0) + 2 * transitions.get("medium→low", 0)
+
+    return {
+        "changed_hosts": changed_hosts,
+        "transitions": transitions,
+        "delta_reward": float(pos - neg),
+    }
+
+
 def evaluate_plan_run(plan: Dict[str, Any], run: Dict[str, Any]) -> Dict[str, Any]:
     steps_planned = len(plan.get("steps") or [])
     steps = run.get("steps") or []
@@ -88,6 +109,7 @@ def evaluate_plan_run(plan: Dict[str, Any], run: Dict[str, Any]) -> Dict[str, An
 
 def metrics_row(result: Dict[str, Any]) -> Dict[str, Any]:
     m = result.get("metrics") or {}
+    baseline_delta = result.get("baseline_delta") or {}
     return {
         "plan_id": m.get("plan_id"),
         "run_id": m.get("run_id"),
@@ -101,5 +123,8 @@ def metrics_row(result: Dict[str, Any]) -> Dict[str, Any]:
         "bundles_linked": m.get("bundles_linked"),
         "jobs_linked": m.get("jobs_linked"),
         "reward_proxy": result.get("reward_proxy"),
+        "baseline_delta_reward": baseline_delta.get("delta_reward"),
+        "baseline_changed_hosts": baseline_delta.get("changed_hosts"),
+        "reward_combined_v1": result.get("reward_combined_v1"),
         "error": m.get("error"),
     }
