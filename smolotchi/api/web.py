@@ -28,6 +28,8 @@ from smolotchi.core.toml_patch import (
     patch_wifi_allow_remove,
     parse_wifi_credentials_text,
     patch_wifi_credentials,
+    parse_wifi_profiles_text,
+    patch_wifi_profiles_set,
     patch_wifi_scope_map_remove,
     patch_wifi_scope_map_set,
 )
@@ -181,6 +183,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             sessions=sessions,
             targets_id=targets_latest[0].id if targets_latest else None,
             preferred_scope=getattr(getattr(cfg, "lan", None), "default_scope", ""),
+            profiles=profiles,
             wifi_profiles=profiles,
             selected_profile_evt=selected_profile_evt,
         )
@@ -253,6 +256,36 @@ def create_app(config_path: str = "config.toml") -> Flask:
         bus.publish(
             "ui.wifi.credentials.saved_reloaded",
             {"count": len(creds), "ts": time.time()},
+        )
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/profiles/save")
+    def wifi_profiles_save():
+        body = request.form.get("profiles", "")
+        prof = parse_wifi_profiles_text(body)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_profiles_set(text, prof)
+        _atomic_write_text(cfg_file, patched)
+
+        bus.publish("ui.wifi.profiles.saved", {"count": len(prof), "ts": time.time()})
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/profiles/save_reload")
+    def wifi_profiles_save_reload():
+        body = request.form.get("profiles", "")
+        prof = parse_wifi_profiles_text(body)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_profiles_set(text, prof)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish(
+            "ui.wifi.profiles.saved_reloaded",
+            {"count": len(prof), "ts": time.time()},
         )
         return redirect(url_for("wifi"))
 
@@ -861,6 +894,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
         result_json = artifacts.get_json(json_id) if json_id else None
         bundle_pretty = pretty(bundle) if bundle else ""
         result_pretty = pretty(result_json) if result_json else ""
+        job_meta = None
+        if result_json and isinstance(result_json, dict):
+            job_meta = (result_json.get("job") or {}).get("meta")
+        if not job_meta and bundle and isinstance(bundle, dict):
+            job_meta = (bundle.get("job") or {}).get("meta") or bundle.get("job_meta")
 
         evts = []
         if job_id:
@@ -888,6 +926,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             diff_changed_hosts_count=diff_changed_hosts_count,
             diff_badges=diff_badges,
             events=evts,
+            job_meta=job_meta,
         )
 
     @app.get("/lan/reports")
