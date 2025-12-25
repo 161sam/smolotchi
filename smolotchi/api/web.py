@@ -25,8 +25,10 @@ from smolotchi.core.toml_patch import (
     patch_baseline_remove,
     patch_lan_lists,
     patch_wifi_allow_add,
+    patch_wifi_allow_remove,
     parse_wifi_credentials_text,
     patch_wifi_credentials,
+    patch_wifi_scope_map_remove,
     patch_wifi_scope_map_set,
 )
 from smolotchi.engines.net_detect import detect_ipv4_cidr, detect_scope_for_iface
@@ -259,6 +261,26 @@ def create_app(config_path: str = "config.toml") -> Flask:
         bus.publish("ui.wifi.allowlist.added", {"ssid": ssid, "ts": time.time()})
         return redirect(url_for("wifi"))
 
+    @app.post("/wifi/allowlist/remove")
+    def wifi_allowlist_remove():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        if not ssid or len(ssid) > 128:
+            abort(400)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_allow_remove(text, ssid=ssid)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish("ui.wifi.allowlist.removed", {"ssid": ssid, "ts": time.time()})
+        return redirect(url_for("wifi"))
+
     @app.post("/wifi/scope_map/set")
     def wifi_scope_map_set():
         cfg = store.get()
@@ -284,6 +306,26 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "ui.wifi.scope_map.set",
             {"ssid": ssid, "scope": scope, "ts": time.time()},
         )
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/scope_map/remove")
+    def wifi_scope_map_remove():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        if not ssid or len(ssid) > 128:
+            abort(400)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_scope_map_remove(text, ssid=ssid)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish("ui.wifi.scope_map.removed", {"ssid": ssid, "ts": time.time()})
         return redirect(url_for("wifi"))
 
     @app.get("/lan")
