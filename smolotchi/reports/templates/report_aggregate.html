@@ -46,6 +46,30 @@
     </div>
   </div>
 
+  <section class="card">
+    <h2>Applied profile</h2>
+    {% if applied %}
+      <div class="row pills">
+        {% if applied.wifi_ssid %}<span class="pill">ssid: {{ applied.wifi_ssid }}</span>{% endif %}
+        {% if applied.wifi_iface %}<span class="pill">iface: {{ applied.wifi_iface }}</span>{% endif %}
+        {% if applied.effective and applied.effective.scope %}<span class="pill">scope: {{ applied.effective.scope }}</span>{% endif %}
+        {% if applied.effective and applied.effective.pack %}<span class="pill">pack: {{ applied.effective.pack }}</span>{% endif %}
+        {% if applied.effective and applied.effective.throttle_rps is not none %}<span class="pill">rps: {{ applied.effective.throttle_rps }}</span>{% endif %}
+        {% if applied.effective and applied.effective.batch_size is not none %}<span class="pill">batch: {{ applied.effective.batch_size }}</span>{% endif %}
+      </div>
+
+      {% if applied.wifi_profile_json %}
+        <h3 style="margin-top:14px">Profile data</h3>
+        <pre>{{ applied.wifi_profile_json }}</pre>
+      {% endif %}
+
+      {% if applied.lan_overrides_json %}
+        <h3 style="margin-top:14px">Job overrides</h3>
+        <pre>{{ applied.lan_overrides_json }}</pre>
+      {% endif %}
+    {% endif %}
+  </section>
+
   {% for host in hosts %}
     <div class="card">
       <div class="row" style="justify-content:space-between">

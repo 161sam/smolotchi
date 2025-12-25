@@ -23,6 +23,22 @@ def build_report_markdown(model: Dict[str, Any]) -> str:
     lines.append(f"- Time: {_ts_human(float(model.get('ts', 0) or 0))}")
     lines.append("")
 
+    applied = model.get("applied") or {}
+    lines.append("## Applied profile")
+    if applied:
+        eff = applied.get("effective") or {}
+        lines.append(f"- ssid: {applied.get('wifi_ssid') or '—'}")
+        lines.append(f"- iface: {applied.get('wifi_iface') or '—'}")
+        lines.append(f"- scope: {eff.get('scope') or '—'}")
+        lines.append(f"- pack: {eff.get('pack') or '—'}")
+        rps = eff.get("throttle_rps")
+        batch = eff.get("batch_size")
+        lines.append(f"- rps: {rps if rps is not None else '—'}")
+        lines.append(f"- batch: {batch if batch is not None else '—'}")
+    else:
+        lines.append("- (none)")
+    lines.append("")
+
     hosts = model.get("hosts", []) or []
     for host in hosts:
         ip = host.get("ip")

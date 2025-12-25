@@ -169,6 +169,18 @@
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
+                {% if a.ssid %}
+                  <form method="post" action="/wifi/profile/preset" class="row" style="gap:8px; flex-wrap:wrap; margin:8px 0 0 0">
+                    <input type="hidden" name="ssid" value="{{ a.ssid }}">
+                    <select name="preset"
+                      style="background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:8px 10px; font-size:12px;">
+                      <option value="safe">preset: safe</option>
+                      <option value="stealth">preset: stealth</option>
+                      <option value="fast">preset: fast</option>
+                    </select>
+                    <button class="secondary" type="submit">Apply preset</button>
+                  </form>
+                {% endif %}
                 {% if a.ssid and (not profiles or a.ssid not in profiles) %}
                   <form method="post" action="/wifi/profile/create" style="margin-top:8px">
                     <input type="hidden" name="ssid" value="{{ a.ssid }}">
