@@ -5,7 +5,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from smolotchi.ai.replay import evaluate_plan_run, metrics_row
+from smolotchi.ai.replay import (
+    baseline_delta_from_bundles,
+    evaluate_plan_run,
+    metrics_row,
+)
 from smolotchi.cli_artifacts import add_artifacts_subcommands
 from smolotchi.cli_profiles import add_profiles_subcommands
 from smolotchi.core.artifacts import ArtifactStore
@@ -634,6 +638,19 @@ def cmd_ai_replay(args) -> int:
     run = artifacts.get_json(args.run) or {}
     res = evaluate_plan_run(plan, run)
 
+    bundle_ids = (res.get("signal") or {}).get("bundles") or []
+    bundles = []
+    for bid in bundle_ids:
+        b = artifacts.get_json(bid)
+        if b:
+            bundles.append(b)
+    if bundles:
+        res["baseline_delta"] = baseline_delta_from_bundles(bundles)
+        res["reward_combined_v1"] = round(
+            float(res["reward_proxy"]) + float(res["baseline_delta"]["delta_reward"]),
+            6,
+        )
+
     if args.format == "json":
         _write_json(args.out, res)
         return 0
@@ -676,6 +693,18 @@ def cmd_ai_replay_batch(args) -> int:
                     break
 
         res = evaluate_plan_run(plan_doc, run_doc)
+        bundle_ids = (res.get("signal") or {}).get("bundles") or []
+        bundles = []
+        for bid in bundle_ids:
+            b = artifacts.get_json(bid)
+            if b:
+                bundles.append(b)
+        if bundles:
+            res["baseline_delta"] = baseline_delta_from_bundles(bundles)
+            res["reward_combined_v1"] = round(
+                float(res["reward_proxy"]) + float(res["baseline_delta"]["delta_reward"]),
+                6,
+            )
         row = metrics_row(res)
         full.append(res)
         rows.append(row)
@@ -702,6 +731,9 @@ def cmd_ai_replay_batch(args) -> int:
         "bundles_linked",
         "jobs_linked",
         "reward_proxy",
+        "baseline_delta_reward",
+        "baseline_changed_hosts",
+        "reward_combined_v1",
         "error",
     ]
     out_lines = [",".join(header)]
