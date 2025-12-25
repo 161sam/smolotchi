@@ -1678,6 +1678,50 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not run:
             abort(404)
 
+        steps = run.get("steps") or []
+        if not isinstance(steps, list):
+            steps = []
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            links = step.get("links")
+            if not isinstance(links, dict):
+                links = {}
+            links.setdefault("artifacts", [])
+            links.setdefault("reports", [])
+            links.setdefault("bundles", [])
+            links.setdefault("jobs", [])
+            for key in ("artifacts", "reports", "bundles", "jobs"):
+                value = links.get(key)
+                if value is None:
+                    links[key] = []
+                elif isinstance(value, list):
+                    links[key] = [str(item) for item in value if item]
+                else:
+                    links[key] = [str(value)]
+            for key in ("artifacts", "reports", "bundles", "jobs"):
+                links[key] = sorted(set(links[key]))
+            step["links"] = links
+
+        run["steps"] = steps
+
+        agg = {"artifacts": set(), "reports": set(), "bundles": set(), "jobs": set()}
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            links = step.get("links") or {}
+            for key in ("artifacts", "reports", "bundles", "jobs"):
+                for value in links.get(key) or []:
+                    if value:
+                        agg[key].add(str(value))
+
+        links = {
+            "artifacts": sorted(agg["artifacts"]),
+            "reports": sorted(agg["reports"]),
+            "bundles": sorted(agg["bundles"]),
+            "jobs": sorted(agg["jobs"]),
+        }
+
         plan_artifact_id = None
         plan_id = run.get("plan_id")
         if plan_id:
@@ -1688,29 +1732,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
                     plan_artifact_id = plan_meta.id
                     break
 
-        links = {"artifacts": [], "reports": [], "bundles": [], "jobs": []}
-        for step in run.get("steps") or []:
-            if not isinstance(step, dict):
-                continue
-            step_links = step.get("links")
-            if not isinstance(step_links, dict):
-                continue
-            for key in links:
-                values = step_links.get(key) or []
-                if isinstance(values, list):
-                    links[key].extend([str(value) for value in values if value])
-                elif values:
-                    links[key].append(str(values))
-        for key in links:
-            links[key] = sorted(set(links[key]))
-
         return render_template(
             "ai_run_detail.html",
             run=run,
             run_artifact_id=artifact_id,
             plan_artifact_id=plan_artifact_id,
-            links=links,
             run_pretty=pretty(run),
+            links=links,
         )
 
     @app.post("/ai/plan")
