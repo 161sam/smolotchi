@@ -1,0 +1,35 @@
+{# Inline buttons for a single step dict `s` #}
+{# Usage: {% include "partials/step_links_inline.html" %} with `s` in scope #}
+
+{% set links = s.links if s.links is defined else {} %}
+{% set artifacts = (links.artifacts if links and links.artifacts is defined else []) %}
+{% set reports = (links.reports if links and links.reports is defined else []) %}
+{% set bundles = (links.bundles if links and links.bundles is defined else []) %}
+{% set jobs = (links.jobs if links and links.jobs is defined else []) %}
+
+{# Fallback: if no artifacts links but step has artifact_id -> treat it as artifact link #}
+{% if (artifacts|length == 0) and (s.artifact_id is defined) and s.artifact_id %}
+  {% set artifacts = [s.artifact_id] %}
+{% endif %}
+
+<span class="btn-row" style="gap:6px; flex-wrap:wrap; align-items:center;">
+  {% for a in artifacts %}
+    <a class="btn" href="{{ url_for('artifact_view', artifact_id=a) }}">Artifact</a>
+  {% endfor %}
+
+  {% for r in reports %}
+    <a class="btn" href="{{ url_for('report_view', artifact_id=r) }}">Report</a>
+  {% endfor %}
+
+  {% for b in bundles %}
+    <a class="btn" href="{{ url_for('lan_result_details', bundle_id=b) }}">Bundle</a>
+  {% endfor %}
+
+  {% for j in jobs %}
+    <a class="btn secondary" href="{{ url_for('lan_result_by_job') }}?job_id={{ j }}">Job</a>
+  {% endfor %}
+
+  {% if (artifacts|length == 0) and (reports|length == 0) and (bundles|length == 0) and (jobs|length == 0) %}
+    <span class="muted">no links</span>
+  {% endif %}
+</span>

@@ -47,6 +47,40 @@
 </section>
 {% endif %}
 
+{% set steps = [] %}
+{% if result_json is mapping and (result_json.get('steps') is not none) %}
+  {% set steps = result_json.get('steps') %}
+{% elif bundle is mapping and (bundle.get('steps') is not none) %}
+  {% set steps = bundle.get('steps') %}
+{% endif %}
+
+<section class="card">
+  <h3 style="margin:0 0 10px 0">Steps</h3>
+  <div class="events">
+    {% for s in steps %}
+      <div class="evt">
+        <div class="evt-top">
+          #{{ s.step if s.step is defined else loop.index }} • {{ s.action if s.action is defined else (s.action_id if s.action_id is defined else 'step') }}
+        </div>
+        {% if s.duration_s is defined %}
+          <pre>duration={{ s.duration_s }}s{% if s.score is defined and s.score is not none %} • score={{ s.score }}{% endif %}</pre>
+        {% endif %}
+        {% include "partials/step_links_inline.html" %}
+        {% if s.why is defined and s.why %}
+          <div class="muted" style="margin-top:8px">why</div>
+          <pre>{{ s.why }}</pre>
+        {% endif %}
+        {% if s.result_summary is defined and s.result_summary %}
+          <div class="muted" style="margin-top:8px">result</div>
+          <pre>{{ s.result_summary | tojson(indent=2) }}</pre>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="muted">No steps in this result.</div>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="card">
   <h3 style="margin:0 0 10px 0">Job events (latest)</h3>
   <div class="events">
