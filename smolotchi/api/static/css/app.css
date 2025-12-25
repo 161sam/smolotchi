@@ -120,6 +120,7 @@ body{
 .pill.sev-medium{background:#92400e;color:#fff}
 .pill.sev-low{background:#1e40af;color:#fff}
 .pill.sev-info{background:#334155;color:#e5e7eb}
+.pill.danger{background:#7f1d1d;color:#fff}
 
 /* Main */
 .main{padding: var(--pad-lg)}

@@ -35,6 +35,15 @@ def build_report_markdown(model: Dict[str, Any]) -> str:
         batch = eff.get("batch_size")
         lines.append(f"- rps: {rps if rps is not None else '—'}")
         lines.append(f"- batch: {batch if batch is not None else '—'}")
+        prof_hash = applied.get("wifi_profile_hash")
+        if prof_hash:
+            lines.append(f"- profile hash: {prof_hash}")
+        drift = model.get("profile_drift") or {}
+        if drift.get("drift"):
+            lines.append(
+                f"- profile drift: applied={drift.get('applied_hash')} "
+                f"current={drift.get('current_hash')}"
+            )
     else:
         lines.append("- (none)")
     lines.append("")

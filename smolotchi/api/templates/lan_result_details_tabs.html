@@ -75,6 +75,8 @@
       <span class="pill">pack: {{ eff.pack }}</span>
       <span class="pill">rps: {{ eff.throttle_rps }}</span>
       <span class="pill">batch: {{ eff.batch_size }}</span>
+      {% if eff.profile_hash %}<span class="pill">profile-hash: {{ eff.profile_hash }}</span>{% endif %}
+      {% if eff.profile_drift %}<span class="pill danger">drift</span>{% endif %}
     </div>
 
     {% if eff.wifi_profile %}

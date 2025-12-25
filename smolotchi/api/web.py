@@ -21,6 +21,7 @@ from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.presets import PRESETS
+from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.core.validate import validate_profiles
 from smolotchi.core.toml_patch import (
     cleanup_baseline_scopes,
@@ -134,6 +135,10 @@ def create_app(config_path: str = "config.toml") -> Flask:
         profiles = getattr(w, "profiles", None) or {}
         if not isinstance(profiles, dict):
             profiles = {}
+        profile_hashes = {}
+        for ssid, prof in profiles.items():
+            norm, _ = normalize_profile(prof if isinstance(prof, dict) else {})
+            profile_hashes[ssid] = profile_hash(norm)
         creds = getattr(w, "credentials", None) or {}
         auto_connect = bool(getattr(w, "auto_connect", False)) if w else False
         preferred = (getattr(w, "preferred_ssid", "") or "").strip() if w else ""
@@ -190,6 +195,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             preferred_scope=getattr(getattr(cfg, "lan", None), "default_scope", ""),
             profiles=profiles,
             wifi_profiles=profiles,
+            profile_hashes=profile_hashes,
             selected_profile_evt=selected_profile_evt,
             profiles_error=profiles_error,
         )
@@ -273,13 +279,24 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "lan_throttle_rps": default_rps,
             "lan_batch_size": default_batch,
         }
+        profile_norm, warnings = normalize_profile(profile)
+        prof_hash = profile_hash(profile_norm)
 
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
-        patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=profile)
+        patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=profile_norm)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
+        bus.publish(
+            "ui.wifi.profile.normalized",
+            {
+                "ssid": ssid,
+                "warnings": warnings,
+                "hash": prof_hash,
+                "ts": time.time(),
+            },
+        )
         bus.publish(
             "ui.wifi.profile.created", {"ssid": ssid, "scope": scope, "ts": time.time()}
         )
@@ -321,13 +338,24 @@ def create_app(config_path: str = "config.toml") -> Flask:
         prof = dict(existing)
         prof.update(PRESETS[preset])
         prof["scope"] = scope
+        prof_norm, warnings = normalize_profile(prof)
+        prof_hash = profile_hash(prof_norm)
 
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
-        patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=prof)
+        patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=prof_norm)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
+        bus.publish(
+            "ui.wifi.profile.normalized",
+            {
+                "ssid": ssid,
+                "warnings": warnings,
+                "hash": prof_hash,
+                "ts": time.time(),
+            },
+        )
         bus.publish(
             "ui.wifi.profile.preset_applied",
             {"ssid": ssid, "preset": preset, "scope": scope, "ts": time.time()},
@@ -376,9 +404,23 @@ def create_app(config_path: str = "config.toml") -> Flask:
             )
             return redirect(url_for("wifi") + "?profiles_error=1")
 
+        norm_profiles = {}
+        for ssid, profile in (prof or {}).items():
+            norm, warnings = normalize_profile(profile)
+            norm_profiles[ssid] = norm
+            bus.publish(
+                "ui.wifi.profile.normalized",
+                {
+                    "ssid": ssid,
+                    "warnings": warnings,
+                    "hash": profile_hash(norm),
+                    "ts": time.time(),
+                },
+            )
+
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
-        patched = patch_wifi_profiles_set(text, prof)
+        patched = patch_wifi_profiles_set(text, norm_profiles)
         _atomic_write_text(cfg_file, patched)
 
         bus.publish("ui.wifi.profiles.saved", {"count": len(prof), "ts": time.time()})
@@ -396,9 +438,23 @@ def create_app(config_path: str = "config.toml") -> Flask:
             )
             return redirect(url_for("wifi") + "?profiles_error=1")
 
+        norm_profiles = {}
+        for ssid, profile in (prof or {}).items():
+            norm, warnings = normalize_profile(profile)
+            norm_profiles[ssid] = norm
+            bus.publish(
+                "ui.wifi.profile.normalized",
+                {
+                    "ssid": ssid,
+                    "warnings": warnings,
+                    "hash": profile_hash(norm),
+                    "ts": time.time(),
+                },
+            )
+
         cfg_file = Path(config_path)
         text = cfg_file.read_text(encoding="utf-8")
-        patched = patch_wifi_profiles_set(text, prof)
+        patched = patch_wifi_profiles_set(text, norm_profiles)
         _atomic_write_text(cfg_file, patched)
 
         store.reload()
@@ -1033,6 +1089,17 @@ def create_app(config_path: str = "config.toml") -> Flask:
         eff = effective_lan_overrides(
             store.get(), job_meta if isinstance(job_meta, dict) else {}
         )
+        if eff.get("profile_drift"):
+            bus.publish(
+                "lan.profile.drift_detected",
+                {
+                    "job_id": job_id,
+                    "ssid": eff.get("wifi_ssid"),
+                    "applied_hash": eff.get("profile_hash"),
+                    "current_hash": eff.get("profile_current_hash"),
+                    "ts": time.time(),
+                },
+            )
 
         evts = []
         if job_id:

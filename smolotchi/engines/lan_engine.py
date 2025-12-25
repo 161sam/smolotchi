@@ -245,6 +245,7 @@ class LanEngine:
         if self._active is not None:
             try:
                 overrides = self._active_overrides or {}
+                job_meta = self._active.meta if isinstance(self._active.meta, dict) else {}
                 result = {
                     "job": {
                         "id": self._active.id,
@@ -252,6 +253,7 @@ class LanEngine:
                         "scope": self._active.scope,
                         "note": self._active.note,
                         "overrides": overrides,
+                        "meta": job_meta,
                     },
                     "summary": "stub result (persist queue v0.0.6)",
                     "ts": time.time(),
@@ -282,6 +284,7 @@ class LanEngine:
                     "scope": self._active.scope,
                     "note": self._active.note,
                     "created_ts": time.time(),
+                    "job_meta": job_meta,
                     "result_json": {
                         "artifact_id": meta_json.id,
                         "path": meta_json.path,
@@ -293,6 +296,11 @@ class LanEngine:
                     if report_meta
                     else None,
                 }
+                if job_meta and job_meta.get("wifi_profile"):
+                    bundle["profile_snapshot"] = {
+                        "hash": job_meta.get("wifi_profile_hash"),
+                        "profile": job_meta.get("wifi_profile"),
+                    }
 
                 bundle_meta = self.artifacts.put_json(
                     kind="lan_bundle",
