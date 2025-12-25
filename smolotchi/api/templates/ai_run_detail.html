@@ -60,15 +60,79 @@
 
 <section class="card">
   <h3 style="margin:0 0 10px 0">Steps</h3>
+
   <div class="events">
     {% for s in run.steps %}
       <div class="evt">
-        <div class="evt-top">#{{ s.step }} • {{ s.action }}</div>
+        <!-- HEADER ROW: title left, buttons right -->
+        <div class="row" style="justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div class="evt-top" style="margin:0;">#{{ s.step }} • {{ s.action }}</div>
+
+          <!-- Buttons per step line -->
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            {% if s.links %}
+              {% if s.links.bundles %}
+                {% for bid in s.links.bundles %}
+                  <a class="btn secondary" style="padding:6px 10px; font-size:12px;"
+                     href="{{ url_for('lan_result_details', bundle_id=bid) }}">Open bundle</a>
+                {% endfor %}
+              {% endif %}
+
+              {% if s.links.reports %}
+                {% for rid in s.links.reports %}
+                  <a class="btn secondary" style="padding:6px 10px; font-size:12px;"
+                     href="{{ url_for('report_view', artifact_id=rid) }}">Open report</a>
+                {% endfor %}
+              {% endif %}
+
+              {% if s.links.artifacts %}
+                {% for aid in s.links.artifacts %}
+                  <a class="btn secondary" style="padding:6px 10px; font-size:12px;"
+                     href="{{ url_for('artifact_view', artifact_id=aid) }}">Open artifact</a>
+                {% endfor %}
+              {% endif %}
+
+              {% if s.links.jobs %}
+                {% for jid in s.links.jobs %}
+                  <a class="btn secondary" style="padding:6px 10px; font-size:12px;"
+                     href="{{ url_for('lan_result_by_job') }}?job_id={{ jid }}">Open job</a>
+                {% endfor %}
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+
         <pre>duration={{ s.duration_s }}s{% if s.score is not none %} • score={{ s.score }}{% endif %}</pre>
-        {% include "partials/step_links_inline.html" %}
+
         {% if s.why %}
           <div class="muted" style="margin-top:8px">why</div>
           <pre>{{ s.why }}</pre>
+        {% endif %}
+
+        {% if s.links %}
+          <div class="muted" style="margin-top:8px">links</div>
+          <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:6px">
+            {% if s.links.artifacts %}
+              {% for aid in s.links.artifacts %}
+                <a class="pill" href="{{ url_for('artifact_view', artifact_id=aid) }}">artifact: {{ aid }}</a>
+              {% endfor %}
+            {% endif %}
+            {% if s.links.reports %}
+              {% for rid in s.links.reports %}
+                <a class="pill" href="{{ url_for('report_view', artifact_id=rid) }}">report: {{ rid }}</a>
+              {% endfor %}
+            {% endif %}
+            {% if s.links.bundles %}
+              {% for bid in s.links.bundles %}
+                <a class="pill" href="{{ url_for('lan_result_details', bundle_id=bid) }}">bundle: {{ bid }}</a>
+              {% endfor %}
+            {% endif %}
+            {% if s.links.jobs %}
+              {% for jid in s.links.jobs %}
+                <a class="pill" href="{{ url_for('lan_result_by_job') }}?job_id={{ jid }}">job: {{ jid }}</a>
+              {% endfor %}
+            {% endif %}
+          </div>
         {% endif %}
 
         {% if s.result_summary %}
