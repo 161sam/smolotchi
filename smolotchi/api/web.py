@@ -24,8 +24,10 @@ from smolotchi.core.toml_patch import (
     patch_baseline_add,
     patch_baseline_remove,
     patch_lan_lists,
+    patch_wifi_allow_add,
     parse_wifi_credentials_text,
     patch_wifi_credentials,
+    patch_wifi_scope_map_set,
 )
 from smolotchi.engines.net_detect import detect_ipv4_cidr, detect_scope_for_iface
 from smolotchi.reports.exec_summary import (
@@ -117,6 +119,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
             aps = (scan_evt.payload.get("aps") or [])[:50]
 
         allow = set(getattr(w, "allow_ssids", []) or []) if w else set()
+        scope_map = getattr(w, "scope_map", None) or {}
+        if not isinstance(scope_map, dict):
+            scope_map = {}
         creds = getattr(w, "credentials", None) or {}
         auto_connect = bool(getattr(w, "auto_connect", False)) if w else False
         preferred = (getattr(w, "preferred_ssid", "") or "").strip() if w else ""
@@ -150,6 +155,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             ap["_seen_count"] = mem.get("seen_count")
             ap["_strongest"] = mem.get("strongest_signal_dbm")
             ap["_last_seen_ts"] = mem.get("last_seen_ts")
+            ap["_mapped_scope"] = (scope_map.get(ssid) or "").strip() if ssid else ""
 
         return render_template(
             "wifi.html",
@@ -166,6 +172,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             lan_locked=lan_locked,
             sessions=sessions,
             targets_id=targets_latest[0].id if targets_latest else None,
+            preferred_scope=getattr(getattr(cfg, "lan", None), "default_scope", ""),
         )
 
     @app.post("/wifi/connect")
@@ -229,6 +236,53 @@ def create_app(config_path: str = "config.toml") -> Flask:
         bus.publish(
             "ui.wifi.credentials.saved_reloaded",
             {"count": len(creds), "ts": time.time()},
+        )
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/allowlist/add")
+    def wifi_allowlist_add():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        if not ssid or len(ssid) > 128:
+            abort(400)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_allow_add(text, ssid=ssid)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish("ui.wifi.allowlist.added", {"ssid": ssid, "ts": time.time()})
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/scope_map/set")
+    def wifi_scope_map_set():
+        cfg = store.get()
+        w = getattr(cfg, "wifi", None)
+        if not w:
+            abort(400)
+
+        ssid = (request.form.get("ssid") or "").strip()
+        scope = (request.form.get("scope") or "").strip()
+
+        if not ssid or len(ssid) > 128:
+            abort(400)
+        if not scope or len(scope) > 64:
+            abort(400)
+
+        cfg_file = Path(config_path)
+        text = cfg_file.read_text(encoding="utf-8")
+        patched = patch_wifi_scope_map_set(text, ssid=ssid, scope=scope)
+        _atomic_write_text(cfg_file, patched)
+
+        store.reload()
+        bus.publish(
+            "ui.wifi.scope_map.set",
+            {"ssid": ssid, "scope": scope, "ts": time.time()},
         )
         return redirect(url_for("wifi"))
 
