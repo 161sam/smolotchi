@@ -68,6 +68,25 @@ class JobStore:
                 ),
             )
 
+    def get(self, job_id: str) -> Optional[JobRow]:
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts FROM jobs WHERE id=?",
+                (job_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return JobRow(
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                json.loads(row[4] or "{}"),
+                row[5],
+                float(row[6]),
+                float(row[7]),
+            )
+
     def pop_next(self) -> Optional[JobRow]:
         with self._conn() as con:
             row = con.execute(
@@ -93,6 +112,13 @@ class JobStore:
                 now,
             )
 
+    def mark_running(self, job_id: str) -> None:
+        with self._conn() as con:
+            con.execute(
+                "UPDATE jobs SET status='running', updated_ts=? WHERE id=?",
+                (time.time(), job_id),
+            )
+
     def mark_done(self, job_id: str) -> None:
         with self._conn() as con:
             con.execute(
@@ -107,6 +133,16 @@ class JobStore:
             merged = (base + "\n" + note).strip()
             con.execute(
                 "UPDATE jobs SET status='failed', note=?, updated_ts=? WHERE id=?",
+                (merged, time.time(), job_id),
+            )
+
+    def mark_cancelled(self, job_id: str, note: str = "cancelled") -> None:
+        with self._conn() as con:
+            cur = con.execute("SELECT note FROM jobs WHERE id=?", (job_id,)).fetchone()
+            base = (cur[0] if cur else "") or ""
+            merged = (base + "\n" + note).strip()
+            con.execute(
+                "UPDATE jobs SET status='cancelled', note=?, updated_ts=? WHERE id=?",
                 (merged, time.time(), job_id),
             )
 
@@ -211,7 +247,7 @@ class JobStore:
 
     def cancel(self, job_id: str) -> bool:
         """
-        Cancel only queued jobs -> mark failed with note 'cancelled'.
+        Cancel queued or running jobs -> mark cancelled.
         """
         with self._conn() as con:
             row = con.execute(
@@ -219,10 +255,10 @@ class JobStore:
             ).fetchone()
             if not row:
                 return False
-            if row[0] != "queued":
+            if row[0] not in {"queued", "running"}:
                 return False
             con.execute(
-                "UPDATE jobs SET status='failed', note=trim(note || '\n' || ?), updated_ts=? WHERE id=?",
+                "UPDATE jobs SET status='cancelled', note=trim(note || '\n' || ?), updated_ts=? WHERE id=?",
                 ("cancelled", time.time(), job_id),
             )
             return True

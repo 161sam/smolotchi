@@ -1682,28 +1682,64 @@ def create_app(config_path: str = "config.toml") -> Flask:
     @app.post("/ai/run")
     def ai_run():
         plan_artifact_id = (request.form.get("plan_artifact_id") or "").strip()
-        plan_id = (request.form.get("plan_id") or "").strip()
         scope = (request.form.get("scope") or "").strip()
         note = request.form.get("note") or ""
 
-        if plan_id and not plan_artifact_id:
-            plans = artifacts.list(limit=50, kind="ai_plan")
-            for plan in plans:
-                doc = artifacts.get_json(plan.id) or {}
-                if doc.get("id") == plan_id:
-                    plan_artifact_id = plan.id
-                    break
+        req = {
+            "plan_artifact_id": plan_artifact_id or None,
+            "scope": scope or None,
+            "note": note,
+            "ts": time.time(),
+        }
+        req_id = artifacts.put_json(
+            kind="ai_run_request",
+            title=f"AI Run Request {int(time.time())}",
+            payload=req,
+            tags=["ai", "run_request"],
+        )
 
-        bus.publish(
-            "ui.ai.run_plan",
+        job_id = f"ai-{int(time.time())}"
+        jobstore.enqueue(
             {
-                "plan_artifact_id": plan_artifact_id or None,
-                "scope": scope or None,
-                "note": note,
-                "ts": time.time(),
+                "id": job_id,
+                "kind": "ai_plan",
+                "scope": scope or "auto",
+                "note": f"req:{req_id} {note}".strip(),
             },
         )
-        return redirect(url_for("ai_plans"))
+        bus.publish(
+            "ui.ai.enqueued",
+            {"job_id": job_id, "req_id": req_id, "ts": time.time()},
+        )
+        return redirect(url_for("ai_jobs"))
+
+    @app.get("/ai/jobs")
+    def ai_jobs():
+        queued = [
+            j for j in jobstore.list(limit=30, status="queued") if j.kind == "ai_plan"
+        ]
+        running = [
+            j for j in jobstore.list(limit=10, status="running") if j.kind == "ai_plan"
+        ]
+        done = [
+            j for j in jobstore.list(limit=30, status="done") if j.kind == "ai_plan"
+        ]
+        failed = [
+            j for j in jobstore.list(limit=30, status="failed") if j.kind == "ai_plan"
+        ]
+        return render_template(
+            "ai_jobs.html",
+            queued=queued,
+            running=running,
+            done=done,
+            failed=failed,
+        )
+
+    @app.post("/ai/job/<job_id>/cancel")
+    def ai_job_cancel(job_id: str):
+        ok = jobstore.cancel(job_id)
+        bus.publish("ui.ai.job.cancel", {"id": job_id, "ok": ok, "ts": time.time()})
+        return redirect(url_for("ai_jobs"))
 
     @app.get("/ai/progress")
     def ai_progress():

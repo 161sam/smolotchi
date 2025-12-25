@@ -51,7 +51,12 @@ class AIWorker:
         self._thread: Optional[threading.Thread] = None
         self.state = WorkerState()
 
-        self._cursor_ts: float = 0.0
+    def _extract_req_id(self, note: str) -> Optional[str]:
+        note = note or ""
+        for part in note.split():
+            if part.startswith("req:"):
+                return part.split("req:", 1)[1].strip()
+        return None
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -78,41 +83,82 @@ class AIWorker:
                 self.state.last_tick = time.time()
                 self.bus.publish("ai.worker.tick", {"ts": self.state.last_tick})
 
-                evts = self.bus.tail(limit=50, topic_prefix="ui.ai.")
-                evts = list(reversed(evts))
+                queued = self.jobstore.list(limit=20, status="queued")
+                queued = [
+                    j for j in queued if getattr(j, "kind", "") == "ai_plan"
+                ]
+                queued = sorted(queued, key=lambda j: j.created_ts)
 
-                for event in evts:
-                    if event.ts and event.ts <= self._cursor_ts:
+                for job in queued:
+                    if getattr(job, "status", "") == "cancelled":
                         continue
-                    if event.topic == "ui.ai.run_plan":
-                        payload = event.payload or {}
-                        plan_artifact_id = (payload.get("plan_artifact_id") or "").strip()
-                        scope = (payload.get("scope") or "").strip()
-                        note = payload.get("note") or ""
 
-                        if plan_artifact_id:
-                            self._run_plan_artifact(plan_artifact_id)
-                        else:
-                            planner = AIPlanner(
-                                self.bus,
-                                self.registry,
-                                seed=payload.get("seed"),
-                                artifacts=self.artifacts,
-                            )
-                            plan = planner.generate(
-                                scope=scope or "10.0.10.0/24",
-                                mode="autonomous_safe",
-                                note=note,
-                            )
-                            runner = PlanRunner(
-                                bus=self.bus,
-                                registry=self.registry,
-                                jobstore=self.jobstore,
-                                artifacts=self.artifacts,
-                            )
-                            self._run_plan_object(plan, runner)
+                    job_id = job.id
+                    req_id = self._extract_req_id(
+                        getattr(job, "note", "") or ""
+                    )
+                    if not req_id:
+                        self.jobstore.mark_failed(
+                            job_id,
+                            note="missing req:<artifact_id> in job.note",
+                        )
+                        self.bus.publish(
+                            "ai.worker.job_failed",
+                            {"job_id": job_id, "error": "missing run request"},
+                        )
+                        continue
 
-                    self._cursor_ts = max(self._cursor_ts, float(event.ts or 0.0))
+                    req = self.artifacts.get_json(req_id)
+                    if not req:
+                        self.jobstore.mark_failed(
+                            job_id,
+                            note=f"run request artifact missing: {req_id}",
+                        )
+                        self.bus.publish(
+                            "ai.worker.job_failed",
+                            {"job_id": job_id, "error": "run request missing"},
+                        )
+                        continue
+
+                    plan_artifact_id = (
+                        req.get("plan_artifact_id") or ""
+                    ).strip()
+                    scope = (req.get("scope") or "").strip()
+                    note = req.get("note") or ""
+
+                    try:
+                        self.jobstore.mark_running(job_id)
+                    except Exception:
+                        pass
+
+                    self.bus.publish(
+                        "ai.worker.dequeue",
+                        {"job_id": job_id, "req_id": req_id, "ts": time.time()},
+                    )
+
+                    if plan_artifact_id:
+                        self._run_plan_artifact(plan_artifact_id, job_id=job_id)
+                    else:
+                        planner = AIPlanner(
+                            self.bus,
+                            self.registry,
+                            seed=req.get("seed"),
+                            artifacts=self.artifacts,
+                        )
+                        plan = planner.generate(
+                            scope=scope or "10.0.10.0/24",
+                            mode="autonomous_safe",
+                            note=note,
+                        )
+                        runner = PlanRunner(
+                            bus=self.bus,
+                            registry=self.registry,
+                            jobstore=self.jobstore,
+                            artifacts=self.artifacts,
+                        )
+                        self._run_plan_object(plan, runner, job_id=job_id)
+
+                    break
 
             except Exception as exc:
                 self.state.last_error = str(exc)
@@ -123,7 +169,7 @@ class AIWorker:
         self.state.running = False
         self.bus.publish("ai.worker.stopped", {"ts": time.time()})
 
-    def _run_plan_artifact(self, plan_artifact_id: str) -> None:
+    def _run_plan_artifact(self, plan_artifact_id: str, *, job_id: str) -> None:
         plan_doc = self.artifacts.get_json(plan_artifact_id)
         if not plan_doc:
             self.bus.publish("ai.worker.plan_missing", {"artifact_id": plan_artifact_id})
@@ -158,17 +204,24 @@ class AIWorker:
             artifacts=self.artifacts,
         )
 
-        self._run_plan_object(plan, runner, plan_artifact_id=plan_artifact_id)
+        self._run_plan_object(
+            plan,
+            runner,
+            plan_artifact_id=plan_artifact_id,
+            job_id=job_id,
+        )
 
     def _run_plan_object(
         self,
         plan,
         runner: PlanRunner,
+        *,
         plan_artifact_id: Optional[str] = None,
+        job_id: str,
     ) -> None:
         self.state.current_plan_artifact_id = plan_artifact_id
         self.state.current_plan_id = getattr(plan, "id", None)
-        self.state.current_job_id = f"job-{getattr(plan, 'id', 'unknown')}"
+        self.state.current_job_id = job_id
         self.bus.publish(
             "ai.worker.run.start",
             {
@@ -179,7 +232,7 @@ class AIWorker:
             },
         )
         try:
-            runner.run(plan)
+            runner.run(plan, job_id=job_id, enqueue=False)
         finally:
             self.bus.publish(
                 "ai.worker.run.end",
