@@ -1623,6 +1623,52 @@ def create_app(config_path: str = "config.toml") -> Flask:
         )
         return redirect(url_for("lan"))
 
+    @app.get("/ai/plans")
+    def ai_plans():
+        plan_metas = artifacts.list(limit=50, kind="ai_plan")
+        run_metas = artifacts.list(limit=50, kind="ai_plan_run")
+
+        runs_by_plan = {}
+        for run in run_metas:
+            meta = artifacts.get_meta(run.id) or {}
+            plan_id = meta.get("plan_id")
+            if plan_id:
+                runs_by_plan.setdefault(plan_id, []).append(run)
+
+        plans = []
+        for meta in plan_metas:
+            data = artifacts.get_json(meta.id) or {}
+            plan_id = data.get("id") or meta.id
+            plans.append({"meta": meta, "data": data, "plan_id": plan_id})
+
+        return render_template(
+            "ai_plans.html",
+            plans=plans,
+            runs_by_plan=runs_by_plan,
+        )
+
+    @app.get("/ai/plan/<artifact_id>")
+    def ai_plan_detail(artifact_id: str):
+        plan = artifacts.get_json(artifact_id)
+        if not plan:
+            abort(404)
+
+        plan_id = plan.get("id") or artifact_id
+        run_metas = artifacts.list(limit=20, kind="ai_plan_run")
+        related_runs = []
+        for run in run_metas:
+            meta = artifacts.get_meta(run.id) or {}
+            if meta.get("plan_id") == plan_id:
+                related_runs.append(run)
+
+        return render_template(
+            "ai_plan_detail.html",
+            plan=plan,
+            plan_artifact_id=artifact_id,
+            runs=related_runs,
+            plan_pretty=pretty(plan),
+        )
+
     @app.post("/ai/plan")
     def ai_plan():
         scope = request.form.get("scope", "10.0.10.0/24")

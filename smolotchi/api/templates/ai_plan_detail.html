@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block page_title %}AI Plan{% endblock %}
+{% block page_sub %}{{ plan.id }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="row" style="justify-content:space-between">
+    <a href="/ai/plans" class="btn secondary">← Back to Plans</a>
+
+    <form method="post" action="/ai/run">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <button class="btn">Run (safe)</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Steps</h3>
+  <div class="events">
+    {% for s in plan.steps %}
+      <div class="evt">
+        <div class="evt-top">{{ s.action_id }}</div>
+        <pre>score={{ s.score }}{% if s.why %}\nwhy: {{ s.why }}{% endif %}</pre>
+      </div>
+    {% else %}
+      <div class="muted">No steps recorded.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h3>Explain</h3>
+  <pre>{{ plan.explain | tojson(indent=2) }}</pre>
+</section>
+
+<section class="card">
+  <h3>Runs</h3>
+  <div class="events">
+    {% for r in runs %}
+      <div class="evt">
+        <div class="evt-top">{{ r.title }}</div>
+        <div class="muted">{{ r.id }}</div>
+        <a class="btn" href="{{ url_for('artifact_view', artifact_id=r.id) }}">Open run</a>
+      </div>
+    {% else %}
+      <div class="muted">No runs yet.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h3>Raw JSON</h3>
+  <pre>{{ plan_pretty }}</pre>
+</section>
+{% endblock %}

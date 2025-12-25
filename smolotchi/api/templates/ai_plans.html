@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block page_title %}AI Plans{% endblock %}
+{% block page_sub %}Generated & executed plans{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h3>Plans</h3>
+  <div class="events">
+    {% for p in plans %}
+      <div class="evt">
+        <div class="evt-top">{{ p.meta.title }}</div>
+        <div class="muted">plan id: {{ p.plan_id }}</div>
+        <div class="muted">artifact id: {{ p.meta.id }}</div>
+        <div class="row" style="margin-top:8px; gap:10px">
+          <a class="btn" href="{{ url_for('ai_plan_detail', artifact_id=p.meta.id) }}">Open</a>
+        </div>
+
+        {% if runs_by_plan.get(p.plan_id) %}
+          <div class="muted" style="margin-top:6px">
+            Runs: {{ runs_by_plan[p.plan_id]|length }}
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="muted">No AI plans yet.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
