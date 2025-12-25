@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,7 @@ from flask import (
 
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.api.view_models import effective_lan_overrides
+from smolotchi.actions.registry import ActionRegistry
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
@@ -76,6 +78,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
     store.load()
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
     jobstore = JobStore(bus.db_path)
+    registry = ActionRegistry()
 
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
@@ -1678,8 +1681,67 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     @app.post("/ai/run")
     def ai_run():
-        bus.publish("ui.ai.run_autonomous_safe", {})
-        return redirect(url_for("dashboard"))
+        plan_artifact_id = (request.form.get("plan_artifact_id") or "").strip()
+        plan_id = (request.form.get("plan_id") or "").strip()
+        scope = (request.form.get("scope") or "").strip()
+        note = request.form.get("note") or ""
+
+        if plan_id and not plan_artifact_id:
+            plans = artifacts.list(limit=50, kind="ai_plan")
+            for plan in plans:
+                doc = artifacts.get_json(plan.id) or {}
+                if doc.get("id") == plan_id:
+                    plan_artifact_id = plan.id
+                    break
+
+        bus.publish(
+            "ui.ai.run_plan",
+            {
+                "plan_artifact_id": plan_artifact_id or None,
+                "scope": scope or None,
+                "note": note,
+                "ts": time.time(),
+            },
+        )
+        return redirect(url_for("ai_plans"))
+
+    @app.get("/ai/progress")
+    def ai_progress():
+        job_id = (request.args.get("job_id") or "").strip()
+        if not job_id:
+            abort(400)
+
+        raw = bus.tail(limit=200, topic_prefix="ai.")
+        events = []
+        for event in raw:
+            payload = event.payload or {}
+            if payload.get("job_id") == job_id:
+                events.append(
+                    {
+                        "ts": event.ts,
+                        "topic": event.topic,
+                        "payload": payload,
+                    }
+                )
+        events = events[-60:]
+
+        return Response(
+            response=json.dumps({"job_id": job_id, "events": events}, ensure_ascii=False, indent=2),
+            status=200,
+            mimetype="application/json",
+        )
+
+    if os.environ.get("SMO_AI_WORKER", "0") == "1":
+        from smolotchi.ai.worker import AIWorker
+
+        worker = AIWorker(
+            bus=bus,
+            registry=registry,
+            artifacts=artifacts,
+            jobstore=jobstore,
+        )
+        worker.start()
+        bus.publish("ai.worker.enabled", {"ts": time.time()})
 
     return app
 

@@ -8,10 +8,16 @@
     <a href="/ai/plans" class="btn secondary">← Back to Plans</a>
 
     <form method="post" action="/ai/run">
-      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <input type="hidden" name="plan_artifact_id" value="{{ plan_artifact_id }}">
       <button class="btn">Run (safe)</button>
     </form>
   </div>
+</section>
+
+<section class="card">
+  <h3>Live progress</h3>
+  <div class="muted">Job ID: <span id="ai-job-id">job-{{ plan.id }}</span></div>
+  <pre id="ai-progress" style="margin-top:10px; max-height:320px; overflow:auto;">(waiting…)</pre>
 </section>
 
 <section class="card">
@@ -47,6 +53,37 @@
     {% endfor %}
   </div>
 </section>
+
+<script>
+  (function(){
+    const jobId = "job-{{ plan.id }}";
+    const el = document.getElementById("ai-progress");
+    async function tick(){
+      try {
+        const r = await fetch("/ai/progress?job_id=" + encodeURIComponent(jobId));
+        const j = await r.json();
+        const lines = (j.events || []).map(e => {
+          const t = new Date((e.ts || 0) * 1000).toISOString();
+          const topic = e.topic || "";
+          let msg = "";
+          const p = e.payload || {};
+          if (topic === "ai.action.started") msg = `#${p.step} START ${p.action}`;
+          else if (topic === "ai.action.done") msg = `#${p.step} DONE ${p.action} (${p.duration_s}s)`;
+          else if (topic === "ai.plan.completed") msg = `PLAN DONE (${p.duration_s}s)`;
+          else if (topic === "ai.plan.failed") msg = `PLAN FAILED: ${p.error}`;
+          else if (topic === "ai.plan.cancelled") msg = "PLAN CANCELLED";
+          else msg = topic;
+          return `${t}  ${msg}`;
+        });
+        el.textContent = lines.join("\n") || "(no events yet)";
+      } catch (e) {
+        el.textContent = "(progress unavailable)";
+      }
+      setTimeout(tick, 1500);
+    }
+    tick();
+  })();
+</script>
 
 <section class="card">
   <h3>Raw JSON</h3>

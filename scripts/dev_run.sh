@@ -9,4 +9,6 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e .
 
+export SMO_AI_WORKER=1
+
 python -m smolotchi.api.web
