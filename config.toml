@@ -17,6 +17,7 @@ scan_interval_sec = 30
 allow_ssids = ["LAB-1", "LAB-2"]
 auto_connect = true
 preferred_ssid = "LAB-1"
+apply_profile_on_connect = true
 disconnect_after_lan = true
 lock_during_lan = true
 reconnect_on_failure = false
@@ -33,6 +34,22 @@ auto_reconnect_on_broken = false
 [wifi.scope_map]
 "LAB-1" = "10.0.10.0/24"
 "LAB-2" = "10.0.20.0/24"
+
+[wifi.profiles."LAB-1"]
+scope = "10.0.10.0/24"
+disconnect_after_lan = true
+lock_during_lan = true
+lan_pack = "bjorn_core"
+lan_throttle_rps = 2.0
+lan_batch_size = 8
+
+[wifi.profiles."LAB-2"]
+scope = "10.0.20.0/24"
+disconnect_after_lan = false
+lock_during_lan = true
+lan_pack = "bjorn_core"
+lan_throttle_rps = 1.0
+lan_batch_size = 4
 
 [lan]
 enabled = true

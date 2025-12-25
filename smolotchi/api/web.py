@@ -124,9 +124,15 @@ def create_app(config_path: str = "config.toml") -> Flask:
         scope_map = getattr(w, "scope_map", None) or {}
         if not isinstance(scope_map, dict):
             scope_map = {}
+        profiles = getattr(w, "profiles", None) or {}
+        if not isinstance(profiles, dict):
+            profiles = {}
         creds = getattr(w, "credentials", None) or {}
         auto_connect = bool(getattr(w, "auto_connect", False)) if w else False
         preferred = (getattr(w, "preferred_ssid", "") or "").strip() if w else ""
+        selected_profile_evt = next(
+            (e for e in events if e.topic == "wifi.profile.selected"), None
+        )
         sessions = artifacts.list(limit=10, kind="wifi_session")
         reports = artifacts.list(limit=20, kind="wifi_session_report")
         rep_map = {}
@@ -175,6 +181,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
             sessions=sessions,
             targets_id=targets_latest[0].id if targets_latest else None,
             preferred_scope=getattr(getattr(cfg, "lan", None), "default_scope", ""),
+            wifi_profiles=profiles,
+            selected_profile_evt=selected_profile_evt,
         )
 
     @app.post("/wifi/connect")
@@ -209,6 +217,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
         iface = (request.form.get("iface") or getattr(w, "iface", "wlan0")).strip()
 
         bus.publish("ui.wifi.disconnect", {"iface": iface})
+        return redirect(url_for("wifi"))
+
+    @app.post("/wifi/profile/apply")
+    def wifi_profile_apply():
+        ssid = (request.form.get("ssid") or "").strip()
+        iface = (request.form.get("iface") or "").strip()
+        bus.publish("ui.wifi.profile.apply", {"ssid": ssid, "iface": iface})
         return redirect(url_for("wifi"))
 
     @app.post("/wifi/credentials/save")

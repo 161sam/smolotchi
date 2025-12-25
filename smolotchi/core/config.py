@@ -50,6 +50,7 @@ class WifiCfg:
     allow_ssids: List[str] = field(default_factory=list)
     auto_connect: bool = True
     preferred_ssid: str = ""
+    apply_profile_on_connect: bool = True
     disconnect_after_lan: bool = True
     lock_during_lan: bool = True
     reconnect_on_failure: bool = False
@@ -61,6 +62,7 @@ class WifiCfg:
     auto_reconnect_on_broken: bool = False
     scope_map: Dict[str, str] = field(default_factory=dict)
     credentials: Dict[str, str] = field(default_factory=dict)
+    profiles: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -324,6 +326,9 @@ class ConfigStore:
                 allow_ssids=list(wifi.get("allow_ssids", []) or []),
                 auto_connect=bool(wifi.get("auto_connect", True)),
                 preferred_ssid=str(wifi.get("preferred_ssid", "")),
+                apply_profile_on_connect=bool(
+                    wifi.get("apply_profile_on_connect", True)
+                ),
                 disconnect_after_lan=bool(wifi.get("disconnect_after_lan", True)),
                 lock_during_lan=bool(wifi.get("lock_during_lan", True)),
                 reconnect_on_failure=bool(wifi.get("reconnect_on_failure", False)),
@@ -339,6 +344,7 @@ class ConfigStore:
                 ),
                 scope_map=dict(wifi.get("scope_map", {}) or {}),
                 credentials=dict(wifi.get("credentials", {}) or {}),
+                profiles=dict(wifi.get("profiles", {}) or {}),
             ),
             lan=LanCfg(
                 enabled=bool(lan.get("enabled", True)),
