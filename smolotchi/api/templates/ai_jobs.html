@@ -17,7 +17,7 @@
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
         <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Cancel / Stop</button>
+          <button class="btn secondary" type="submit">Cancel / Stop</button>
         </form>
         {% if run_by_job.get(j.id) %}
           <div class="btn-row" style="margin-top:8px">
@@ -25,7 +25,15 @@
           </div>
         {% endif %}
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <p><strong>No running AI jobs.</strong></p>
+        <p class="muted">Kick off a plan from AI Plans to start execution.</p>
+        <div class="btn-row">
+          <a class="btn" href="{{ url_for('ai_plans') }}">Open AI Plans</a>
+        </div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
@@ -40,7 +48,7 @@
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
         <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Cancel</button>
+          <button class="btn secondary" type="submit">Cancel</button>
         </form>
         {% if run_by_job.get(j.id) %}
           <div class="btn-row" style="margin-top:8px">
@@ -48,7 +56,15 @@
           </div>
         {% endif %}
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <p><strong>No blocked jobs.</strong></p>
+        <p class="muted">Stage approvals will appear here when a plan needs gating.</p>
+        <div class="btn-row">
+          <a class="btn secondary" href="{{ url_for('ai_stages') }}">Open approvals</a>
+        </div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
@@ -60,10 +76,18 @@
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
         <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Cancel</button>
+          <button class="btn secondary" type="submit">Cancel</button>
         </form>
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <p><strong>No queued jobs.</strong></p>
+        <p class="muted">Generate a plan or enqueue a run to get started.</p>
+        <div class="btn-row">
+          <a class="btn" href="{{ url_for('ai_plans') }}">Generate plan</a>
+        </div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
@@ -80,7 +104,12 @@
           </div>
         {% endif %}
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <p><strong>No completed runs yet.</strong></p>
+        <p class="muted">Once a plan finishes, it will show up here.</p>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
@@ -97,7 +126,12 @@
           </div>
         {% endif %}
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <p><strong>No failed jobs.</strong></p>
+        <p class="muted">Failures will surface here with run details.</p>
+      </div>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}
