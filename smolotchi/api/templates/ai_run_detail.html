@@ -42,28 +42,30 @@
   <div class="events">
     {% for s in run.steps %}
       <div class="evt">
-        <div class="evt-top">#{{ s.step }} • {{ s.action }}</div>
-        <pre>duration={{ s.duration_s }}s{% if s.score is not none %} • score={{ s.score }}{% endif %}</pre>
+        <div class="evt-top">
+          <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <span>#{{ s.step }} • {{ s.action }}</span>
+            <div class="row" style="gap:8px; flex-wrap:wrap;">
+              {% for rid in (s.links.reports or []) %}
+                <a class="pill" href="{{ url_for('report_view', artifact_id=rid) }}">report: {{ rid }}</a>
+              {% endfor %}
+              {% for aid in (s.links.artifacts or []) %}
+                <a class="pill" href="{{ url_for('artifact_view', artifact_id=aid) }}">artifact: {{ aid }}</a>
+              {% endfor %}
+              {% for bid in (s.links.bundles or []) %}
+                <a class="pill" href="{{ url_for('lan_result_details', bundle_id=bid) }}">bundle: {{ bid }}</a>
+              {% endfor %}
+              {% for jid in (s.links.jobs or []) %}
+                <a class="pill" href="{{ url_for('lan_result_by_job') }}?job_id={{ jid }}">job: {{ jid }}</a>
+              {% endfor %}
 
-        {# --- Step link buttons (pro Zeile) --- #}
-        <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:8px">
-          {% for rid in (s.links.reports or []) %}
-            <a class="pill" href="{{ url_for('report_view', artifact_id=rid) }}">report: {{ rid }}</a>
-          {% endfor %}
-          {% for aid in (s.links.artifacts or []) %}
-            <a class="pill" href="{{ url_for('artifact_view', artifact_id=aid) }}">artifact: {{ aid }}</a>
-          {% endfor %}
-          {% for bid in (s.links.bundles or []) %}
-            <a class="pill" href="{{ url_for('lan_result_details', bundle_id=bid) }}">bundle: {{ bid }}</a>
-          {% endfor %}
-          {% for jid in (s.links.jobs or []) %}
-            <a class="pill" href="{{ url_for('lan_result_by_job') }}?job_id={{ jid }}">job: {{ jid }}</a>
-          {% endfor %}
-
-          {% if ( (s.links.reports|length) + (s.links.artifacts|length) + (s.links.bundles|length) + (s.links.jobs|length) ) == 0 %}
-            <span class="muted">no links</span>
-          {% endif %}
+              {% if ( (s.links.reports|length) + (s.links.artifacts|length) + (s.links.bundles|length) + (s.links.jobs|length) ) == 0 %}
+                <span class="muted">no links</span>
+              {% endif %}
+            </div>
+          </div>
         </div>
+        <pre>duration={{ s.duration_s }}s{% if s.score is not none %} • score={{ s.score }}{% endif %}</pre>
 
         {% if s.why %}
           <div class="muted" style="margin-top:10px">why</div>

@@ -19,30 +19,37 @@
         {% if a.job_id %}
           <div class="muted">job_id: {{ a.job_id }}</div>
         {% endif %}
-        <div style="margin-top:10px" class="row">
-          <a href="{{ url_for('report_view', artifact_id=a.id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Open</a>
-          <a href="{{ url_for('artifact_file_download', artifact_id=a.id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Download</a>
+        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+          <a class="btn" href="{{ url_for('report_view', artifact_id=a.id) }}">Open</a>
+          <a class="btn secondary" href="{{ url_for('artifact_file_download', artifact_id=a.id) }}">Download</a>
 
           {% if a.bundle_id %}
-            <a href="{{ url_for('lan_result_details', bundle_id=a.bundle_id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Result details</a>
-            <a href="{{ url_for('artifact_download', artifact_id=a.bundle_id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Bundle JSON</a>
+            <a class="btn secondary" href="{{ url_for('lan_result_details', bundle_id=a.bundle_id) }}">Result details</a>
+            <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=a.bundle_id) }}">Bundle JSON</a>
           {% elif a.job_id %}
-            <a href="{{ url_for('lan_result_by_job') }}?job_id={{ a.job_id }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Result details</a>
+            <a class="btn secondary" href="{{ url_for('lan_result_by_job') }}?job_id={{ a.job_id }}">Result details</a>
           {% endif %}
 
           {% if a.diff_html_id %}
-            <a href="{{ url_for('report_view', artifact_id=a.diff_html_id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Diff (HTML)</a>
+            <a class="btn secondary" href="{{ url_for('report_view', artifact_id=a.diff_html_id) }}">Diff (HTML)</a>
           {% endif %}
           {% if a.diff_md_id %}
-            <a href="{{ url_for('report_view', artifact_id=a.diff_md_id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Diff (MD)</a>
+            <a class="btn secondary" href="{{ url_for('report_view', artifact_id=a.diff_md_id) }}">Diff (MD)</a>
           {% endif %}
           {% if a.diff_json_id %}
-            <a href="{{ url_for('artifact_download', artifact_id=a.diff_json_id) }}" style="color:var(--accent); text-decoration:none; font-weight:900;">Diff (JSON)</a>
+            <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=a.diff_json_id) }}">Diff (JSON)</a>
           {% endif %}
         </div>
       </div>
     {% else %}
-      <div class="muted">No reports yet.</div>
+      <div class="evt">
+        <div class="evt-top">No reports yet</div>
+        <div class="muted">Run a LAN job to generate HTML and diff reports.</div>
+        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+          <a class="btn" href="{{ url_for('lan') }}">Run LAN job</a>
+          <a class="btn secondary" href="{{ url_for('lan_results') }}">View Results</a>
+        </div>
+      </div>
     {% endfor %}
   </div>
 </section>
