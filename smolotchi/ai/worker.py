@@ -6,6 +6,7 @@ import os
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -25,6 +26,7 @@ from smolotchi.core.policy import Policy
 class WorkerState:
     running: bool = False
     last_tick: float = 0.0
+    last_health_emit: float = 0.0
     current_plan_artifact_id: Optional[str] = None
     current_plan_id: Optional[str] = None
     current_job_id: Optional[str] = None
@@ -123,8 +125,20 @@ class AIWorker:
 
     def _tick(self) -> None:
         try:
-            self.state.last_tick = time.time()
+            now = time.time()
+            self.state.last_tick = now
             self.bus.publish("ai.worker.tick", {"ts": self.state.last_tick})
+            if (now - self.state.last_health_emit) >= 10:
+                self.state.last_health_emit = now
+                self.artifacts.put_json(
+                    kind="worker_health",
+                    title="AI Worker Health",
+                    payload={
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "pid": os.getpid(),
+                        "job_id": self.state.current_job_id,
+                    },
+                )
 
             ai_evts = self.bus.tail(limit=100, topic_prefix="ai.")
             for event in ai_evts:
@@ -490,7 +504,9 @@ def main(argv: list[str] | None = None) -> int:
     jobstore = JobStore(bus.db_path)
     registry = _build_registry()
     policy = _build_policy(store.get())
-    action_runner = ActionRunner(bus=bus, artifacts=artifacts, policy=policy)
+    action_runner = ActionRunner(
+        bus=bus, artifacts=artifacts, policy=policy, registry=registry
+    )
     worker = AIWorker(
         bus=bus,
         registry=registry,

@@ -36,12 +36,19 @@
 
         {% if r.id not in approved %}
           <form method="post" action="/ai/stage/{{ r.id }}/approve" style="margin-top:10px">
-            <button class="secondary" type="submit">Approve + resume</button>
+            <button class="btn secondary" type="submit">Approve + resume</button>
           </form>
         {% endif %}
       </div>
     {% else %}
-      <div class="muted">No stage requests yet.</div>
+      <div class="empty">
+        <p><strong>No stage requests yet.</strong></p>
+        <p class="muted">Manual approvals appear here when a plan hits a gated step.</p>
+        <div class="btn-row">
+          <a class="btn" href="{{ url_for('ai_stage_new') }}">New stage request</a>
+          <a class="btn secondary" href="{{ url_for('ai_plans') }}">Back to AI Plans</a>
+        </div>
+      </div>
     {% endfor %}
   </div>
 </section>

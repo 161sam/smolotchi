@@ -59,6 +59,19 @@
       </header>
 
       <div class="content">
+        {% if not core_ok or not worker_ok %}
+        <section class="banner">
+          <div class="banner-title">Background services offline</div>
+          <div class="banner-body">
+            {% if not core_ok %}
+              <div>Core offline → start: <code>python -m smolotchi.cli core</code></div>
+            {% endif %}
+            {% if not worker_ok %}
+              <div>AI Worker offline → start: <code>python -m smolotchi.ai.worker --loop</code></div>
+            {% endif %}
+          </div>
+        </section>
+        {% endif %}
         {% block content %}{% endblock %}
       </div>
     </main>

@@ -98,7 +98,9 @@ def cmd_core(args) -> int:
     from smolotchi.actions.runner import ActionRunner
 
     actions = load_pack("smolotchi/actions/packs/bjorn_core.yml")
-    action_runner = ActionRunner(bus=bus, artifacts=artifacts, policy=policy)
+    action_runner = ActionRunner(
+        bus=bus, artifacts=artifacts, policy=policy, registry=actions
+    )
     plan_runner = BatchPlanRunner(
         bus=bus, registry=actions, runner=action_runner, artifacts=artifacts
     )

@@ -87,12 +87,30 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
 
-    def core_recently_active(window_s: float = 30.0) -> bool:
+    def core_recently_active(window_s: float = 30.0) -> tuple[bool, float | None]:
         now = time.time()
+        last_ts = None
         for event in bus.tail(limit=30, topic_prefix="core."):
+            last_ts = event.ts
             if (now - event.ts) <= window_s:
-                return True
-        return False
+                return True, event.ts
+        return False, last_ts
+
+    def worker_recently_active(window_s: float = 30.0) -> tuple[bool, float | None]:
+        latest = artifacts.list(limit=1, kind="worker_health")
+        if not latest:
+            return False, None
+        meta = latest[0]
+        doc = artifacts.get_json(meta.id) or {}
+        ts = None
+        if doc.get("ts"):
+            try:
+                ts = datetime.fromisoformat(str(doc.get("ts"))).timestamp()
+            except ValueError:
+                ts = None
+        if ts is None:
+            ts = float(meta.created_ts)
+        return (time.time() - ts) <= window_s, ts
 
     def _build_policy(cfg) -> Policy:
         policy_cfg = getattr(cfg, "policy", None)
@@ -108,19 +126,25 @@ def create_app(config_path: str = "config.toml") -> Flask:
             ),
         )
 
-    def _safe_send_artifact_path(path: str, *, as_attachment: bool) -> Response:
-        if not path:
+    def _safe_store_path(root: str | Path, stored_path: str | Path) -> Path:
+        if not stored_path:
             abort(404)
-        root = Path(artifacts.root).resolve()
+        root_p = Path(root).resolve()
+        p = Path(stored_path)
+
+        if not p.is_absolute():
+            p = root_p / p
+
+        p = p.resolve()
         try:
-            resolved = Path(path).resolve()
-        except Exception:
+            p.relative_to(root_p)
+        except ValueError:
             abort(404)
-        if resolved != root and root not in resolved.parents:
+
+        if not p.exists() or not p.is_file():
             abort(404)
-        if not resolved.exists():
-            abort(404)
-        return send_file(str(resolved), as_attachment=as_attachment)
+
+        return p
 
     @app.context_processor
     def inject_globals():
@@ -129,11 +153,17 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if cfg.theme and cfg.theme.json_path:
             tokens = load_theme_tokens(cfg.theme.json_path)
         theme_css = tokens_to_css_vars(tokens) if tokens else ""
+        core_ok, core_last_ts = core_recently_active()
+        worker_ok, worker_last_ts = worker_recently_active()
         return {
             "nav_active": nav_active,
             "app_cfg": cfg,
             "config_path": config_path,
             "theme_css": theme_css,
+            "core_ok": core_ok,
+            "core_last_ts": core_last_ts,
+            "worker_ok": worker_ok,
+            "worker_last_ts": worker_last_ts,
         }
 
     @app.get("/")
@@ -1397,16 +1427,22 @@ def create_app(config_path: str = "config.toml") -> Flask:
         meta = artifacts.get_meta(artifact_id)
         if not meta:
             abort(404)
-        path = meta.get("path")
-        return _safe_send_artifact_path(path, as_attachment=True)
+        path = _safe_store_path(artifacts.root, meta.get("path"))
+        return send_file(
+            path,
+            as_attachment=True,
+            download_name=meta.get("name") or path.name,
+        )
 
     @app.get("/report/<artifact_id>")
     def report_view(artifact_id: str):
         meta = artifacts.get_meta(artifact_id)
         if not meta:
             abort(404)
-        path = meta.get("path")
-        return _safe_send_artifact_path(path, as_attachment=False)
+        path = _safe_store_path(artifacts.root, meta.get("path"))
+        if path.suffix.lower() not in {".html", ".md", ".json"}:
+            abort(404)
+        return send_file(path, as_attachment=False)
 
     @app.get("/lan/jobs")
     def lan_jobs():
@@ -1796,7 +1832,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         scope = request.form.get("scope", "10.0.10.0/24")
         note = request.form.get("note", "")
         bus.publish("ui.ai.generate_plan", {"scope": scope, "note": note})
-        if not core_recently_active():
+        if not core_recently_active()[0]:
             planner = AIPlanner(bus=bus, registry=registry, artifacts=artifacts)
             planner.generate(
                 scope=scope,
@@ -2007,7 +2043,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
         cfg = store.get()
         policy = _build_policy(cfg)
-        action_runner = ActionRunner(bus=bus, artifacts=artifacts, policy=policy)
+        action_runner = ActionRunner(
+            bus=bus, artifacts=artifacts, policy=policy, registry=registry
+        )
         worker = AIWorker(
             bus=bus,
             registry=registry,

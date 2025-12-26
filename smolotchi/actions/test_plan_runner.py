@@ -3,10 +3,12 @@ import unittest
 
 from smolotchi.actions.plan_runner import PlanRunner
 from smolotchi.actions.registry import ActionRegistry
+from smolotchi.actions.runner import ActionRunner
 from smolotchi.actions.schema import ActionSpec
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
+from smolotchi.core.policy import Policy
 
 
 class PlanRunnerPolicyGateTest(unittest.TestCase):
@@ -42,6 +44,12 @@ class PlanRunnerPolicyGateTest(unittest.TestCase):
                 registry=registry,
                 jobstore=jobs,
                 artifacts=artifacts,
+                runner=ActionRunner(
+                    bus=bus,
+                    artifacts=artifacts,
+                    policy=Policy(),
+                    registry=registry,
+                ),
             )
             runner.run(_Plan(), job_id="job-test", enqueue=True)
 

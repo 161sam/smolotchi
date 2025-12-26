@@ -204,28 +204,18 @@ class PlanRunner:
 
         # ---- execute action
         start_ts = time.time()
-        if self.runner:
-            result = self._run_with_runner(
-                plan=plan,
-                step_index=step_index,
-                action_id=action_id,
-                action=action,
-                payload=step.payload,
+        if not self.runner:
+            raise RuntimeError(
+                "Action runner missing "
+                f"(action={action_id} plan={plan.id} step={step_index})"
             )
-        else:
-            run = getattr(action, "run", None)
-            if not callable(run):
-                raise RuntimeError(
-                    "Action not executable "
-                    f"(action={action_id} plan={plan.id} step={step_index})"
-                )
-            try:
-                result = run(**step.payload)
-            except Exception as exc:
-                raise RuntimeError(
-                    "Action failed "
-                    f"(action={action_id} plan={plan.id} step={step_index}): {exc}"
-                ) from exc
+        result = self._run_with_runner(
+            plan=plan,
+            step_index=step_index,
+            action_id=action_id,
+            action=action,
+            payload=step.payload,
+        )
         duration = time.time() - start_ts
         links = self._extract_links(result)
         try:
@@ -277,7 +267,14 @@ class PlanRunner:
     ) -> dict:
         mode = getattr(plan, "mode", None) or "manual"
         try:
-            res = self.runner.run(action, payload, mode=mode)
+            res = self.runner.execute(
+                job_id=str(getattr(self, "_run_doc", {}).get("job_id") or ""),
+                plan_id=str(getattr(plan, "id", "")),
+                step_index=step_index,
+                action_id=action_id,
+                payload=payload,
+                mode=mode,
+            )
         except Exception as exc:
             raise RuntimeError(
                 "Action runner error "
@@ -1074,7 +1071,14 @@ class BatchPlanRunner:
             res = None
             while True:
                 attempt += 1
-                res = self.runner.run(spec, payload, mode=mode)
+                res = self.runner.execute(
+                    job_id=job_id,
+                    plan_id=str(plan.get("id") or job_id),
+                    step_index=i + 1,
+                    action_id=spec.id,
+                    payload=payload,
+                    mode=mode,
+                )
                 if res.ok or attempt > max_retries:
                     break
                 self.bus.publish(

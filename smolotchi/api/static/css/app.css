@@ -145,6 +145,28 @@ body{
 
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
+.banner{
+  background: rgba(255, 204, 102, 0.08);
+  border: 1px solid rgba(255, 204, 102, 0.35);
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+}
+.banner-title{
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+.banner-body{
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.banner code{
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
 input, textarea{
   background: var(--panel2);
   color: var(--text);
@@ -253,3 +275,11 @@ pre{margin:8px 0 0;color:var(--muted);font-size:12px;white-space:pre-wrap}
 .btn.primary{background: rgba(95,209,255,.10); border-color: rgba(95,209,255,.22); color: var(--accent);}
 .hr{height:1px;background:var(--border);margin:12px 0}
 .small{font-size:12px;color:var(--muted)}
+
+.empty{
+  border:1px dashed rgba(255,255,255,.12);
+  border-radius: var(--r-md);
+  padding: 16px;
+  background: rgba(255,255,255,.02);
+}
+.empty .muted{font-size:12px}
