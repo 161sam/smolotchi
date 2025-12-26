@@ -63,11 +63,13 @@ class PlanRunner:
         registry: ActionRegistry,
         jobstore: JobStore,
         artifacts: Optional[ArtifactStore] = None,
+        runner: ActionRunner | None = None,
     ) -> None:
         self.bus = bus
         self.registry = registry
         self.jobstore = jobstore
         self.artifacts = artifacts
+        self.runner = runner
 
     # ==========================
     # Public API
@@ -145,13 +147,16 @@ class PlanRunner:
         action = self.registry.get(action_id)
 
         if not action:
-            raise RuntimeError(f"Unknown action: {action_id}")
+            raise RuntimeError(
+                f"Unknown action: {action_id} (plan={plan.id} step={step_index})"
+            )
 
         # ---- policy gate
         risk = getattr(action, "risk", "safe")
         if not self._risk_allowed(risk):
             raise RuntimeError(
-                f"Action {action_id} blocked by policy (risk={risk})"
+                "Action blocked by policy "
+                f"(action={action_id} plan={plan.id} step={step_index} risk={risk})"
             )
 
         self.bus.publish(
@@ -169,7 +174,28 @@ class PlanRunner:
 
         # ---- execute action
         start_ts = time.time()
-        result = action.run(**step.payload)
+        if self.runner:
+            result = self._run_with_runner(
+                plan=plan,
+                step_index=step_index,
+                action_id=action_id,
+                action=action,
+                payload=step.payload,
+            )
+        else:
+            run = getattr(action, "run", None)
+            if not callable(run):
+                raise RuntimeError(
+                    "Action not executable "
+                    f"(action={action_id} plan={plan.id} step={step_index})"
+                )
+            try:
+                result = run(**step.payload)
+            except Exception as exc:
+                raise RuntimeError(
+                    "Action failed "
+                    f"(action={action_id} plan={plan.id} step={step_index}): {exc}"
+                ) from exc
         duration = time.time() - start_ts
         links = self._extract_links(result)
         try:
@@ -210,6 +236,35 @@ class PlanRunner:
     # ==========================
     # Helpers
     # ==========================
+    def _run_with_runner(
+        self,
+        *,
+        plan,
+        step_index: int,
+        action_id: str,
+        action,
+        payload: dict,
+    ) -> dict:
+        mode = getattr(plan, "mode", None) or "manual"
+        try:
+            res = self.runner.run(action, payload, mode=mode)
+        except Exception as exc:
+            raise RuntimeError(
+                "Action runner error "
+                f"(action={action_id} plan={plan.id} step={step_index}): {exc}"
+            ) from exc
+        if not getattr(res, "ok", False):
+            summary = getattr(res, "summary", "") or "execution failed"
+            raise RuntimeError(
+                "Action failed "
+                f"(action={action_id} plan={plan.id} step={step_index}): {summary}"
+            )
+        return {
+            "ok": bool(getattr(res, "ok", False)),
+            "summary": getattr(res, "summary", ""),
+            "artifact_id": getattr(res, "artifact_id", None),
+            "meta": getattr(res, "meta", None),
+        }
 
     def _risk_allowed(self, risk: str) -> bool:
         # v1 hard gate
