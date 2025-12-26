@@ -99,6 +99,63 @@ The authors assume **no liability** for misuse.
 
 ---
 
+## Run locally (dev)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -e .
+```
+
+Terminal A (web):
+
+```bash
+python -m smolotchi.api.web
+```
+
+Terminal B (AI worker):
+
+```bash
+python -m smolotchi.ai.worker --loop --log-level INFO
+```
+
+Artifacts are stored under `/var/lib/smolotchi/artifacts`.
+
+---
+
+## Systemd units (web + AI worker)
+
+Sample units live in `packaging/systemd/`:
+
+* `smolotchi-web.service`
+* `smolotchi-ai-worker.service`
+
+Optional overrides can be placed in `/etc/smolotchi/smolotchi.env`:
+
+```bash
+SMOLOTCHI_PROJECT_DIR=/opt/smolotchi
+SMOLOTCHI_VENV_PYTHON=/opt/smolotchi/.venv/bin/python
+SMO_AI_WATCHDOG_S=300
+```
+
+Enable services:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now smolotchi-web smolotchi-ai-worker
+```
+
+Smoke-test:
+
+```bash
+bash scripts/smoke_ai_run.sh
+```
+
+Artifacts are stored under `/var/lib/smolotchi/artifacts`.
+
+---
+
 # 2️⃣ Threat Model (Research-Tool-konform)
 
 ## Threat Model: Smolotchi

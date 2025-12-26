@@ -791,7 +791,24 @@ User={user}
 WorkingDirectory={proj}
 Environment=PYTHONUNBUFFERED=1
 Environment=SMOLOTCHI_DB={db}
-ExecStart={venv_python} -m smolotchi.cli web --host 0.0.0.0 --port 8080
+ExecStart={venv_python} -m smolotchi.cli web --host 127.0.0.1 --port 8080
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+    ai_worker_unit = f"""[Unit]
+Description=Smolotchi AI Worker
+After=network.target smolotchi-core.service
+
+[Service]
+User={user}
+WorkingDirectory={proj}
+Environment=PYTHONUNBUFFERED=1
+Environment=SMOLOTCHI_DB={db}
+ExecStart={venv_python} -m smolotchi.ai.worker --loop --log-level INFO
 Restart=always
 RestartSec=2
 
@@ -818,11 +835,14 @@ WantedBy=multi-user.target
 
     _write_unit(Path("/etc/systemd/system/smolotchi-core.service"), core_unit)
     _write_unit(Path("/etc/systemd/system/smolotchi-web.service"), web_unit)
+    _write_unit(Path("/etc/systemd/system/smolotchi-ai-worker.service"), ai_worker_unit)
     _write_unit(Path("/etc/systemd/system/smolotchi-display.service"), disp_unit)
 
     subprocess.check_call(["systemctl", "daemon-reload"])
     print("ok: installed units. Enable/start with:")
-    print("  sudo systemctl enable --now smolotchi-core smolotchi-web smolotchi-display")
+    print(
+        "  sudo systemctl enable --now smolotchi-core smolotchi-web smolotchi-ai-worker smolotchi-display"
+    )
     return 0
 
 
