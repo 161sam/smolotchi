@@ -64,11 +64,10 @@ curl -fsS -X POST \
 
 echo "Triggered /ai/run with note=${SMO_SMOKE_NOTE}"
 
-job_status=""
 job_id=""
 start_ts=$(date +%s)
 while true; do
-  read -r job_id job_status < <(
+  read -r job_id < <(
     SMO_SMOKE_NOTE="$SMO_SMOKE_NOTE" "$PYTHON_BIN" - <<'PY'
 import os
 from smolotchi.core.jobs import JobStore
@@ -76,21 +75,49 @@ note = os.environ.get("SMO_SMOKE_NOTE", "")
 js = JobStore()
 jobs = [j for j in js.list(limit=50) if j.kind == "ai_plan" and note in (j.note or "")]
 if not jobs:
-    print("", "")
+    print("")
 else:
-    job = jobs[0]
-    print(job.id, job.status)
+    job = sorted(jobs, key=lambda j: j.created_ts, reverse=True)[0]
+    print(job.id)
 PY
   )
 
-  if [[ -n "$job_status" && "$job_status" != "queued" && "$job_status" != "running" ]]; then
-    echo "Job ${job_id} status=${job_status}"
+  if [[ -n "$job_id" ]]; then
+    echo "Job ${job_id} created"
     break
   fi
 
   now_ts=$(date +%s)
   if (( now_ts - start_ts > SMO_SMOKE_TIMEOUT_S )); then
     echo "error: job did not leave queued/running within ${SMO_SMOKE_TIMEOUT_S}s"
+    exit 1
+  fi
+  sleep "$SMO_SMOKE_POLL_S"
+done
+
+job_status=""
+start_ts=$(date +%s)
+while true; do
+  job_status=$(
+    SMO_SMOKE_JOB_ID="$job_id" "$PYTHON_BIN" - <<'PY'
+import os
+from smolotchi.core.jobs import JobStore
+
+job_id = os.environ.get("SMO_SMOKE_JOB_ID", "")
+store = JobStore()
+job = store.get(job_id)
+print(job.status if job else "")
+PY
+  )
+
+  if [[ "$job_status" == "done" || "$job_status" == "failed" || "$job_status" == "cancelled" || "$job_status" == "blocked" ]]; then
+    echo "Job ${job_id} status=${job_status}"
+    break
+  fi
+
+  now_ts=$(date +%s)
+  if (( now_ts - start_ts > SMO_SMOKE_TIMEOUT_S )); then
+    echo "error: expected ai_plan_run or ai_stage_request for job ${job_id}"
     exit 1
   fi
   sleep "$SMO_SMOKE_POLL_S"
@@ -113,7 +140,7 @@ def has_kind(kind: str) -> bool:
             return True
     return False
 
-ok = has_kind("ai_plan_run") or has_kind("ai_stage_request")
+ok = has_kind("ai_plan_run") or has_kind("ai_stage_request") or has_kind("ai_job_link")
 print("1" if ok else "0")
 PY
   )
@@ -124,7 +151,7 @@ PY
 
   now_ts=$(date +%s)
   if (( now_ts - start_ts > SMO_SMOKE_TIMEOUT_S )); then
-    echo "error: expected ai_plan_run or ai_stage_request for job ${job_id}"
+    echo "error: expected ai_plan_run, ai_stage_request, or ai_job_link for job ${job_id}"
     exit 1
   fi
   sleep "$SMO_SMOKE_POLL_S"
