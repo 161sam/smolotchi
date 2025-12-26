@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -62,6 +63,8 @@ class AIWorker:
         self.watchdog_s = float(os.environ.get("SMO_AI_WATCHDOG_S", "300"))
         self._last_progress_by_job: dict[str, float] = {}
         self.log = logging.getLogger("smolotchi.ai.worker")
+        self._resume_re = re.compile(r"\bresume_from:(\d+)\b")
+        self._stage_req_re = re.compile(r"\bstage_req:([a-zA-Z0-9_-]+)\b")
 
     def _extract_req_id(self, note: str) -> Optional[str]:
         note = note or ""
@@ -69,6 +72,22 @@ class AIWorker:
             if part.startswith("req:"):
                 return part.split("req:", 1)[1].strip()
         return None
+
+    def _extract_resume_from(self, note: str) -> Optional[int]:
+        if not note:
+            return None
+        match = self._resume_re.search(note)
+        if not match:
+            return None
+        return int(match.group(1))
+
+    def _extract_stage_req(self, note: str) -> Optional[str]:
+        if not note:
+            return None
+        match = self._stage_req_re.search(note)
+        if not match:
+            return None
+        return match.group(1)
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -155,9 +174,19 @@ class AIWorker:
             ]
             approved_requests = self._approved_stage_request_ids()
             for job in blocked:
-                if self._blocked_job_has_approval(job.id, approved_requests):
+                stage_req = self._approved_stage_request_for_job(
+                    job.id, approved_requests
+                )
+                if stage_req:
+                    resume_from = stage_req.get("step_index")
+                    stage_req_id = stage_req.get("request_id")
                     try:
-                        self.jobstore.mark_queued(job.id, note="approval granted")
+                        note = "approval granted"
+                        if resume_from:
+                            note = f"{note} resume_from:{resume_from}"
+                        if stage_req_id:
+                            note = f"{note} stage_req:{stage_req_id}"
+                        self.jobstore.mark_queued(job.id, note=note)
                     except Exception:
                         self.log.debug("job %s: mark_queued failed", job.id)
                     self.bus.publish(
@@ -191,19 +220,21 @@ class AIWorker:
                 approved.add(str(rid))
         return approved
 
-    def _blocked_job_has_approval(
+    def _approved_stage_request_for_job(
         self, job_id: str, approved_requests: set[str]
-    ) -> bool:
+    ) -> Optional[dict]:
         if not approved_requests:
-            return False
+            return None
         requests = self.artifacts.list(limit=200, kind="ai_stage_request")
         for req in requests:
             doc = self.artifacts.get_json(req.id) or {}
             if str(doc.get("job_id")) != str(job_id):
                 continue
             if str(req.id) in approved_requests:
-                return True
-        return False
+                doc = dict(doc)
+                doc["request_id"] = req.id
+                return doc
+        return None
 
     def _process_job(self, job) -> None:
         job_id = job.id
@@ -239,6 +270,7 @@ class AIWorker:
             plan_artifact_id = (req.get("plan_artifact_id") or "").strip()
             scope = (req.get("scope") or "").strip()
             note = req.get("note") or ""
+            resume_from = self._extract_resume_from(getattr(job, "note", "") or "")
 
             try:
                 self.jobstore.mark_running(job_id)
@@ -257,7 +289,11 @@ class AIWorker:
             )
 
             if plan_artifact_id:
-                self._run_plan_artifact(plan_artifact_id, job_id=job_id)
+                self._run_plan_artifact(
+                    plan_artifact_id,
+                    job_id=job_id,
+                    start_step_index=resume_from or 1,
+                )
             else:
                 planner = AIPlanner(
                     self.bus,
@@ -277,7 +313,12 @@ class AIWorker:
                     artifacts=self.artifacts,
                     runner=self.runner,
                 )
-                self._run_plan_object(plan, runner, job_id=job_id)
+                self._run_plan_object(
+                    plan,
+                    runner,
+                    job_id=job_id,
+                    start_step_index=resume_from or 1,
+                )
         except Exception as exc:
             self.jobstore.mark_failed(job_id, note=str(exc))
             self.bus.publish(
@@ -286,7 +327,13 @@ class AIWorker:
             )
             self.log.exception("job %s failed: %s", job_id, exc)
 
-    def _run_plan_artifact(self, plan_artifact_id: str, *, job_id: str) -> None:
+    def _run_plan_artifact(
+        self,
+        plan_artifact_id: str,
+        *,
+        job_id: str,
+        start_step_index: int = 1,
+    ) -> None:
         plan_doc = self.artifacts.get_json(plan_artifact_id)
         if not plan_doc:
             self.jobstore.mark_failed(
@@ -339,6 +386,7 @@ class AIWorker:
             runner,
             plan_artifact_id=plan_artifact_id,
             job_id=job_id,
+            start_step_index=start_step_index,
         )
 
     def _run_plan_object(
@@ -348,6 +396,7 @@ class AIWorker:
         *,
         plan_artifact_id: Optional[str] = None,
         job_id: str,
+        start_step_index: int = 1,
     ) -> None:
         self.state.current_plan_artifact_id = plan_artifact_id
         self.state.current_plan_id = getattr(plan, "id", None)
@@ -362,7 +411,13 @@ class AIWorker:
             },
         )
         try:
-            runner.run(plan, job_id=job_id, enqueue=False)
+            runner.run(
+                plan,
+                job_id=job_id,
+                enqueue=False,
+                start_step_index=start_step_index,
+                plan_artifact_id=plan_artifact_id,
+            )
         finally:
             self.bus.publish(
                 "ai.worker.run.end",

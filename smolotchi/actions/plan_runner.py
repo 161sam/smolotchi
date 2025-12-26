@@ -27,6 +27,7 @@ from smolotchi.actions.throttle import (
     read_cpu_temp_c,
     read_loadavg_1m,
 )
+from smolotchi.ai.errors import StageRequired
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
@@ -43,25 +44,6 @@ from smolotchi.reports.findings_aggregate import (
     build_host_findings,
     summarize_findings,
 )
-
-
-class PolicyBlocked(RuntimeError):
-    def __init__(
-        self,
-        message: str,
-        *,
-        request_id: str | None = None,
-        action_id: str,
-        risk: str,
-        step_index: int,
-        payload: dict,
-    ) -> None:
-        super().__init__(message)
-        self.request_id = request_id
-        self.action_id = action_id
-        self.risk = risk
-        self.step_index = step_index
-        self.payload = payload
 
 
 class PlanRunner:
@@ -94,7 +76,15 @@ class PlanRunner:
     # Public API
     # ==========================
 
-    def run(self, plan, *, job_id: str | None = None, enqueue: bool = True) -> None:
+    def run(
+        self,
+        plan,
+        *,
+        job_id: str | None = None,
+        enqueue: bool = True,
+        start_step_index: int = 1,
+        plan_artifact_id: str | None = None,
+    ) -> None:
         """
         Execute a plan synchronously.
         (Async execution can wrap this later.)
@@ -110,10 +100,12 @@ class PlanRunner:
             "scope": getattr(plan, "scope", None),
             "note": getattr(plan, "note", ""),
             "seed": getattr(plan, "seed", None),
+            "resume_from": start_step_index,
             "steps": [],
             "status": "running",
         }
         self._run_doc = run_doc
+        self._plan_artifact_id = plan_artifact_id
 
         # ---- register job (optional)
         if enqueue and not self.jobstore.get(job_id):
@@ -137,6 +129,8 @@ class PlanRunner:
 
         try:
             for idx, step in enumerate(plan.steps, start=1):
+                if idx < start_step_index:
+                    continue
                 if self._job_cancelled(job_id):
                     self._emit_cancel(plan, job_id)
                     return
@@ -154,7 +148,7 @@ class PlanRunner:
 
             self._emit_done(plan, job_id, created_ts)
 
-        except PolicyBlocked as exc:
+        except StageRequired as exc:
             self._emit_blocked(plan, job_id, exc)
 
         except Exception as exc:
@@ -185,22 +179,14 @@ class PlanRunner:
             ):
                 pass
             else:
-                request_id = self._ensure_stage_request(
-                    plan_id=plan.id,
+                raise StageRequired(
                     job_id=job_id,
+                    plan_id=plan.id,
                     step_index=step_index,
                     action_id=action_id,
                     payload=step.payload,
                     risk=risk,
-                )
-                raise PolicyBlocked(
-                    "Action blocked by policy "
-                    f"(action={action_id} plan={plan.id} step={step_index} risk={risk})",
-                    request_id=request_id,
-                    action_id=action_id,
-                    risk=risk,
-                    step_index=step_index,
-                    payload=step.payload,
+                    reason="Action blocked by policy",
                 )
 
         self.bus.publish(
@@ -382,6 +368,7 @@ class PlanRunner:
         action_id: str,
         payload: dict,
         risk: str,
+        plan_artifact_id: str | None,
     ) -> str | None:
         existing = self._find_stage_request(
             job_id=job_id,
@@ -394,9 +381,12 @@ class PlanRunner:
             return existing
         if not self.artifacts:
             return None
+        req_id = self._extract_req_id(job_id)
         req_payload = {
             "job_id": job_id,
             "plan_id": plan_id,
+            "plan_artifact_id": plan_artifact_id,
+            "req_id": req_id,
             "step_index": step_index,
             "action_id": action_id,
             "payload": payload,
@@ -428,6 +418,16 @@ class PlanRunner:
             },
         )
         return meta.id
+
+    def _extract_req_id(self, job_id: str) -> str | None:
+        job = self.jobstore.get(job_id)
+        if not job:
+            return None
+        note = job.note or ""
+        for part in note.split():
+            if part.startswith("req:"):
+                return part.split("req:", 1)[1].strip()
+        return None
 
     def _job_cancelled(self, job_id: str) -> bool:
         j = self.jobstore.get(job_id)
@@ -486,10 +486,19 @@ class PlanRunner:
         )
         self._record_job_link(job_id, plan.id, artifact_id)
 
-    def _emit_blocked(self, plan, job_id: str, exc: PolicyBlocked) -> None:
+    def _emit_blocked(self, plan, job_id: str, exc: StageRequired) -> None:
+        request_id = self._ensure_stage_request(
+            plan_id=exc.plan_id,
+            job_id=exc.job_id,
+            step_index=exc.step_index,
+            action_id=exc.action_id,
+            payload=exc.payload,
+            risk=exc.risk,
+            plan_artifact_id=getattr(self, "_plan_artifact_id", None),
+        )
         note = (
             f"blocked: approval required for {exc.action_id} "
-            f"(risk={exc.risk} request_id={exc.request_id or 'n/a'})"
+            f"(risk={exc.risk} request_id={request_id or 'n/a'})"
         )
         self.jobstore.mark_blocked(job_id, note=note)
         artifact_id = None
@@ -497,7 +506,7 @@ class PlanRunner:
             self._run_doc["status"] = "blocked"  # type: ignore[attr-defined]
             self._run_doc["ended_ts"] = time.time()  # type: ignore[attr-defined]
             self._run_doc["blocked"] = {  # type: ignore[attr-defined]
-                "request_id": exc.request_id,
+                "request_id": request_id,
                 "action_id": exc.action_id,
                 "risk": exc.risk,
                 "step_index": exc.step_index,
@@ -511,7 +520,7 @@ class PlanRunner:
                 meta={
                     "plan_id": plan.id,
                     "job_id": job_id,
-                    "request_id": exc.request_id,
+                    "request_id": request_id,
                 },
             )
             artifact_id = meta.id
@@ -520,7 +529,7 @@ class PlanRunner:
             {
                 "plan_id": plan.id,
                 "job_id": job_id,
-                "request_id": exc.request_id,
+                "request_id": request_id,
                 "action": exc.action_id,
                 "risk": exc.risk,
                 "step": exc.step_index,

@@ -1943,6 +1943,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     @app.post("/ai/stage/<request_id>/approve")
     def ai_stage_approve(request_id: str):
+        stage_req = artifacts.get_json(request_id) or {}
         appr_payload = {
             "request_id": request_id,
             "approved_by": "local-ui",
@@ -1955,6 +1956,14 @@ def create_app(config_path: str = "config.toml") -> Flask:
             tags=["ai", "stage", "approval"],
             meta={"request_id": request_id},
         )
+        job_id = stage_req.get("job_id")
+        step_index = stage_req.get("step_index")
+        if job_id and step_index:
+            try:
+                note = f"approval granted resume_from:{int(step_index)} stage_req:{request_id}"
+                jobstore.mark_queued(str(job_id), note=note)
+            except Exception:
+                pass
         bus.publish(
             "ui.ai.stage.approved",
             {"approval_id": appr_meta.id, "request_id": request_id, "ts": time.time()},

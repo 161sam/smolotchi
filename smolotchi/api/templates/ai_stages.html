@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block page_title %}AI Stages{% endblock %}
-{% block page_sub %}Manual approvals (execution blocked){% endblock %}
+{% block page_sub %}Manual approvals (execution resumes on approval){% endblock %}
 
 {% block content %}
 <section class="card">
@@ -11,7 +11,7 @@
   <div class="row" style="gap:10px; margin-top:10px; flex-wrap:wrap;">
     <span class="pill">cap.intrusive: {{ 'ON' if intrusive_ok else 'OFF' }}</span>
     <span class="pill">cap.dangerous: {{ 'ON' if dangerous_ok else 'OFF' }}</span>
-    <span class="pill">execution: OFF (v1)</span>
+    <span class="pill">execution: gated</span>
   </div>
 </section>
 
@@ -36,7 +36,7 @@
 
         {% if r.id not in approved %}
           <form method="post" action="/ai/stage/{{ r.id }}/approve" style="margin-top:10px">
-            <button class="secondary" type="submit">Approve (still blocked)</button>
+            <button class="secondary" type="submit">Approve + resume</button>
           </form>
         {% endif %}
       </div>
