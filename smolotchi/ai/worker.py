@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import argparse
+import logging
 import os
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from smolotchi.actions.plan_runner import PlanRunner
 from smolotchi.actions.planners.ai_planner import AIPlanner
-from smolotchi.actions.registry import ActionRegistry
+from smolotchi.actions.registry import ActionRegistry, load_pack
 from smolotchi.actions.runner import ActionRunner
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
+from smolotchi.core.config import ConfigStore
 from smolotchi.core.jobs import JobStore
+from smolotchi.core.policy import Policy
 
 
 @dataclass
@@ -56,6 +61,7 @@ class AIWorker:
         self.state = WorkerState()
         self.watchdog_s = float(os.environ.get("SMO_AI_WATCHDOG_S", "300"))
         self._last_progress_by_job: dict[str, float] = {}
+        self.log = logging.getLogger("smolotchi.ai.worker")
 
     def _extract_req_id(self, note: str) -> Optional[str]:
         note = note or ""
@@ -83,138 +89,178 @@ class AIWorker:
     def _loop(self) -> None:
         self.state.running = True
         self.bus.publish("ai.worker.started", {"ts": time.time()})
+        self.log.info("AI worker started")
 
         while not self._stop.is_set():
-            try:
-                self.state.last_tick = time.time()
-                self.bus.publish("ai.worker.tick", {"ts": self.state.last_tick})
-
-                ai_evts = self.bus.tail(limit=100, topic_prefix="ai.")
-                for event in ai_evts:
-                    payload = event.payload or {}
-                    jid = payload.get("job_id")
-                    if jid and event.topic in (
-                        "ai.action.started",
-                        "ai.action.done",
-                        "ai.plan.started",
-                    ):
-                        self._last_progress_by_job[str(jid)] = float(
-                            event.ts or time.time()
-                        )
-
-                running = [
-                    j
-                    for j in self.jobstore.list(limit=10, status="running")
-                    if getattr(j, "kind", "") == "ai_plan"
-                ]
-                now = time.time()
-                for job in running:
-                    jid = job.id
-                    last = self._last_progress_by_job.get(
-                        jid, float(getattr(job, "updated_ts", 0.0) or 0.0)
-                    )
-                    if last and (now - last) > self.watchdog_s:
-                        ok = False
-                        try:
-                            ok = self.jobstore.reset_running(jid)
-                        except Exception:
-                            ok = False
-                        self.bus.publish(
-                            "ai.worker.watchdog.reset",
-                            {"job_id": jid, "ok": ok, "age_s": round(now - last, 1)},
-                        )
-
-                queued = self.jobstore.list(limit=20, status="queued")
-                queued = [
-                    j for j in queued if getattr(j, "kind", "") == "ai_plan"
-                ]
-                queued = sorted(queued, key=lambda j: j.created_ts)
-
-                for job in queued:
-                    if getattr(job, "status", "") == "cancelled":
-                        continue
-
-                    job_id = job.id
-                    req_id = self._extract_req_id(
-                        getattr(job, "note", "") or ""
-                    )
-                    if not req_id:
-                        self.jobstore.mark_failed(
-                            job_id,
-                            note="missing req:<artifact_id> in job.note",
-                        )
-                        self.bus.publish(
-                            "ai.worker.job_failed",
-                            {"job_id": job_id, "error": "missing run request"},
-                        )
-                        continue
-
-                    req = self.artifacts.get_json(req_id)
-                    if not req:
-                        self.jobstore.mark_failed(
-                            job_id,
-                            note=f"run request artifact missing: {req_id}",
-                        )
-                        self.bus.publish(
-                            "ai.worker.job_failed",
-                            {"job_id": job_id, "error": "run request missing"},
-                        )
-                        continue
-
-                    plan_artifact_id = (
-                        req.get("plan_artifact_id") or ""
-                    ).strip()
-                    scope = (req.get("scope") or "").strip()
-                    note = req.get("note") or ""
-
-                    try:
-                        self.jobstore.mark_running(job_id)
-                    except Exception:
-                        pass
-
-                    self.bus.publish(
-                        "ai.worker.dequeue",
-                        {"job_id": job_id, "req_id": req_id, "ts": time.time()},
-                    )
-
-                    if plan_artifact_id:
-                        self._run_plan_artifact(plan_artifact_id, job_id=job_id)
-                    else:
-                        planner = AIPlanner(
-                            self.bus,
-                            self.registry,
-                            seed=req.get("seed"),
-                            artifacts=self.artifacts,
-                        )
-                        plan = planner.generate(
-                            scope=scope or "10.0.10.0/24",
-                            mode="autonomous_safe",
-                            note=note,
-                        )
-                        runner = PlanRunner(
-                            bus=self.bus,
-                            registry=self.registry,
-                            jobstore=self.jobstore,
-                            artifacts=self.artifacts,
-                            runner=self.runner,
-                        )
-                        self._run_plan_object(plan, runner, job_id=job_id)
-
-                    break
-
-            except Exception as exc:
-                self.state.last_error = str(exc)
-                self.bus.publish("ai.worker.error", {"error": str(exc), "ts": time.time()})
-
+            self._tick()
             time.sleep(self.poll_interval_s)
 
         self.state.running = False
         self.bus.publish("ai.worker.stopped", {"ts": time.time()})
+        self.log.info("AI worker stopped")
+
+    def run_once(self) -> None:
+        self._tick()
+
+    def _tick(self) -> None:
+        try:
+            self.state.last_tick = time.time()
+            self.bus.publish("ai.worker.tick", {"ts": self.state.last_tick})
+
+            ai_evts = self.bus.tail(limit=100, topic_prefix="ai.")
+            for event in ai_evts:
+                payload = event.payload or {}
+                jid = payload.get("job_id")
+                if jid and event.topic in (
+                    "ai.action.started",
+                    "ai.action.done",
+                    "ai.plan.started",
+                ):
+                    self._last_progress_by_job[str(jid)] = float(
+                        event.ts or time.time()
+                    )
+
+            running = [
+                j
+                for j in self.jobstore.list(limit=10, status="running")
+                if getattr(j, "kind", "") == "ai_plan"
+            ]
+            now = time.time()
+            for job in running:
+                jid = job.id
+                last = self._last_progress_by_job.get(
+                    jid, float(getattr(job, "updated_ts", 0.0) or 0.0)
+                )
+                if last and (now - last) > self.watchdog_s:
+                    ok = False
+                    try:
+                        ok = self.jobstore.reset_running(jid)
+                    except Exception:
+                        ok = False
+                    self.bus.publish(
+                        "ai.worker.watchdog.reset",
+                        {"job_id": jid, "ok": ok, "age_s": round(now - last, 1)},
+                    )
+                    self.log.warning(
+                        "watchdog reset job_id=%s age_s=%s ok=%s",
+                        jid,
+                        round(now - last, 1),
+                        ok,
+                    )
+
+            queued = self.jobstore.list(limit=20, status="queued")
+            queued = [j for j in queued if getattr(j, "kind", "") == "ai_plan"]
+            queued = sorted(queued, key=lambda j: j.created_ts)
+
+            for job in queued:
+                if getattr(job, "status", "") == "cancelled":
+                    continue
+
+                self._process_job(job)
+                break
+
+        except Exception as exc:
+            self.state.last_error = str(exc)
+            self.bus.publish("ai.worker.error", {"error": str(exc), "ts": time.time()})
+            self.log.exception("worker tick failed: %s", exc)
+
+    def _process_job(self, job) -> None:
+        job_id = job.id
+        try:
+            req_id = self._extract_req_id(getattr(job, "note", "") or "")
+            if not req_id:
+                self.jobstore.mark_failed(
+                    job_id,
+                    note="missing req:<artifact_id> in job.note",
+                )
+                self.bus.publish(
+                    "ai.worker.job_failed",
+                    {"job_id": job_id, "error": "missing run request"},
+                )
+                self.log.error("job %s failed: missing run request", job_id)
+                return
+
+            req = self.artifacts.get_json(req_id)
+            if not req:
+                self.jobstore.mark_failed(
+                    job_id,
+                    note=f"run request artifact missing: {req_id}",
+                )
+                self.bus.publish(
+                    "ai.worker.job_failed",
+                    {"job_id": job_id, "error": "run request missing"},
+                )
+                self.log.error(
+                    "job %s failed: run request missing req_id=%s", job_id, req_id
+                )
+                return
+
+            plan_artifact_id = (req.get("plan_artifact_id") or "").strip()
+            scope = (req.get("scope") or "").strip()
+            note = req.get("note") or ""
+
+            try:
+                self.jobstore.mark_running(job_id)
+            except Exception:
+                self.log.debug("job %s: mark_running failed", job_id)
+
+            self.bus.publish(
+                "ai.worker.dequeue",
+                {"job_id": job_id, "req_id": req_id, "ts": time.time()},
+            )
+            self.log.info(
+                "job %s dequeued req_id=%s plan_artifact_id=%s",
+                job_id,
+                req_id,
+                plan_artifact_id or "none",
+            )
+
+            if plan_artifact_id:
+                self._run_plan_artifact(plan_artifact_id, job_id=job_id)
+            else:
+                planner = AIPlanner(
+                    self.bus,
+                    self.registry,
+                    seed=req.get("seed"),
+                    artifacts=self.artifacts,
+                )
+                plan = planner.generate(
+                    scope=scope or "10.0.10.0/24",
+                    mode="autonomous_safe",
+                    note=note,
+                )
+                runner = PlanRunner(
+                    bus=self.bus,
+                    registry=self.registry,
+                    jobstore=self.jobstore,
+                    artifacts=self.artifacts,
+                    runner=self.runner,
+                )
+                self._run_plan_object(plan, runner, job_id=job_id)
+        except Exception as exc:
+            self.jobstore.mark_failed(job_id, note=str(exc))
+            self.bus.publish(
+                "ai.worker.job_failed",
+                {"job_id": job_id, "error": str(exc)},
+            )
+            self.log.exception("job %s failed: %s", job_id, exc)
 
     def _run_plan_artifact(self, plan_artifact_id: str, *, job_id: str) -> None:
         plan_doc = self.artifacts.get_json(plan_artifact_id)
         if not plan_doc:
-            self.bus.publish("ai.worker.plan_missing", {"artifact_id": plan_artifact_id})
+            self.jobstore.mark_failed(
+                job_id,
+                note=f"plan artifact missing: {plan_artifact_id}",
+            )
+            self.bus.publish(
+                "ai.worker.plan_missing",
+                {"artifact_id": plan_artifact_id, "job_id": job_id},
+            )
+            self.log.error(
+                "job %s failed: plan artifact missing %s",
+                job_id,
+                plan_artifact_id,
+            )
             return
 
         class _Plan:
@@ -289,3 +335,81 @@ class AIWorker:
             self.state.current_plan_artifact_id = None
             self.state.current_plan_id = None
             self.state.current_job_id = None
+
+
+def _build_policy(cfg) -> Policy:
+    policy_cfg = getattr(cfg, "policy", None)
+    if not policy_cfg:
+        return Policy()
+    return Policy(
+        allowed_tags=list(getattr(policy_cfg, "allowed_tags", []) or []),
+        allowed_scopes=list(getattr(policy_cfg, "allowed_scopes", []) or []),
+        allowed_tools=list(getattr(policy_cfg, "allowed_tools", []) or []),
+        block_categories=list(getattr(policy_cfg, "block_categories", []) or []),
+        autonomous_categories=list(getattr(policy_cfg, "autonomous_categories", []) or []),
+    )
+
+
+def _build_registry() -> ActionRegistry:
+    pack_path = Path(__file__).resolve().parents[1] / "actions" / "packs" / "bjorn_core.yml"
+    if pack_path.exists():
+        return load_pack(str(pack_path))
+    return ActionRegistry()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Smolotchi AI worker")
+    parser.add_argument(
+        "--config",
+        default="config.toml",
+        help="Path to config.toml (default: config.toml)",
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Run continuously and poll for queued jobs",
+    )
+    parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=1.0,
+        help="Seconds between worker polls (default: 1.0)",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Logging level (default: INFO)",
+    )
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=getattr(logging, str(args.log_level).upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+    bus = SQLiteBus()
+    store = ConfigStore(args.config)
+    store.load()
+    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    jobstore = JobStore(bus.db_path)
+    registry = _build_registry()
+    policy = _build_policy(store.get())
+    action_runner = ActionRunner(bus=bus, artifacts=artifacts, policy=policy)
+    worker = AIWorker(
+        bus=bus,
+        registry=registry,
+        artifacts=artifacts,
+        jobstore=jobstore,
+        runner=action_runner,
+        poll_interval_s=float(args.poll_interval),
+    )
+
+    if args.loop:
+        worker._loop()
+    else:
+        worker.run_once()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
