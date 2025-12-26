@@ -45,6 +45,25 @@ from smolotchi.reports.findings_aggregate import (
 )
 
 
+class PolicyBlocked(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        request_id: str | None = None,
+        action_id: str,
+        risk: str,
+        step_index: int,
+        payload: dict,
+    ) -> None:
+        super().__init__(message)
+        self.request_id = request_id
+        self.action_id = action_id
+        self.risk = risk
+        self.step_index = step_index
+        self.payload = payload
+
+
 class PlanRunner:
     """
     Executes an ActionPlan step-by-step.
@@ -135,6 +154,9 @@ class PlanRunner:
 
             self._emit_done(plan, job_id, created_ts)
 
+        except PolicyBlocked as exc:
+            self._emit_blocked(plan, job_id, exc)
+
         except Exception as exc:
             self._emit_failed(plan, job_id, exc)
 
@@ -154,10 +176,32 @@ class PlanRunner:
         # ---- policy gate
         risk = getattr(action, "risk", "safe")
         if not self._risk_allowed(risk):
-            raise RuntimeError(
-                "Action blocked by policy "
-                f"(action={action_id} plan={plan.id} step={step_index} risk={risk})"
-            )
+            if self._stage_approved(
+                job_id=job_id,
+                plan_id=plan.id,
+                step_index=step_index,
+                action_id=action_id,
+                risk=risk,
+            ):
+                pass
+            else:
+                request_id = self._ensure_stage_request(
+                    plan_id=plan.id,
+                    job_id=job_id,
+                    step_index=step_index,
+                    action_id=action_id,
+                    payload=step.payload,
+                    risk=risk,
+                )
+                raise PolicyBlocked(
+                    "Action blocked by policy "
+                    f"(action={action_id} plan={plan.id} step={step_index} risk={risk})",
+                    request_id=request_id,
+                    action_id=action_id,
+                    risk=risk,
+                    step_index=step_index,
+                    payload=step.payload,
+                )
 
         self.bus.publish(
             "ai.action.started",
@@ -270,6 +314,121 @@ class PlanRunner:
         # v1 hard gate
         return risk in {"safe", "noisy"}
 
+    def _approved_request_ids(self) -> set[str]:
+        if not self.artifacts:
+            return set()
+        approvals = self.artifacts.list(limit=200, kind="ai_stage_approval")
+        approved: set[str] = set()
+        for approval in approvals:
+            doc = self.artifacts.get_json(approval.id) or {}
+            rid = doc.get("request_id")
+            if rid:
+                approved.add(str(rid))
+        return approved
+
+    def _find_stage_request(
+        self,
+        *,
+        job_id: str,
+        plan_id: str,
+        step_index: int,
+        action_id: str,
+        risk: str,
+    ) -> str | None:
+        if not self.artifacts:
+            return None
+        requests = self.artifacts.list(limit=200, kind="ai_stage_request")
+        for req in requests:
+            doc = self.artifacts.get_json(req.id) or {}
+            if str(doc.get("job_id")) != str(job_id):
+                continue
+            if str(doc.get("plan_id")) != str(plan_id):
+                continue
+            if int(doc.get("step_index") or 0) != int(step_index):
+                continue
+            if str(doc.get("action_id")) != str(action_id):
+                continue
+            if str(doc.get("risk")) != str(risk):
+                continue
+            return str(req.id)
+        return None
+
+    def _stage_approved(
+        self,
+        *,
+        job_id: str,
+        plan_id: str,
+        step_index: int,
+        action_id: str,
+        risk: str,
+    ) -> bool:
+        request_id = self._find_stage_request(
+            job_id=job_id,
+            plan_id=plan_id,
+            step_index=step_index,
+            action_id=action_id,
+            risk=risk,
+        )
+        if not request_id:
+            return False
+        return request_id in self._approved_request_ids()
+
+    def _ensure_stage_request(
+        self,
+        *,
+        plan_id: str,
+        job_id: str,
+        step_index: int,
+        action_id: str,
+        payload: dict,
+        risk: str,
+    ) -> str | None:
+        existing = self._find_stage_request(
+            job_id=job_id,
+            plan_id=plan_id,
+            step_index=step_index,
+            action_id=action_id,
+            risk=risk,
+        )
+        if existing:
+            return existing
+        if not self.artifacts:
+            return None
+        req_payload = {
+            "job_id": job_id,
+            "plan_id": plan_id,
+            "step_index": step_index,
+            "action_id": action_id,
+            "payload": payload,
+            "risk": risk,
+            "ts": time.time(),
+        }
+        meta = self.artifacts.put_json(
+            kind="ai_stage_request",
+            title=f"AI Stage Request {action_id}",
+            payload=req_payload,
+            tags=["ai", "stage", "request", risk],
+            meta={
+                "job_id": job_id,
+                "plan_id": plan_id,
+                "step_index": step_index,
+                "action_id": action_id,
+                "risk": risk,
+            },
+        )
+        self.bus.publish(
+            "ai.stage.requested",
+            {
+                "job_id": job_id,
+                "plan_id": plan_id,
+                "step": step_index,
+                "action": action_id,
+                "risk": risk,
+                "request_id": meta.id,
+            },
+        )
+        return meta.id
+
     def _job_cancelled(self, job_id: str) -> bool:
         j = self.jobstore.get(job_id)
         return bool(j and j.status == "cancelled")
@@ -322,6 +481,49 @@ class PlanRunner:
             {
                 "plan_id": plan.id,
                 "job_id": job_id,
+                "artifact_id": artifact_id,
+            },
+        )
+        self._record_job_link(job_id, plan.id, artifact_id)
+
+    def _emit_blocked(self, plan, job_id: str, exc: PolicyBlocked) -> None:
+        note = (
+            f"blocked: approval required for {exc.action_id} "
+            f"(risk={exc.risk} request_id={exc.request_id or 'n/a'})"
+        )
+        self.jobstore.mark_blocked(job_id, note=note)
+        artifact_id = None
+        if self.artifacts:
+            self._run_doc["status"] = "blocked"  # type: ignore[attr-defined]
+            self._run_doc["ended_ts"] = time.time()  # type: ignore[attr-defined]
+            self._run_doc["blocked"] = {  # type: ignore[attr-defined]
+                "request_id": exc.request_id,
+                "action_id": exc.action_id,
+                "risk": exc.risk,
+                "step_index": exc.step_index,
+                "payload": exc.payload,
+            }
+            meta = self.artifacts.put_json(
+                kind="ai_plan_run",
+                title=f"AI Plan Run {plan.id} (blocked)",
+                payload=self._run_doc,  # type: ignore[attr-defined]
+                tags=["ai", "run", "blocked"],
+                meta={
+                    "plan_id": plan.id,
+                    "job_id": job_id,
+                    "request_id": exc.request_id,
+                },
+            )
+            artifact_id = meta.id
+        self.bus.publish(
+            "ai.plan.blocked",
+            {
+                "plan_id": plan.id,
+                "job_id": job_id,
+                "request_id": exc.request_id,
+                "action": exc.action_id,
+                "risk": exc.risk,
+                "step": exc.step_index,
                 "artifact_id": artifact_id,
             },
         )

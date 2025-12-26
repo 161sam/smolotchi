@@ -57,20 +57,6 @@ while true; do
   sleep "$SMO_SMOKE_POLL_S"
 done
 
-baseline=$(
-  "$PYTHON_BIN" - <<'PY'
-from smolotchi.core.artifacts import ArtifactStore
-store = ArtifactStore("/var/lib/smolotchi/artifacts")
-counts = {}
-for kind in ("ai_job_link", "ai_plan_run"):
-    counts[kind] = len(store.list(limit=200, kind=kind))
-print(f"{counts['ai_job_link']} {counts['ai_plan_run']}")
-PY
-)
-
-base_job_links=$(echo "$baseline" | awk '{print $1}')
-base_plan_runs=$(echo "$baseline" | awk '{print $2}')
-
 curl -fsS -X POST \
   -d "scope=${SMO_SMOKE_SCOPE}" \
   -d "note=${SMO_SMOKE_NOTE}" \
@@ -97,41 +83,51 @@ else:
 PY
   )
 
-  if [[ -n "$job_status" && "$job_status" != "queued" ]]; then
+  if [[ -n "$job_status" && "$job_status" != "queued" && "$job_status" != "running" ]]; then
     echo "Job ${job_id} status=${job_status}"
     break
   fi
 
   now_ts=$(date +%s)
   if (( now_ts - start_ts > SMO_SMOKE_TIMEOUT_S )); then
-    echo "error: job did not leave queued within ${SMO_SMOKE_TIMEOUT_S}s"
+    echo "error: job did not leave queued/running within ${SMO_SMOKE_TIMEOUT_S}s"
     exit 1
   fi
   sleep "$SMO_SMOKE_POLL_S"
 done
 
-post_counts=$(
-  "$PYTHON_BIN" - <<'PY'
+start_ts=$(date +%s)
+while true; do
+  found=$(
+    SMO_SMOKE_JOB_ID="$job_id" "$PYTHON_BIN" - <<'PY'
+import os
 from smolotchi.core.artifacts import ArtifactStore
+
+job_id = os.environ.get("SMO_SMOKE_JOB_ID", "")
 store = ArtifactStore("/var/lib/smolotchi/artifacts")
-counts = {}
-for kind in ("ai_job_link", "ai_plan_run"):
-    counts[kind] = len(store.list(limit=200, kind=kind))
-print(f"{counts['ai_job_link']} {counts['ai_plan_run']}")
+
+def has_kind(kind: str) -> bool:
+    for meta in store.list(limit=200, kind=kind):
+        doc = store.get_json(meta.id) or {}
+        if str(doc.get("job_id")) == str(job_id):
+            return True
+    return False
+
+ok = has_kind("ai_plan_run") or has_kind("ai_stage_request")
+print("1" if ok else "0")
 PY
-)
+  )
 
-post_job_links=$(echo "$post_counts" | awk '{print $1}')
-post_plan_runs=$(echo "$post_counts" | awk '{print $2}')
+  if [[ "$found" == "1" ]]; then
+    break
+  fi
 
-if (( post_job_links <= base_job_links )); then
-  echo "error: expected ai_job_link to increase (before=${base_job_links} after=${post_job_links})"
-  exit 1
-fi
-
-if (( post_plan_runs <= base_plan_runs )); then
-  echo "error: expected ai_plan_run to increase (before=${base_plan_runs} after=${post_plan_runs})"
-  exit 1
-fi
+  now_ts=$(date +%s)
+  if (( now_ts - start_ts > SMO_SMOKE_TIMEOUT_S )); then
+    echo "error: expected ai_plan_run or ai_stage_request for job ${job_id}"
+    exit 1
+  fi
+  sleep "$SMO_SMOKE_POLL_S"
+done
 
 echo "Smoke test passed"
