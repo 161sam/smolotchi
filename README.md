@@ -156,6 +156,18 @@ Artifacts are stored under `/var/lib/smolotchi/artifacts`.
 
 ---
 
+## AI stage approvals (caution-risk actions)
+
+Actions marked with `risk=caution` are gated by a stage approval flow instead of failing:
+
+1. The plan runner records an `ai_stage_request` artifact and marks the job as **blocked**.
+2. Open **/ai/stages** to review and approve the request.
+3. Once approved, the worker re-queues the blocked job and continues the run.
+
+You can track blocked jobs in **/ai/jobs** (look for “Blocked (approval required)”).
+
+---
+
 # 2️⃣ Threat Model (Research-Tool-konform)
 
 ## Threat Model: Smolotchi

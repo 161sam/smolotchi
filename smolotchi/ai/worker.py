@@ -148,6 +148,23 @@ class AIWorker:
                         ok,
                     )
 
+            blocked = [
+                j
+                for j in self.jobstore.list(limit=20, status="blocked")
+                if getattr(j, "kind", "") == "ai_plan"
+            ]
+            approved_requests = self._approved_stage_request_ids()
+            for job in blocked:
+                if self._blocked_job_has_approval(job.id, approved_requests):
+                    try:
+                        self.jobstore.mark_queued(job.id, note="approval granted")
+                    except Exception:
+                        self.log.debug("job %s: mark_queued failed", job.id)
+                    self.bus.publish(
+                        "ai.worker.job.unblocked",
+                        {"job_id": job.id, "ts": time.time()},
+                    )
+
             queued = self.jobstore.list(limit=20, status="queued")
             queued = [j for j in queued if getattr(j, "kind", "") == "ai_plan"]
             queued = sorted(queued, key=lambda j: j.created_ts)
@@ -163,6 +180,30 @@ class AIWorker:
             self.state.last_error = str(exc)
             self.bus.publish("ai.worker.error", {"error": str(exc), "ts": time.time()})
             self.log.exception("worker tick failed: %s", exc)
+
+    def _approved_stage_request_ids(self) -> set[str]:
+        approvals = self.artifacts.list(limit=200, kind="ai_stage_approval")
+        approved: set[str] = set()
+        for approval in approvals:
+            doc = self.artifacts.get_json(approval.id) or {}
+            rid = doc.get("request_id")
+            if rid:
+                approved.add(str(rid))
+        return approved
+
+    def _blocked_job_has_approval(
+        self, job_id: str, approved_requests: set[str]
+    ) -> bool:
+        if not approved_requests:
+            return False
+        requests = self.artifacts.list(limit=200, kind="ai_stage_request")
+        for req in requests:
+            doc = self.artifacts.get_json(req.id) or {}
+            if str(doc.get("job_id")) != str(job_id):
+                continue
+            if str(req.id) in approved_requests:
+                return True
+        return False
 
     def _process_job(self, job) -> None:
         job_id = job.id

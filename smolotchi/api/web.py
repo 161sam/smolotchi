@@ -1848,6 +1848,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         running = [
             j for j in jobstore.list(limit=10, status="running") if j.kind == "ai_plan"
         ]
+        blocked = [
+            j for j in jobstore.list(limit=30, status="blocked") if j.kind == "ai_plan"
+        ]
         done = [
             j for j in jobstore.list(limit=30, status="done") if j.kind == "ai_plan"
         ]
@@ -1868,6 +1871,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "ai_jobs.html",
             queued=queued,
             running=running,
+            blocked=blocked,
             done=done,
             failed=failed,
             run_by_job=run_by_job,

@@ -30,6 +30,29 @@
 </section>
 
 <section class="card">
+  <div class="row" style="justify-content:space-between; align-items:center;">
+    <h3 style="margin:0 0 10px 0">Blocked (approval required)</h3>
+    <a class="btn secondary" href="{{ url_for('ai_stages') }}">Open approvals</a>
+  </div>
+  <div class="events">
+    {% for j in blocked %}
+      <div class="evt">
+        <div class="evt-top">{{ j.id }}</div>
+        <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
+          <button class="secondary" type="submit">Cancel</button>
+        </form>
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
+        {% endif %}
+      </div>
+    {% else %}<div class="muted">none</div>{% endfor %}
+  </div>
+</section>
+
+<section class="card">
   <h3 style="margin:0 0 10px 0">Queued</h3>
   <div class="events">
     {% for j in queued %}

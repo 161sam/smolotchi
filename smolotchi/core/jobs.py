@@ -136,6 +136,16 @@ class JobStore:
                 (merged, time.time(), job_id),
             )
 
+    def mark_blocked(self, job_id: str, note: str = "blocked") -> None:
+        with self._conn() as con:
+            cur = con.execute("SELECT note FROM jobs WHERE id=?", (job_id,)).fetchone()
+            base = (cur[0] if cur else "") or ""
+            merged = (base + "\n" + note).strip()
+            con.execute(
+                "UPDATE jobs SET status='blocked', note=?, updated_ts=? WHERE id=?",
+                (merged, time.time(), job_id),
+            )
+
     def mark_cancelled(self, job_id: str, note: str = "cancelled") -> None:
         with self._conn() as con:
             cur = con.execute("SELECT note FROM jobs WHERE id=?", (job_id,)).fetchone()
@@ -145,6 +155,22 @@ class JobStore:
                 "UPDATE jobs SET status='cancelled', note=?, updated_ts=? WHERE id=?",
                 (merged, time.time(), job_id),
             )
+
+    def mark_queued(self, job_id: str, note: str = "") -> None:
+        with self._conn() as con:
+            if note:
+                cur = con.execute("SELECT note FROM jobs WHERE id=?", (job_id,)).fetchone()
+                base = (cur[0] if cur else "") or ""
+                merged = (base + "\n" + note).strip()
+                con.execute(
+                    "UPDATE jobs SET status='queued', note=?, updated_ts=? WHERE id=?",
+                    (merged, time.time(), job_id),
+                )
+            else:
+                con.execute(
+                    "UPDATE jobs SET status='queued', updated_ts=? WHERE id=?",
+                    (time.time(), job_id),
+                )
 
     def list(self, limit: int = 50, status: Optional[str] = None) -> List[JobRow]:
         q = "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts FROM jobs "
@@ -255,7 +281,7 @@ class JobStore:
             ).fetchone()
             if not row:
                 return False
-            if row[0] not in {"queued", "running"}:
+            if row[0] not in {"queued", "running", "blocked"}:
                 return False
             con.execute(
                 "UPDATE jobs SET status='cancelled', note=trim(note || '\n' || ?), updated_ts=? WHERE id=?",
