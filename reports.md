@@ -5,6 +5,19 @@ Smolotchi’s Flask UI is functional but relies on several implicit runtime assu
 
 ---
 
+## AI worker execution pipeline
+1. UI enqueues `ai_plan` jobs via `POST /ai/run`, storing an `ai_run_request` artifact with `plan_artifact_id` or `scope`.
+2. The AI worker (`python -m smolotchi.ai.worker --loop`) polls the JobStore for queued `ai_plan` jobs, parses `req:<artifact_id>` from the job note, and loads the request artifact.
+3. If the request references a plan artifact, the worker loads the `ai_plan` document and runs it; otherwise it generates a plan via `AIPlanner` and runs it.
+4. `PlanRunner` executes steps (policy-aware via `ActionRunner`), records an `ai_plan_run` artifact, and emits `ai_job_link` so the UI can link “Open run.”
+
+### Known risks
+- Missing or malformed `ai_run_request` artifacts will fail jobs (watch for stale job notes).
+- Plan artifacts that are missing or corrupted will fail before any `ai_plan_run` is written, leaving no run link for the UI.
+- Action registry mismatches (metadata-only packs vs executable actions) can still block execution if the runner cannot execute actions.
+
+---
+
 ## Priority P0 (Immediate)
 
 ### P0-1: AI job execution uses a registry that may not have runnable actions
