@@ -24,6 +24,11 @@
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
         {% endif %}
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
+        {% endif %}
         <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" style="margin-top:8px">
           <button class="secondary" type="submit">Reset to queued</button>
         </form>
@@ -74,6 +79,11 @@
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
         {% endif %}
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
+        {% endif %}
         <div class="btn-row" style="margin-top:8px">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>
@@ -101,6 +111,11 @@
         </div>
         {% if j.meta %}
           <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+        {% endif %}
+        {% if run_by_job.get(j.id) %}
+          <div class="btn-row" style="margin-top:8px">
+            <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
+          </div>
         {% endif %}
         <div class="btn-row" style="margin-top:8px">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>

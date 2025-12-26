@@ -9,6 +9,7 @@ from typing import Optional
 from smolotchi.actions.plan_runner import PlanRunner
 from smolotchi.actions.planners.ai_planner import AIPlanner
 from smolotchi.actions.registry import ActionRegistry
+from smolotchi.actions.runner import ActionRunner
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
@@ -40,12 +41,14 @@ class AIWorker:
         registry: ActionRegistry,
         artifacts: ArtifactStore,
         jobstore: JobStore,
+        runner: ActionRunner | None = None,
         poll_interval_s: float = 1.0,
     ) -> None:
         self.bus = bus
         self.registry = registry
         self.artifacts = artifacts
         self.jobstore = jobstore
+        self.runner = runner
         self.poll_interval_s = poll_interval_s
 
         self._stop = threading.Event()
@@ -193,6 +196,7 @@ class AIWorker:
                             registry=self.registry,
                             jobstore=self.jobstore,
                             artifacts=self.artifacts,
+                            runner=self.runner,
                         )
                         self._run_plan_object(plan, runner, job_id=job_id)
 
@@ -240,6 +244,7 @@ class AIWorker:
             registry=self.registry,
             jobstore=self.jobstore,
             artifacts=self.artifacts,
+            runner=self.runner,
         )
 
         self._run_plan_object(

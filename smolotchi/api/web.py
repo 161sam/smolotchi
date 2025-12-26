@@ -19,10 +19,12 @@ from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.api.view_models import effective_lan_overrides
 from smolotchi.actions.registry import ActionRegistry, load_pack
 from smolotchi.actions.planners.ai_planner import AIPlanner
+from smolotchi.actions.runner import ActionRunner
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
+from smolotchi.core.policy import Policy
 from smolotchi.core.presets import PRESETS
 from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.core.validate import validate_profiles
@@ -91,6 +93,34 @@ def create_app(config_path: str = "config.toml") -> Flask:
             if (now - event.ts) <= window_s:
                 return True
         return False
+
+    def _build_policy(cfg) -> Policy:
+        policy_cfg = getattr(cfg, "policy", None)
+        if not policy_cfg:
+            return Policy()
+        return Policy(
+            allowed_tags=list(getattr(policy_cfg, "allowed_tags", []) or []),
+            allowed_scopes=list(getattr(policy_cfg, "allowed_scopes", []) or []),
+            allowed_tools=list(getattr(policy_cfg, "allowed_tools", []) or []),
+            block_categories=list(getattr(policy_cfg, "block_categories", []) or []),
+            autonomous_categories=list(
+                getattr(policy_cfg, "autonomous_categories", []) or []
+            ),
+        )
+
+    def _safe_send_artifact_path(path: str, *, as_attachment: bool) -> Response:
+        if not path:
+            abort(404)
+        root = Path(artifacts.root).resolve()
+        try:
+            resolved = Path(path).resolve()
+        except Exception:
+            abort(404)
+        if resolved != root and root not in resolved.parents:
+            abort(404)
+        if not resolved.exists():
+            abort(404)
+        return send_file(str(resolved), as_attachment=as_attachment)
 
     @app.context_processor
     def inject_globals():
@@ -1368,9 +1398,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not meta:
             abort(404)
         path = meta.get("path")
-        if not path or not Path(path).exists():
-            abort(404)
-        return send_file(path, as_attachment=True)
+        return _safe_send_artifact_path(path, as_attachment=True)
 
     @app.get("/report/<artifact_id>")
     def report_view(artifact_id: str):
@@ -1378,9 +1406,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if not meta:
             abort(404)
         path = meta.get("path")
-        if not path or not Path(path).exists():
-            abort(404)
-        return send_file(path, as_attachment=False)
+        return _safe_send_artifact_path(path, as_attachment=False)
 
     @app.get("/lan/jobs")
     def lan_jobs():
@@ -1428,12 +1454,21 @@ def create_app(config_path: str = "config.toml") -> Flask:
         running = _enrich_jobs(running)
         done = _enrich_jobs(done)
         failed = _enrich_jobs(failed)
+        links = artifacts.list(limit=200, kind="ai_job_link")
+        run_by_job = {}
+        for link in links:
+            doc = artifacts.get_json(link.id) or {}
+            jid = doc.get("job_id")
+            rid = doc.get("run_artifact_id")
+            if jid and rid:
+                run_by_job[str(jid)] = str(rid)
         return render_template(
             "lan_jobs.html",
             queued=queued,
             running=running,
             done=done,
             failed=failed,
+            run_by_job=run_by_job,
         )
 
     @app.post("/lan/job/<job_id>/cancel")
@@ -1957,11 +1992,15 @@ def create_app(config_path: str = "config.toml") -> Flask:
     if os.environ.get("SMO_AI_WORKER", "0") == "1":
         from smolotchi.ai.worker import AIWorker
 
+        cfg = store.get()
+        policy = _build_policy(cfg)
+        action_runner = ActionRunner(bus=bus, artifacts=artifacts, policy=policy)
         worker = AIWorker(
             bus=bus,
             registry=registry,
             artifacts=artifacts,
             jobstore=jobstore,
+            runner=action_runner,
         )
         worker.start()
         bus.publish("ai.worker.enabled", {"ts": time.time()})
