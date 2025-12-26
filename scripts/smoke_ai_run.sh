@@ -67,19 +67,12 @@ echo "Triggered /ai/run with note=${SMO_SMOKE_NOTE}"
 job_id=""
 start_ts=$(date +%s)
 while true; do
-  read -r job_id < <(
-    SMO_SMOKE_NOTE="$SMO_SMOKE_NOTE" "$PYTHON_BIN" - <<'PY'
-import os
-from smolotchi.core.jobs import JobStore
-note = os.environ.get("SMO_SMOKE_NOTE", "")
-js = JobStore()
-jobs = [j for j in js.list(limit=50) if j.kind == "ai_plan" and note in (j.note or "")]
-if not jobs:
-    print("")
-else:
-    job = sorted(jobs, key=lambda j: j.created_ts, reverse=True)[0]
-    print(job.id)
-PY
+  job_id=$(
+    "$PYTHON_BIN" -m smolotchi jobs list \
+      --kind ai_plan \
+      --note-contains "$SMO_SMOKE_NOTE" \
+      --format json \
+      --limit 1 | jq -r '.[0].id // empty'
   )
 
   if [[ -n "$job_id" ]]; then
@@ -99,15 +92,7 @@ job_status=""
 start_ts=$(date +%s)
 while true; do
   job_status=$(
-    SMO_SMOKE_JOB_ID="$job_id" "$PYTHON_BIN" - <<'PY'
-import os
-from smolotchi.core.jobs import JobStore
-
-job_id = os.environ.get("SMO_SMOKE_JOB_ID", "")
-store = JobStore()
-job = store.get(job_id)
-print(job.status if job else "")
-PY
+    "$PYTHON_BIN" -m smolotchi jobs get "$job_id" --format json | jq -r '.status // empty'
   )
 
   if [[ "$job_status" == "done" || "$job_status" == "failed" || "$job_status" == "cancelled" || "$job_status" == "blocked" ]]; then
@@ -125,25 +110,31 @@ done
 
 start_ts=$(date +%s)
 while true; do
-  found=$(
-    SMO_SMOKE_JOB_ID="$job_id" "$PYTHON_BIN" - <<'PY'
-import os
-from smolotchi.core.artifacts import ArtifactStore
-
-job_id = os.environ.get("SMO_SMOKE_JOB_ID", "")
-store = ArtifactStore("/var/lib/smolotchi/artifacts")
-
-def has_kind(kind: str) -> bool:
-    for meta in store.list(limit=200, kind=kind):
-        doc = store.get_json(meta.id) or {}
-        if str(doc.get("job_id")) == str(job_id):
-            return True
-    return False
-
-ok = has_kind("ai_plan_run") or has_kind("ai_stage_request") or has_kind("ai_job_link")
-print("1" if ok else "0")
-PY
+  found_run=$(
+    "$PYTHON_BIN" -m smolotchi artifacts find \
+      --job-id "$job_id" \
+      --kind ai_plan_run \
+      --format json \
+      --limit 1 | jq -r 'length'
   )
+  found_req=$(
+    "$PYTHON_BIN" -m smolotchi artifacts find \
+      --job-id "$job_id" \
+      --kind ai_stage_request \
+      --format json \
+      --limit 1 | jq -r 'length'
+  )
+  found_link=$(
+    "$PYTHON_BIN" -m smolotchi artifacts find \
+      --job-id "$job_id" \
+      --kind ai_job_link \
+      --format json \
+      --limit 1 | jq -r 'length'
+  )
+  found="0"
+  if [[ "$found_run" != "0" || "$found_req" != "0" || "$found_link" != "0" ]]; then
+    found="1"
+  fi
 
   if [[ "$found" == "1" ]]; then
     break

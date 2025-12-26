@@ -168,6 +168,14 @@ You can track blocked jobs in **/ai/jobs** (look for “Blocked (approval requir
 
 ---
 
+## Troubleshooting
+
+* **Worker offline banner**: If the UI shows the worker as offline, confirm the AI worker process is running and emitting health ticks.
+* **Blocked job**: A blocked AI job means a stage approval is required. Approve it in **/ai/stages** or via the CLI `smolotchi stages approve <request_id>`.
+* **Artifact 404**: Artifacts are served only from the artifact root (`/var/lib/smolotchi/artifacts`). A 404 usually means the artifact index points to a missing file or a path outside the root.
+
+---
+
 # 2️⃣ Threat Model (Research-Tool-konform)
 
 ## Threat Model: Smolotchi

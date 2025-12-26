@@ -1,21 +1,58 @@
 from __future__ import annotations
 
 import argparse
+import json
+import time
 
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.artifacts_gc import apply_gc, plan_gc
+
+
+def _format_ts(ts: float | None) -> str:
+    if not ts:
+        return "-"
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(ts)))
+
+
+def _print_json(payload) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _print_table(headers: list[str], rows: list[list[str]]) -> None:
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for idx, cell in enumerate(row):
+            widths[idx] = max(widths[idx], len(str(cell)))
+    fmt = "  ".join(f"{{:{w}}}" for w in widths)
+    print(fmt.format(*headers))
+    print(fmt.format(*["-" * w for w in widths]))
+    for row in rows:
+        print(fmt.format(*row))
 
 
 def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("artifacts", help="Artifact store utilities")
     sub = parser.add_subparsers(dest="artifacts_cmd", required=True)
 
-    gc = sub.add_parser("gc", help="Garbage collect artifacts with retention rules")
-    gc.add_argument(
-        "--root",
-        default="/var/lib/smolotchi/artifacts",
-        help="Artifact store root path",
+    find = sub.add_parser("find", help="Find artifacts by filters")
+    find.add_argument("--kind", default=None, help="Filter by artifact kind")
+    find.add_argument("--job-id", default=None, help="Filter by payload job_id")
+    find.add_argument("--request-id", default=None, help="Filter by payload request_id")
+    find.add_argument("--limit", type=int, default=20, help="Limit results")
+    find.add_argument(
+        "--scan-limit",
+        type=int,
+        default=500,
+        help="Scan the newest N artifacts when filtering",
     )
+    find.add_argument("--format", choices=["json", "table"], default="table")
+    find.add_argument(
+        "--include-payload",
+        action="store_true",
+        help="Include payload in json output",
+    )
+
+    gc = sub.add_parser("gc", help="Garbage collect artifacts with retention rules")
     gc.add_argument(
         "--keep-bundles",
         type=int,
@@ -42,7 +79,7 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
     )
 
     def _run(args: argparse.Namespace) -> int:
-        store = ArtifactStore(args.root)
+        store = ArtifactStore(args.artifact_root)
         plan = plan_gc(store, keep_bundles=args.keep_bundles, keep_reports=args.keep_reports)
 
         print("Smolotchi Artifact GC")
@@ -77,3 +114,71 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
         return 0 if failed == 0 else 2
 
     gc.set_defaults(fn=_run)
+
+    def _run_find(args: argparse.Namespace) -> int:
+        store = ArtifactStore(args.artifact_root)
+        matches = []
+        candidates = store.list(limit=args.scan_limit, kind=args.kind)
+        for meta in candidates:
+            doc = store.get_json(meta.id) or {}
+            if args.job_id and str(doc.get("job_id")) != str(args.job_id):
+                continue
+            if args.request_id and str(doc.get("request_id")) != str(args.request_id):
+                continue
+            matches.append(
+                {
+                    "id": meta.id,
+                    "kind": meta.kind,
+                    "title": meta.title,
+                    "created_ts": meta.created_ts,
+                    "path": meta.path,
+                    "payload": doc if args.include_payload else None,
+                }
+            )
+            if len(matches) >= args.limit:
+                break
+
+        if args.format == "json":
+            if not args.include_payload:
+                for row in matches:
+                    row.pop("payload", None)
+            _print_json(matches)
+            return 0
+
+        rows = [
+            [
+                row["id"],
+                row["kind"],
+                _format_ts(row["created_ts"]),
+                row["title"],
+            ]
+            for row in matches
+        ]
+        _print_table(["ID", "KIND", "CREATED", "TITLE"], rows)
+        return 0
+
+    find.set_defaults(fn=_run_find)
+
+    get = sub.add_parser("get", help="Show an artifact payload")
+    get.add_argument("artifact_id", help="Artifact id")
+    get.add_argument("--format", choices=["json", "table"], default="json")
+
+    def _run_get(args: argparse.Namespace) -> int:
+        store = ArtifactStore(args.artifact_root)
+        meta = store.get_meta(args.artifact_id)
+        if not meta:
+            print("error: artifact not found")
+            return 2
+        doc = store.get_json(args.artifact_id)
+        payload = {"meta": meta, "payload": doc}
+        if args.format == "json":
+            _print_json(payload)
+        else:
+            rows = [
+                [key, json.dumps(value, ensure_ascii=False)]
+                for key, value in payload.items()
+            ]
+            _print_table(["FIELD", "VALUE"], rows)
+        return 0
+
+    get.set_defaults(fn=_run_get)
