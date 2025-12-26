@@ -17,7 +17,8 @@ from flask import (
 
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.api.view_models import effective_lan_overrides
-from smolotchi.actions.registry import ActionRegistry
+from smolotchi.actions.registry import ActionRegistry, load_pack
+from smolotchi.actions.planners.ai_planner import AIPlanner
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
@@ -78,10 +79,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
     store.load()
     artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
     jobstore = JobStore(bus.db_path)
-    registry = ActionRegistry()
+    pack_path = Path(__file__).resolve().parents[1] / "actions" / "packs" / "bjorn_core.yml"
+    registry = load_pack(str(pack_path)) if pack_path.exists() else ActionRegistry()
 
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
+
+    def core_recently_active(window_s: float = 30.0) -> bool:
+        now = time.time()
+        for event in bus.tail(limit=30, topic_prefix="core."):
+            if (now - event.ts) <= window_s:
+                return True
+        return False
 
     @app.context_processor
     def inject_globals():
@@ -1682,44 +1691,42 @@ def create_app(config_path: str = "config.toml") -> Flask:
         steps = run.get("steps") or []
         if not isinstance(steps, list):
             steps = []
-        for step in steps:
-            if not isinstance(step, dict):
-                continue
-            links = step.get("links")
-            if not isinstance(links, dict):
-                links = {}
-            links.setdefault("artifacts", [])
-            links.setdefault("reports", [])
-            links.setdefault("bundles", [])
-            links.setdefault("jobs", [])
+
+        def normalize_links(raw) -> dict:
+            links = raw if isinstance(raw, dict) else {}
+            out = {}
             for key in ("artifacts", "reports", "bundles", "jobs"):
                 value = links.get(key)
-                if value is None:
-                    links[key] = []
+                if not value:
+                    out[key] = []
                 elif isinstance(value, list):
-                    links[key] = [str(item) for item in value if item]
+                    out[key] = [str(item) for item in value if item]
                 else:
-                    links[key] = [str(value)]
-            for key in ("artifacts", "reports", "bundles", "jobs"):
-                links[key] = sorted(set(links[key]))
-            step["links"] = links
+                    out[key] = [str(value)]
+                out[key] = sorted(set(out[key]))
+            return out
 
-        # ---- aggregate run-level links from steps (for the top "Links" section)
-        run_links = {"artifacts": set(), "reports": set(), "bundles": set(), "jobs": set()}
         for step in steps:
             if not isinstance(step, dict):
                 continue
-            links = step.get("links") or {}
-            if not isinstance(links, dict):
+            step["links"] = normalize_links(step.get("links"))
+
+        # ---- aggregate run-level links from steps (for the top "Links" section)
+        run_links = {
+            "artifacts": set(),
+            "reports": set(),
+            "bundles": set(),
+            "jobs": set(),
+        }
+        for step in steps:
+            if not isinstance(step, dict):
                 continue
+            links = normalize_links(step.get("links"))
             for key in ("artifacts", "reports", "bundles", "jobs"):
                 vals = links.get(key) or []
-                if isinstance(vals, list):
-                    for value in vals:
-                        if value:
-                            run_links[key].add(str(value))
-                elif vals:
-                    run_links[key].add(str(vals))
+                for value in vals:
+                    if value:
+                        run_links[key].add(str(value))
 
         links = {
             "artifacts": sorted(run_links["artifacts"]),
@@ -1754,6 +1761,13 @@ def create_app(config_path: str = "config.toml") -> Flask:
         scope = request.form.get("scope", "10.0.10.0/24")
         note = request.form.get("note", "")
         bus.publish("ui.ai.generate_plan", {"scope": scope, "note": note})
+        if not core_recently_active():
+            planner = AIPlanner(bus=bus, registry=registry, artifacts=artifacts)
+            planner.generate(
+                scope=scope,
+                mode="autonomous_safe",
+                note=note,
+            )
         return redirect(url_for("dashboard"))
 
     @app.post("/ai/run")
