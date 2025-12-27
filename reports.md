@@ -7,6 +7,7 @@ Smolotchi’s Flask UI is functional but relies on several implicit runtime assu
 
 ## Fixed
 - ✅ Idempotent stage approvals + deterministic resume notes (`smolotchi/api/web.py`, `smolotchi/ai/worker.py`)
+- ✅ Injected stage request IDs into artifacts to unblock approvals (`smolotchi/core/artifacts.py`)
 - ✅ CLI subcommands for jobs/artifacts/stages/health (`smolotchi/cli.py`, `smolotchi/cli_artifacts.py`)
 - ✅ Smoke test now uses CLI for status/artifact checks (`scripts/smoke_ai_run.sh`)
 - ✅ Added minimal pytest CI workflow (`.github/workflows/ci.yml`)
