@@ -83,7 +83,7 @@ Smolotchi is designed for:
 | Baseline per profile     | ✅         |
 | Drift detection          | ✅         |
 | Deterministic replay     | ✅         |
-| AI as planner (not game) | ✅         |
+| AI as planner            | ✅         |
 
 ---
 
