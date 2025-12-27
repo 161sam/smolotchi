@@ -5,7 +5,7 @@
 {% block content %}
 <section class="card">
   {% include "partials/back_to_lan.html" %}
-  <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:10px;">
+  <div class="row mt-md">
     <a class="pill" href="{{ url_for('lan_baseline_overview') }}">Baseline</a>
     <a class="pill" href="{{ url_for('lan_baseline_diff_latest') }}">Baseline Diff</a>
   </div>
@@ -13,10 +13,10 @@
 
 {% if finding_filter %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  <div class="row between">
     <div>
       <div class="muted">Filter active</div>
-      <div style="font-weight:900">
+      <div class="link">
         Finding: {{ finding_filter }}
         {% if only_suppressed %}
           <span class="pill">only suppressed</span>
@@ -27,7 +27,7 @@
         {% endif %}
       </div>
     </div>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="row">
       <a class="pill" href="{{ url_for('lan_results') }}">Clear filter</a>
     </div>
   </div>
@@ -36,14 +36,13 @@
 
 {% if top_findings %}
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Top Findings (recent)</h3>
+  <h3 class="mb-sm">Top Findings (recent)</h3>
   <div class="events">
     {% for f in top_findings %}
       <div class="evt">
         <div class="evt-top">
           <span class="pill sev-{{ f.severity }}">{{ f.severity|upper }}</span>
-          <a href="{{ url_for('lan_results') }}?finding={{ f.id }}"
-             style="color:var(--accent); text-decoration:none; font-weight:900;">
+          <a href="{{ url_for('lan_results') }}?finding={{ f.id }}" class="link">
             {{ f.title }}
           </a>
           {% if f.baseline_expected is not none %}
@@ -81,7 +80,7 @@
             {% if f.suppressed_hosts %}
               · {{ f.suppressed_hosts|join(", ") }}
             {% endif %}
-            <div class="row" style="gap:10px; margin-top:6px; flex-wrap:wrap;">
+            <div class="row mt-sm">
               <a class="pill"
                  href="{{ url_for('lan_results') }}?finding={{ f.id }}&include_suppressed=1">
                 include suppressed
@@ -100,9 +99,9 @@
 {% endif %}
 
 <section class="card">
-  <div class="row" style="justify-content:space-between; align-items:center;">
-    <h3 style="margin:0 0 10px 0">Latest bundles</h3>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+  <div class="row between">
+    <h3 class="mb-sm">Latest bundles</h3>
+    <div class="row">
       <a class="btn secondary" href="/lan/summary">Executive Summary</a>
       <a class="btn secondary" href="/lan/summary.md">MD</a>
       <a class="btn secondary" href="/lan/summary.json">JSON</a>
@@ -120,13 +119,13 @@
             <span class="pill">suppressed finding</span>
           {% endif %}
         {% endif %}
-        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+        <div class="row mt-md">
           <a class="btn" href="{{ url_for('lan_result_details', bundle_id=a.id) }}">Open details</a>
           <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=a.id) }}">Download bundle JSON</a>
         </div>
 
         {% if a.eff %}
-          <div class="row" style="gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <div class="row mt-md">
             {% if a.eff.wifi_ssid %}<span class="pill">ssid: {{ a.eff.wifi_ssid }}</span>{% endif %}
             <span class="pill">pack: {{ a.eff.pack }}</span>
             <span class="pill">rps: {{ a.eff.throttle_rps }}</span>
@@ -135,7 +134,7 @@
         {% endif %}
 
         {% if a.diff_badges %}
-          <div class="row" style="gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <div class="row mt-md">
             <span class="pill">Changed: {{ a.diff_badges.changed_hosts or 0 }}</span>
             {% for k,v in (a.diff_badges.transitions or {}).items() %}
               <span class="pill">{{ k }}: {{ v }}</span>
@@ -144,9 +143,9 @@
         {% endif %}
 
         {% if a.diff_summary and a.diff_summary.changed_hosts %}
-          <div style="margin-top:10px">
+          <div class="mt-md">
             <div class="muted">Changed hosts</div>
-            <div class="row" style="gap:10px; margin-top:6px; flex-wrap:wrap;">
+            <div class="row mt-sm">
               {% for h in a.diff_summary.changed_hosts %}
                 <a class="pill" href="/lan/diff/host/{{ a.id }}/{{ h }}">{{ h }}</a>
               {% endfor %}
@@ -155,10 +154,10 @@
         {% endif %}
       </div>
     {% else %}
-      <div class="evt">
-        <div class="evt-top">No results yet</div>
+      <div class="empty">
+        <div><strong>No results yet.</strong></div>
         <div class="muted">Enqueue a LAN job to generate results and bundle reports.</div>
-        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+        <div class="btn-row mt-md">
           <a class="btn" href="{{ url_for('lan') }}">Enqueue LAN job</a>
           <a class="btn secondary" href="{{ url_for('lan_reports') }}">Open reports</a>
         </div>

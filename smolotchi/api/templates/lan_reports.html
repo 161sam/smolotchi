@@ -19,7 +19,7 @@
         {% if a.job_id %}
           <div class="muted">job_id: {{ a.job_id }}</div>
         {% endif %}
-        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+        <div class="row mt-md">
           <a class="btn" href="{{ url_for('report_view', artifact_id=a.id) }}">Open</a>
           <a class="btn secondary" href="{{ url_for('artifact_file_download', artifact_id=a.id) }}">Download</a>
 
@@ -42,10 +42,10 @@
         </div>
       </div>
     {% else %}
-      <div class="evt">
-        <div class="evt-top">No reports yet</div>
+      <div class="empty">
+        <div><strong>No reports yet.</strong></div>
         <div class="muted">Run a LAN job to generate HTML and diff reports.</div>
-        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+        <div class="btn-row mt-md">
           <a class="btn" href="{{ url_for('lan') }}">Run LAN job</a>
           <a class="btn secondary" href="{{ url_for('lan_results') }}">View Results</a>
         </div>

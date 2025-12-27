@@ -15,6 +15,7 @@ from flask import (
     url_for,
 )
 
+from smolotchi.api.health import core_health_ok, worker_health_ok
 from smolotchi.api.theme import load_theme_tokens, tokens_to_css_vars
 from smolotchi.api.view_models import effective_lan_overrides
 from smolotchi.actions.registry import ActionRegistry, load_pack
@@ -87,31 +88,6 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
 
-    def core_recently_active(window_s: float = 30.0) -> tuple[bool, float | None]:
-        now = time.time()
-        last_ts = None
-        for event in bus.tail(limit=30, topic_prefix="core."):
-            last_ts = event.ts
-            if (now - event.ts) <= window_s:
-                return True, event.ts
-        return False, last_ts
-
-    def worker_recently_active(window_s: float = 30.0) -> tuple[bool, float | None]:
-        latest = artifacts.list(limit=1, kind="worker_health")
-        if not latest:
-            return False, None
-        meta = latest[0]
-        doc = artifacts.get_json(meta.id) or {}
-        ts = None
-        if doc.get("ts"):
-            try:
-                ts = datetime.fromisoformat(str(doc.get("ts"))).timestamp()
-            except ValueError:
-                ts = None
-        if ts is None:
-            ts = float(meta.created_ts)
-        return (time.time() - ts) <= window_s, ts
-
     def _build_policy(cfg) -> Policy:
         policy_cfg = getattr(cfg, "policy", None)
         if not policy_cfg:
@@ -153,8 +129,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
         if cfg.theme and cfg.theme.json_path:
             tokens = load_theme_tokens(cfg.theme.json_path)
         theme_css = tokens_to_css_vars(tokens) if tokens else ""
-        core_ok, core_last_ts = core_recently_active()
-        worker_ok, worker_last_ts = worker_recently_active()
+        core_ok, core_last_ts = core_health_ok(bus)
+        worker_ok, worker_last_ts = worker_health_ok(artifacts)
         return {
             "nav_active": nav_active,
             "app_cfg": cfg,

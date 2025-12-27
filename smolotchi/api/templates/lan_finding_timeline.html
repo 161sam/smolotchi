@@ -4,7 +4,7 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  <div class="row between">
     <a class="pill" href="{{ url_for('lan_results') }}">← Back to LAN Results</a>
     <a class="pill" href="{{ url_for('lan_results') }}?finding={{ fid }}">Filter bundles</a>
     <a class="pill" href="{{ url_for('lan_finding_jump', fid=fid) }}">Jump (latest active)</a>
@@ -18,23 +18,21 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Overview</h3>
+  <h3 class="mb-sm">Overview</h3>
   {% if first %}
     <div class="events">
       <div class="evt">
         <div class="evt-top">First seen</div>
         <div class="muted">{{ first.ts_str }} · {{ first.state }}</div>
-        <div style="margin-top:8px" class="row">
-          <a style="color:var(--accent); text-decoration:none; font-weight:900;"
-             href="{{ url_for('lan_result_details', bundle_id=first.bundle_id) }}">Open bundle</a>
+        <div class="row mt-sm">
+          <a class="link" href="{{ url_for('lan_result_details', bundle_id=first.bundle_id) }}">Open bundle</a>
         </div>
       </div>
       <div class="evt">
         <div class="evt-top">Last seen</div>
         <div class="muted">{{ last.ts_str }} · {{ last.state }}</div>
-        <div style="margin-top:8px" class="row">
-          <a style="color:var(--accent); text-decoration:none; font-weight:900;"
-             href="{{ url_for('lan_result_details', bundle_id=last.bundle_id) }}">Open bundle</a>
+        <div class="row mt-sm">
+          <a class="link" href="{{ url_for('lan_result_details', bundle_id=last.bundle_id) }}">Open bundle</a>
         </div>
       </div>
     </div>
@@ -44,15 +42,14 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">History</h3>
+  <h3 class="mb-sm">History</h3>
   <div class="events">
     {% for h in history %}
       <div class="evt">
         <div class="evt-top">{{ h.ts_str }}</div>
         <div class="muted">{{ h.state }} · bundle: {{ h.bundle_id }}</div>
-        <div style="margin-top:8px" class="row">
-          <a style="color:var(--accent); text-decoration:none; font-weight:900;"
-             href="{{ url_for('lan_result_details', bundle_id=h.bundle_id) }}">Open</a>
+        <div class="row mt-sm">
+          <a class="link" href="{{ url_for('lan_result_details', bundle_id=h.bundle_id) }}">Open</a>
         </div>
       </div>
     {% else %}

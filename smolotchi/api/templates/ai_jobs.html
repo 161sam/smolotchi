@@ -4,23 +4,23 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between">
+  <div class="row between">
     <a href="{{ url_for('ai_plans') }}" class="btn secondary">← Back to AI Plans</a>
   </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Running</h3>
+  <h3 class="mb-sm">Running</h3>
   <div class="events">
     {% for j in running %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
+        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Cancel / Stop</button>
         </form>
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
@@ -38,8 +38,8 @@
 </section>
 
 <section class="card">
-  <div class="row" style="justify-content:space-between; align-items:center;">
-    <h3 style="margin:0 0 10px 0">Blocked (approval required)</h3>
+  <div class="row between">
+    <h3 class="mb-sm">Blocked (approval required)</h3>
     <a class="btn secondary" href="{{ url_for('ai_stages') }}">Open approvals</a>
   </div>
   <div class="events">
@@ -47,11 +47,11 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
+        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Cancel</button>
         </form>
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
@@ -69,13 +69,13 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Queued</h3>
+  <h3 class="mb-sm">Queued</h3>
   <div class="events">
     {% for j in queued %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" style="margin-top:8px">
+        <form method="post" action="{{ url_for('ai_job_cancel', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Cancel</button>
         </form>
       </div>
@@ -92,14 +92,14 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Done</h3>
+  <h3 class="mb-sm">Done</h3>
   <div class="events">
     {% for j in done %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
@@ -114,14 +114,14 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Failed</h3>
+  <h3 class="mb-sm">Failed</h3>
   <div class="events">
     {% for j in failed %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}

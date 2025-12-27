@@ -4,11 +4,11 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; flex-wrap:wrap; gap:10px">
+  <div class="row between">
     <a href="{{ url_for('ai_plans') }}" class="btn secondary">← Back to AI Plans</a>
     <a href="{{ url_for('ai_stage_new') }}" class="btn">New stage request</a>
   </div>
-  <div class="row" style="gap:10px; margin-top:10px; flex-wrap:wrap;">
+  <div class="row mt-md">
     <span class="pill">cap.intrusive: {{ 'ON' if intrusive_ok else 'OFF' }}</span>
     <span class="pill">cap.dangerous: {{ 'ON' if dangerous_ok else 'OFF' }}</span>
     <span class="pill">execution: gated</span>
@@ -16,14 +16,14 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Requests</h3>
+  <h3 class="mb-sm">Requests</h3>
   <div class="events">
     {% for r in reqs %}
       <div class="evt">
         <div class="evt-top">{{ r.title }}</div>
         <div class="muted">id: {{ r.id }}</div>
 
-        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           {% if r.id in approved %}
             <span class="pill">approved</span>
           {% else %}
@@ -35,7 +35,7 @@
         </div>
 
         {% if r.id not in approved %}
-          <form method="post" action="/ai/stage/{{ r.id }}/approve" style="margin-top:10px">
+          <form method="post" action="/ai/stage/{{ r.id }}/approve" class="mt-md">
             <button class="btn secondary" type="submit">Approve + resume</button>
           </form>
         {% endif %}

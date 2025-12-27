@@ -216,6 +216,18 @@ class ArtifactStore:
         idx = self._load_index()
         return sum(1 for row in idx[:limit_scan] if row.get("kind") == kind)
 
+    def count_pending_stage_requests(self, limit_scan: int = 2000) -> int:
+        idx = self._load_index()
+        count = 0
+        for row in idx[:limit_scan]:
+            if row.get("kind") != "ai_stage_request":
+                continue
+            aid = str(row.get("id"))
+            req = self.get_json(aid)
+            if req and self.is_stage_request_pending(req):
+                count += 1
+        return count
+
     def find_latest_stage_request(self) -> Optional[Dict[str, Any]]:
         latest = self.list(limit=1, kind="ai_stage_request")
         if not latest:
