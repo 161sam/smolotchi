@@ -14,29 +14,37 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <div class="row mt-sm">
+
+        <div class="row mt-sm" style="gap:10px; flex-wrap:wrap;">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
           <span class="pill">batch: {{ j.eff_batch_size }}</span>
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
+
         {% if j.meta %}
           <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
+
         {% if run_by_job.get(j.id) %}
           <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
+
         <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Reset to queued</button>
         </form>
       </div>
     {% else %}
       <div class="empty">
-        <div><strong>No running jobs.</strong></div>
-        <div class="muted">Wenn Core/Worker aktiv sind, werden Jobs hier als running angezeigt.</div>
+        <p><strong>No running LAN jobs.</strong></p>
+        <p class="muted">Enqueue a LAN job to start scanning.</p>
+        <div class="btn-row mt-md">
+          <a class="btn" href="{{ url_for('lan') }}">Enqueue LAN job</a>
+          <a class="btn secondary" href="{{ url_for('lan_results') }}">View results</a>
+        </div>
       </div>
     {% endfor %}
   </div>
@@ -49,24 +57,30 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <div class="row mt-sm">
+
+        <div class="row mt-sm" style="gap:10px; flex-wrap:wrap;">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
           <span class="pill">batch: {{ j.eff_batch_size }}</span>
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
+
         {% if j.meta %}
           <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
+
         <form method="post" action="{{ url_for('lan_job_cancel', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Cancel</button>
         </form>
       </div>
     {% else %}
       <div class="empty">
-        <div><strong>No queued jobs.</strong></div>
-        <div class="muted">Nächster Tick oder Enqueue füllt diese Liste.</div>
+        <p><strong>No queued LAN jobs.</strong></p>
+        <p class="muted">Go to LAN to enqueue a new scan job.</p>
+        <div class="btn-row mt-md">
+          <a class="btn" href="{{ url_for('lan') }}">Enqueue LAN job</a>
+        </div>
       </div>
     {% endfor %}
   </div>
@@ -79,32 +93,40 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
-        <div class="row mt-sm">
+
+        <div class="row mt-sm" style="gap:10px; flex-wrap:wrap;">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
           <span class="pill">batch: {{ j.eff_batch_size }}</span>
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
+
         {% if j.meta %}
           <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
+
         {% if run_by_job.get(j.id) %}
           <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
+
         <div class="btn-row mt-sm">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>
+
         <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Delete</button>
         </form>
       </div>
     {% else %}
       <div class="empty">
-        <div><strong>No completed jobs yet.</strong></div>
-        <div class="muted">Sobald ein Job fertig ist, taucht er hier auf.</div>
+        <p><strong>No completed LAN jobs yet.</strong></p>
+        <p class="muted">Completed scans will show up here with links to results.</p>
+        <div class="btn-row mt-md">
+          <a class="btn secondary" href="{{ url_for('lan_results') }}">View results</a>
+        </div>
       </div>
     {% endfor %}
   </div>
@@ -117,32 +139,37 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <div class="row mt-sm">
+
+        <div class="row mt-sm" style="gap:10px; flex-wrap:wrap;">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
           <span class="pill">batch: {{ j.eff_batch_size }}</span>
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
+
         {% if j.meta %}
           <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
+
         {% if run_by_job.get(j.id) %}
           <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
+
         <div class="btn-row mt-sm">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>
+
         <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Delete</button>
         </form>
       </div>
     {% else %}
       <div class="empty">
-        <div><strong>No failed jobs.</strong></div>
-        <div class="muted">Fehlgeschlagene Jobs erscheinen hier inkl. Note.</div>
+        <p><strong>No failed LAN jobs.</strong></p>
+        <p class="muted">Failures will show up here with notes.</p>
       </div>
     {% endfor %}
   </div>
