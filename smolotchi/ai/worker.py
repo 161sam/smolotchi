@@ -19,6 +19,7 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.jobs import JobStore
+from smolotchi.core.paths import resolve_artifact_root, resolve_db_path
 from smolotchi.core.policy import Policy
 
 
@@ -516,9 +517,8 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    db_path = os.environ.get("SMOLOTCHI_DB", "/var/lib/smolotchi/events.db")
-
-    artifact_root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", "/var/lib/smolotchi/artifacts")
+    db_path = resolve_db_path()
+    artifact_root = resolve_artifact_root()
 
 
     bus = SQLiteBus(db_path=db_path)
