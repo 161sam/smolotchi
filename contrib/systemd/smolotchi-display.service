@@ -1,5 +1,5 @@
 [Unit]
-Description=Smolotchi Core
+Description=Smolotchi Display (Waveshare e-paper)
 After=network.target
 
 [Service]
@@ -10,7 +10,7 @@ Environment=PYTHONUNBUFFERED=1
 Environment=SMOLOTCHI_DEVICE=pi_zero
 Environment=SMOLOTCHI_DB=/var/lib/smolotchi/events.db
 Environment=SMOLOTCHI_ARTIFACT_ROOT=/var/lib/smolotchi/artifacts
-ExecStart=/opt/smolotchi/.venv/bin/python -m smolotchi.cli core --config /etc/smolotchi/config.toml --db /var/lib/smolotchi/events.db
+ExecStart=/opt/smolotchi/.venv/bin/python -m smolotchi.cli display --device pi_zero --db /var/lib/smolotchi/events.db --artifact-root /var/lib/smolotchi/artifacts
 Restart=always
 RestartSec=2
 
