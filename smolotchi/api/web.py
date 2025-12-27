@@ -278,21 +278,43 @@ def create_app(config_path: str = "config.toml") -> Flask:
         def _job_status(job_id: str) -> str:
             if not job_id:
                 return "-"
+            job = jobstore.get(job_id)
+            if job and getattr(job, "status", None):
+                status = str(job.status)
+                if status == "queued":
+                    return "enqueued"
+                return status
+            saw_enqueued = False
+            saw_running = False
             for e in events:
                 if not getattr(e, "payload", None):
                     continue
-                job = e.payload.get("job") if isinstance(e.payload, dict) else None
-                if (
-                    isinstance(job, dict)
-                    and job.get("id") == job_id
-                    and e.topic == "ui.lan.enqueue"
-                ):
+                payload = e.payload if isinstance(e.payload, dict) else {}
+                job_payload = (
+                    payload.get("job") if isinstance(payload.get("job"), dict) else None
+                )
+                payload_id = payload.get("id")
+                if e.topic == "ui.lan.enqueue":
+                    if job_payload and str(job_payload.get("id")) == job_id:
+                        saw_enqueued = True
                     continue
-                if e.topic in ("lan.job.started", "lan.job.running", "lan.job.done", "lan.done"):
-                    if isinstance(e.payload, dict) and e.payload.get("id") == job_id:
-                        if e.topic in ("lan.job.done", "lan.done"):
-                            return "done"
-                        return "running"
+                if str(payload_id) != job_id:
+                    continue
+                if e.topic == "lan.job.failed":
+                    return "failed"
+                if e.topic == "lan.job.finished":
+                    return "done"
+                if e.topic in ("lan.job.started", "lan.job.progress"):
+                    saw_running = True
+                if e.topic == "lan.job.enqueued":
+                    saw_enqueued = True
+            if saw_running:
+                return "running"
+            resolved = resolve_result_by_job_id(job_id)
+            if resolved.get("bundle_id") or resolved.get("json_id") or resolved.get(
+                "report_id"
+            ):
+                return "done"
             return "enqueued"
 
         def _job_links(job_id: str) -> dict:
@@ -1213,10 +1235,41 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     def resolve_result_by_job_id(job_id: str):
         """
+        Preferred resolver:
+        1) Try lan_job_result artifacts (stable mapping)
         Fallback resolver:
-        1) Try lan_bundle by job_id (fast)
+        2) Try lan_bundle by job_id (fast)
         2) Else: scan artifacts index for lan_result/lan_report and correlate via content.job.id
         """
+        if not job_id:
+            return {}
+        for artifact in artifacts.list(limit=50, kind="lan_job_result"):
+            payload = artifacts.get_json(artifact.id)
+            if not isinstance(payload, dict):
+                continue
+            if str(payload.get("job_id")) != job_id:
+                continue
+            bundle_id = payload.get("bundle_id")
+            report_id = payload.get("report_id")
+            bundle = artifacts.get_json(bundle_id) if bundle_id else None
+            json_id = None
+            if bundle and isinstance(bundle, dict):
+                json_id = (bundle.get("result_json") or {}).get("artifact_id")
+            return {
+                "bundle_id": bundle_id,
+                "bundle": bundle,
+                "json_id": json_id,
+                "report_id": report_id,
+                "report_md_id": None,
+                "report_json_id": None,
+                "diff_html_id": None,
+                "diff_md_id": None,
+                "diff_json_id": None,
+                "diff_changed_hosts": [],
+                "diff_changed_hosts_count": None,
+                "diff_badges": {},
+                "ok": payload.get("ok"),
+            }
         bundle_id = artifacts.find_bundle_by_job_id(job_id)
         if bundle_id:
             bundle = artifacts.get_json(bundle_id)
@@ -1243,6 +1296,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 "diff_changed_hosts": diff_summary.get("changed_hosts", []),
                 "diff_changed_hosts_count": diff_summary.get("changed_hosts_count"),
                 "diff_badges": diff_badges,
+                "ok": True,
             }
 
         idx = artifacts.list(limit=300)
@@ -1274,7 +1328,10 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "diff_changed_hosts": [],
             "diff_changed_hosts_count": None,
             "diff_badges": {},
+            "ok": None,
         }
+
+    app.resolve_result_by_job_id = resolve_result_by_job_id
 
     @app.get("/lan/result/<bundle_id>")
     def lan_result_details(bundle_id: str):

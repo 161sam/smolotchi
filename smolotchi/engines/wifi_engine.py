@@ -718,6 +718,20 @@ class WifiEngine:
                 }
             },
         )
+        self.artifacts.put_json(
+            kind="wifi_lan_timeline",
+            title=f"wifi→lan {chosen} {job_id}",
+            payload={
+                "ts": time.time(),
+                "ssid": chosen,
+                "iface": iface,
+                "wifi_profile_hash": prof_hash,
+                "job_id": job_id,
+                "scope": scope,
+                "lan_overrides": lan_overrides,
+                "reason": "wifi_connect_auto",
+            },
+        )
         if self._forced_profile_ssid == chosen:
             self._forced_profile_ssid = None
 

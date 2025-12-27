@@ -307,6 +307,17 @@ class LanEngine:
                     title=f"Bundle • {self._active.id}",
                     payload=bundle,
                 )
+                self.artifacts.put_json(
+                    kind="lan_job_result",
+                    title=f"lan job result {self._active.id}",
+                    payload={
+                        "ts": time.time(),
+                        "job_id": self._active.id,
+                        "bundle_id": bundle_meta.id,
+                        "report_id": report_meta.id if report_meta else None,
+                        "ok": True,
+                    },
+                )
 
                 self.bus.publish(
                     "lan.job.progress", {"id": self._active.id, "pct": 100}
@@ -328,6 +339,18 @@ class LanEngine:
             except Exception as ex:
                 self.bus.publish(
                     "lan.job.failed", {"id": self._active.id, "err": str(ex)}
+                )
+                self.artifacts.put_json(
+                    kind="lan_job_result",
+                    title=f"lan job result {self._active.id}",
+                    payload={
+                        "ts": time.time(),
+                        "job_id": self._active.id,
+                        "bundle_id": None,
+                        "report_id": None,
+                        "ok": False,
+                        "note": str(ex),
+                    },
                 )
                 self.jobs.mark_failed(self._active.id, note=str(ex))
             finally:
