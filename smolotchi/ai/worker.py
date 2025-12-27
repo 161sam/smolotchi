@@ -75,10 +75,12 @@ class AIWorker:
         return None
 
     def _parse_resume_from(self, note: str) -> Optional[int]:
-        for line in (note or "").splitlines():
-            if line.strip().startswith("resume_from:"):
+        note = note or ""
+        # Accept resume_from anywhere (inline tokens or per-line)
+        for tok in note.replace("\n", " ").split():
+            if tok.startswith("resume_from:"):
                 try:
-                    return int(line.split("resume_from:", 1)[1].strip())
+                    return int(tok.split("resume_from:", 1)[1].strip())
                 except Exception:
                     return None
         return None
