@@ -878,7 +878,7 @@ def _write_json(out_path: str | None, obj) -> None:
 
 
 def cmd_ai_replay(args) -> int:
-    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    artifacts = ArtifactStore(artifact_root)
     plan = artifacts.get_json(args.plan) or {}
     run = artifacts.get_json(args.run) or {}
     res = evaluate_plan_run(plan, run)
@@ -918,7 +918,7 @@ def cmd_ai_replay(args) -> int:
 
 
 def cmd_ai_replay_batch(args) -> int:
-    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    artifacts = ArtifactStore(artifact_root)
 
     runs = artifacts.list(limit=max(args.last, 1), kind="ai_plan_run")
 

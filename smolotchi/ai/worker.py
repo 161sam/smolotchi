@@ -516,11 +516,16 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    bus = SQLiteBus()
+    db_path = os.environ.get("SMOLOTCHI_DB", "/var/lib/smolotchi/events.db")
+
+    artifact_root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", "/var/lib/smolotchi/artifacts")
+
+
+    bus = SQLiteBus(db_path=db_path)
     store = ConfigStore(args.config)
     store.load()
-    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
-    jobstore = JobStore(bus.db_path)
+    artifacts = ArtifactStore(artifact_root)
+    jobstore = JobStore(db_path)
     registry = _build_registry()
     policy = _build_policy(store.get())
     action_runner = ActionRunner(
