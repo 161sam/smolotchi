@@ -6,6 +6,7 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 
+from smolotchi.core.paths import resolve_artifact_root
 
 @dataclass
 class ArtifactMeta:
@@ -17,8 +18,8 @@ class ArtifactMeta:
 
 
 class ArtifactStore:
-    def __init__(self, root: str = "/var/lib/smolotchi/artifacts"):
-        self.root = Path(root)
+    def __init__(self, root: str | None = None):
+        self.root = Path(root or resolve_artifact_root())
         self.root.mkdir(parents=True, exist_ok=True)
         self.index_path = self.root / "index.json"
         self._ensure_index()

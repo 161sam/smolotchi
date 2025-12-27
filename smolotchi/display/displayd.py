@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -11,7 +10,12 @@ from PIL import Image, ImageDraw, ImageFont
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
-from smolotchi.core.paths import resolve_artifact_root, resolve_db_path
+from smolotchi.core.paths import (
+    resolve_artifact_root,
+    resolve_db_path,
+    resolve_device,
+    resolve_display_dryrun,
+)
 from smolotchi.device.buttons import ButtonConfig, ButtonWatcher
 from smolotchi.device.power import PowerMonitor
 from smolotchi.device.profile import get_device_profile
@@ -61,11 +65,11 @@ def _render_text_screen(width: int, height: int, lines: List[str]) -> Image.Imag
 
 
 def _dryrun_enabled() -> bool:
-    return os.environ.get("SMOLOTCHI_DISPLAY_DRYRUN", "").strip() == "1"
+    return resolve_display_dryrun()
 
 
 def main() -> None:
-    profile = get_device_profile(os.environ.get("SMOLOTCHI_DEVICE", "pi_zero"))
+    profile = get_device_profile(resolve_device())
 
     db = resolve_db_path()
     root = resolve_artifact_root()

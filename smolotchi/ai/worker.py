@@ -19,7 +19,11 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.jobs import JobStore
-from smolotchi.core.paths import resolve_artifact_root, resolve_db_path
+from smolotchi.core.paths import (
+    resolve_artifact_root,
+    resolve_config_path,
+    resolve_db_path,
+)
 from smolotchi.core.policy import Policy
 
 
@@ -491,7 +495,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Smolotchi AI worker")
     parser.add_argument(
         "--config",
-        default=os.environ.get("SMOLOTCHI_CONFIG", "config.toml"),
+        default=resolve_config_path(),
         help="Path to config.toml (default: config.toml)",
     )
     parser.add_argument(

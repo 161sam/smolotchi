@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import json
 import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from smolotchi.core.paths import resolve_db_path
 
 
 @dataclass
@@ -19,9 +23,9 @@ class SQLiteBus:
     Reicht für v0.0.1 + lässt sich später durch Redis/MQTT ersetzen.
     """
 
-    def __init__(self, db_path: str = "/var/lib/smolotchi/events.db"):
-        self.db_path = db_path
-        Path(Path(db_path).parent).mkdir(parents=True, exist_ok=True)
+    def __init__(self, db_path: str | None = None):
+        self.db_path = db_path or resolve_db_path()
+        Path(Path(self.db_path).parent).mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _conn(self) -> sqlite3.Connection:
