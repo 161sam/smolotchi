@@ -166,6 +166,16 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 mime="text/plain",
             )
 
+    def _artifact_rows(kind: str, limit: int = 20) -> list[dict]:
+        rows: list[dict] = []
+        for artifact in artifacts.list(limit=limit, kind=kind) or []:
+            try:
+                payload = artifacts.get_json(artifact.id)
+            except Exception:
+                payload = None
+            rows.append({"meta": artifact, "payload": payload or {}})
+        return rows
+
     @app.context_processor
     def inject_globals():
         cfg = store.get()
@@ -256,19 +266,18 @@ def create_app(config_path: str = "config.toml") -> Flask:
             sid = s.title.replace("wifi session ", "").strip()
             setattr(s, "report_id", rep_map.get(sid))
 
-        wifi_profile_selections = artifacts.list(limit=20, kind="wifi_profile_selection")
-        wifi_connect_attempts = artifacts.list(limit=20, kind="wifi_connect_attempt")
-        wifi_connect_results = artifacts.list(limit=20, kind="wifi_connect_result")
-        wifi_disconnect_attempts = artifacts.list(limit=20, kind="wifi_disconnect_attempt")
-        wifi_disconnect_results = artifacts.list(limit=20, kind="wifi_disconnect_result")
-        wifi_config_patches = artifacts.list(limit=30, kind="wifi_config_patch")
-        wifi_config_snapshots = artifacts.list(
-            limit=30, kind="wifi_config_toml_snapshot"
-        )
+        wifi_profile_selections = _artifact_rows("wifi_profile_selection", limit=20)
+        wifi_connect_attempts = _artifact_rows("wifi_connect_attempt", limit=20)
+        wifi_connect_results = _artifact_rows("wifi_connect_result", limit=20)
+        wifi_disconnect_attempts = _artifact_rows("wifi_disconnect_attempt", limit=20)
+        wifi_disconnect_results = _artifact_rows("wifi_disconnect_result", limit=20)
+        wifi_config_patches = _artifact_rows("wifi_config_patch", limit=30)
+        wifi_config_snapshots = _artifact_rows("wifi_config_toml_snapshot", limit=30)
 
-        snap_by_patch_type = {}
-        for snap in wifi_config_snapshots or []:
-            title = (snap.title or "").strip()
+        snap_by_patch_type: dict[str, str] = {}
+        for row in wifi_config_snapshots or []:
+            snap = row["meta"]
+            title = (getattr(snap, "title", "") or "").strip()
             if "wifi config snapshot " in title:
                 patch_type = (
                     title.replace("wifi config snapshot ", "", 1).strip().split()[0]
@@ -2150,5 +2159,8 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
 
 if __name__ == "__main__":
+    # Run as: python -m smolotchi.api.web
     app = create_app()
-    app.run(host="0.0.0.0", port=8080, debug=False)
+    app.run(
+        host="0.0.0.0", port=int(os.environ.get("SMOLOTCHI_WEB_PORT", "8080"))
+    )
