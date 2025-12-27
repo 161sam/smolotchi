@@ -62,6 +62,9 @@ def cmd_web(args) -> int:
 
 
 def cmd_display(args) -> int:
+    os.environ["SMOLOTCHI_DEVICE"] = args.device
+    os.environ["SMOLOTCHI_DB"] = args.db
+    os.environ["SMOLOTCHI_ARTIFACT_ROOT"] = args.artifact_root
     from smolotchi.display.displayd import main
 
     main()
@@ -98,7 +101,8 @@ def cmd_core(args) -> int:
         autonomous_categories=cfg.policy.autonomous_categories,
     )
 
-    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    artifact_root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", DEFAULT_ARTIFACT_ROOT)
+    artifacts = ArtifactStore(artifact_root)
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
     jobs = JobStore(args.db)
@@ -1126,6 +1130,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_web)
 
     s = sub.add_parser("display", help="Run e-paper display daemon")
+    s.add_argument("--device", default=os.environ.get("SMOLOTCHI_DEVICE", "pi_zero"))
+    s.add_argument("--db", default=DEFAULT_DB)
+    s.add_argument("--artifact-root", default=DEFAULT_ARTIFACT_ROOT)
     s.set_defaults(fn=cmd_display)
 
     s = sub.add_parser("core", help="Run core state-machine daemon")

@@ -198,6 +198,9 @@ class JobStore:
                 )
         return out
 
+    def list_recent(self, limit: int = 10) -> List[JobRow]:
+        return self.list(limit=limit, status=None)
+
     def list_stuck_running(
         self, older_than_seconds: int = 180, limit: int = 50
     ) -> List[JobRow]:

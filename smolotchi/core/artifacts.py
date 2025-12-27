@@ -204,6 +204,14 @@ class ArtifactStore:
         latest = self.list(limit=1, kind=kind)
         return latest[0].id if latest else None
 
+    def latest_meta(self, kind: str) -> Optional[Dict[str, Any]]:
+        aid = self.find_latest(kind)
+        return self.get_meta(aid) if aid else None
+
+    def latest_json(self, kind: str) -> Optional[Dict[str, Any]]:
+        aid = self.find_latest(kind)
+        return self.get_json(aid) if aid else None
+
     def prune(
         self, keep_last: int = 500, older_than_days: int = 30, kinds_keep_last=None
     ) -> int:
