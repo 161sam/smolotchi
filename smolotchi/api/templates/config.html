@@ -4,20 +4,20 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  <div class="row between">
     <div>
       <div class="muted">config.toml bearbeiten (Save schreibt Datei). Danach optional “Reload config”.</div>
     </div>
 
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="btn-row">
       <button type="submit" form="config-form" class="btn">Save</button>
       <button type="submit" form="config-form" formaction="{{ url_for('config_save_reload') }}" class="btn">Save + Reload</button>
-      <button type="submit" form="config-form" formaction="{{ url_for('config_reload') }}" class="secondary">Reload config</button>
+      <button type="submit" form="config-form" formaction="{{ url_for('config_reload') }}" class="btn secondary">Reload config</button>
     </div>
   </div>
 
   {% if msg %}
-    <div class="events" style="margin-top:12px">
+    <div class="events mt-lg">
       <div class="evt">
         <div class="evt-top">{{ msg.title }}</div>
         <pre>{{ msg.text }}</pre>
@@ -27,33 +27,31 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">config.toml (editable)</h3>
+  <h3 class="h3-tight">config.toml (editable)</h3>
   <form id="config-form" method="post" action="{{ url_for('config_save') }}">
-    <textarea name="content" spellcheck="false"
-      style="width:100%; min-height:52vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace; font-size:12px; line-height:1.4;"
-    >{{ content }}</textarea>
+    <textarea name="content" spellcheck="false" class="code-area font-mono w-100 min-h-52">{{ content }}</textarea>
   </form>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Aktive Konfiguration (parsed)</h3>
+  <h3 class="h3-tight">Aktive Konfiguration (parsed)</h3>
 
-  <h3 style="margin:14px 0 10px 0">core</h3>
+  <h3 class="h3-section">core</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.core.__dict__ }}</pre></div></div>
 
-  <h3 style="margin:14px 0 10px 0">policy</h3>
+  <h3 class="h3-section">policy</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.policy.__dict__ }}</pre></div></div>
 
-  <h3 style="margin:14px 0 10px 0">wifi</h3>
+  <h3 class="h3-section">wifi</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.wifi.__dict__ }}</pre></div></div>
 
-  <h3 style="margin:14px 0 10px 0">lan</h3>
+  <h3 class="h3-section">lan</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.lan.__dict__ }}</pre></div></div>
 
-  <h3 style="margin:14px 0 10px 0">ui</h3>
+  <h3 class="h3-section">ui</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.ui.__dict__ }}</pre></div></div>
 
-  <h3 style="margin:14px 0 10px 0">theme</h3>
+  <h3 class="h3-section">theme</h3>
   <div class="events"><div class="evt"><pre>{{ cfg.theme.__dict__ }}</pre></div></div>
 </section>
 {% endblock %}

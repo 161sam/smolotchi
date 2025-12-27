@@ -12,7 +12,7 @@
   {% set artifacts = [s.artifact_id] %}
 {% endif %}
 
-<span class="btn-row" style="gap:6px; flex-wrap:wrap; align-items:center;">
+<span class="btn-row gap-xs">
   {% for a in artifacts %}
     <a class="btn" href="{{ url_for('artifact_view', artifact_id=a) }}">Artifact</a>
   {% endfor %}

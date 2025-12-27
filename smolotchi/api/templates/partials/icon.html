@@ -6,7 +6,7 @@
   {% endif %}
   {% set file_url = url_for('static', filename=_path) %}
   <img src="{{ file_url }}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-  <span style="display:none">
+  <span class="hidden">
     {% if _name == 'dashboard' %}
       <svg viewBox="0 0 24 24"><path d="M4 13h7V4H4v9zm9 7h7V11h-7v9zM4 20h7v-5H4v5zm9-18v7h7V2h-7z"/></svg>
     {% elif _name == 'wifi' %}

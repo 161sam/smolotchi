@@ -48,7 +48,7 @@
       {% endif %}
     </div>
     {% if diff_badges %}
-      <div class="btn-row" style="margin-top:10px; flex-wrap:wrap">
+      <div class="btn-row mt-md">
         <span class="pill">Changed: {{ diff_badges.changed_hosts or 0 }}</span>
         {% for k, v in (diff_badges.transitions or {}).items() %}
           <span class="pill">{{ k }}: {{ v }}</span>
@@ -56,8 +56,8 @@
       </div>
     {% endif %}
     {% if diff_changed_hosts and bundle_id %}
-      <div class="small" style="margin-top:10px">Changed hosts</div>
-      <div class="btn-row" style="flex-wrap:wrap">
+      <div class="small mt-md">Changed hosts</div>
+      <div class="btn-row">
         {% for host in diff_changed_hosts %}
           <a class="btn" href="{{ url_for('lan_host_diff', bundle_id=bundle_id, host=host) }}">{{ host }}</a>
         {% endfor %}
@@ -68,8 +68,8 @@
 
   {% if eff %}
   <section class="card">
-    <h3 style="margin:0 0 10px 0">Effective overrides</h3>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <h3 class="h3-tight">Effective overrides</h3>
+    <div class="row">
       {% if eff.wifi_ssid %}<span class="pill">ssid: {{ eff.wifi_ssid }}</span>{% endif %}
       {% if eff.wifi_iface %}<span class="pill">iface: {{ eff.wifi_iface }}</span>{% endif %}
       <span class="pill">pack: {{ eff.pack }}</span>
@@ -80,12 +80,12 @@
     </div>
 
     {% if eff.wifi_profile %}
-      <div style="margin-top:12px" class="muted">profile (applied)</div>
+      <div class="muted mt-lg">profile (applied)</div>
       <div class="events"><div class="evt"><pre>{{ eff.wifi_profile }}</pre></div></div>
     {% endif %}
 
     {% if eff.lan_overrides %}
-      <div style="margin-top:12px" class="muted">overrides (job meta)</div>
+      <div class="muted mt-lg">overrides (job meta)</div>
       <div class="events"><div class="evt"><pre>{{ eff.lan_overrides }}</pre></div></div>
     {% endif %}
   </section>
@@ -93,7 +93,7 @@
 
   {% if profile_timeline %}
   <section class="card">
-    <h3 style="margin:0 0 10px 0">Profile Timeline</h3>
+    <h3 class="h3-tight">Profile Timeline</h3>
     <div class="events">
       {% for entry in profile_timeline %}
         <div class="evt">
@@ -111,8 +111,8 @@
   {% endif %}
 
   {% if job_meta %}
-    <div style="margin-bottom:16px">
-      <h3 style="margin:0 0 10px 0">Job meta / overrides</h3>
+    <div class="mb-xl">
+      <h3 class="h3-tight">Job meta / overrides</h3>
       <div class="events">
         <div class="evt"><pre>{{ job_meta }}</pre></div>
       </div>
@@ -130,7 +130,7 @@
     <div data-pane="meta">
       <div class="small">Job ID</div>
       <div class="codebox" id="job_id_box">{{ job_id }}</div>
-      <div class="btn-row" style="margin-top:10px">
+      <div class="btn-row mt-md">
         <button class="btn" type="button" data-copy="job_id_box">Copy</button>
         {% if job_id %}
           <a class="btn" href="{{ url_for('lan_jobs') }}">Jobs</a>
@@ -140,7 +140,7 @@
     </div>
 
     <div data-pane="json">
-      <div class="btn-row" style="margin-bottom:10px">
+      <div class="btn-row mb-sm">
         <button class="btn" type="button" data-copy="result_json_box">Copy</button>
         {% if result_json_id %}
           <a class="btn" href="{{ url_for('artifact_download', artifact_id=result_json_id) }}">Download</a>
@@ -151,7 +151,7 @@
 
     <div data-pane="bundle">
       {% if bundle_pretty %}
-        <div class="btn-row" style="margin-bottom:10px">
+        <div class="btn-row mb-sm">
           <button class="btn" type="button" data-copy="bundle_box">Copy</button>
           {% if bundle_id %}
             <a class="btn" href="{{ url_for('artifact_download', artifact_id=bundle_id) }}">Download</a>
@@ -164,7 +164,7 @@
     </div>
 
     <div data-pane="events">
-      <div class="btn-row" style="margin-bottom:10px">
+      <div class="btn-row mb-sm">
         <button class="btn" type="button" data-collapse="#evt_list">Hide</button>
       </div>
       <div id="evt_list" class="events">

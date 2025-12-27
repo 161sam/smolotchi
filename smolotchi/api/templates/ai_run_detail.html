@@ -4,23 +4,23 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+  <div class="row between">
+    <div class="row">
       <a href="{{ url_for('ai_jobs') }}" class="btn secondary">← Back to AI Jobs</a>
       <a href="{{ url_for('ai_plans') }}" class="btn secondary">AI Plans</a>
       {% if plan_artifact_id %}
         <a href="{{ url_for('ai_plan_detail', artifact_id=plan_artifact_id) }}" class="btn">Open Plan</a>
       {% endif %}
     </div>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="row">
       <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=run_artifact_id) }}">Download JSON</a>
     </div>
   </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Summary</h3>
-  <div class="row" style="gap:10px; flex-wrap:wrap;">
+  <h3 class="h3-tight">Summary</h3>
+  <div class="row">
     <span class="pill">status: {{ run.status }}</span>
     {% if run.scope %}<span class="pill">scope: {{ run.scope }}</span>{% endif %}
     {% if run.mode %}<span class="pill">mode: {{ run.mode }}</span>{% endif %}
@@ -30,7 +30,7 @@
   </div>
 
   {% if run.error %}
-    <div class="evt" style="margin-top:12px;">
+    <div class="evt mt-lg">
       <div class="evt-top">Error</div>
       <pre>{{ run.error }}</pre>
     </div>
@@ -38,14 +38,14 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Steps</h3>
+  <h3 class="h3-tight">Steps</h3>
   <div class="events">
     {% for s in run.steps %}
       <div class="evt">
         <div class="evt-top">
-          <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <div class="row between">
             <span>#{{ s.step }} • {{ s.action }}</span>
-            <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <div class="row gap-sm">
               {% for rid in (s.links.reports or []) %}
                 <a class="pill" href="{{ url_for('report_view', artifact_id=rid) }}">report: {{ rid }}</a>
               {% endfor %}
@@ -68,12 +68,12 @@
         <pre>duration={{ s.duration_s }}s{% if s.score is not none %} • score={{ s.score }}{% endif %}</pre>
 
         {% if s.why %}
-          <div class="muted" style="margin-top:10px">why</div>
+          <div class="muted mt-md">why</div>
           <pre>{{ s.why }}</pre>
         {% endif %}
 
         {% if s.result_summary %}
-          <div class="muted" style="margin-top:10px">result</div>
+          <div class="muted mt-md">result</div>
           <pre>{{ s.result_summary | tojson(indent=2) }}</pre>
         {% endif %}
       </div>
@@ -84,7 +84,7 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Raw JSON</h3>
+  <h3 class="h3-tight">Raw JSON</h3>
   <pre>{{ run_pretty }}</pre>
 </section>
 {% endblock %}

@@ -11,18 +11,18 @@
     </div>
     <div class="kpi">
       <div class="label">Note</div>
-      <div class="value" style="font-size:14px">{{ status_evt.payload.note if status_evt else "" }}</div>
+      <div class="value text-md">{{ status_evt.payload.note if status_evt else "" }}</div>
     </div>
     <div class="kpi">
       <div class="label">DB</div>
-      <div class="value" style="font-size:14px">events.db</div>
+      <div class="value text-md">events.db</div>
     </div>
   </div>
 </section>
 
 {% if health_evt %}
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Engine health</h3>
+  <h3 class="h3-tight">Engine health</h3>
   <div class="events">
     {% for h in health_evt.payload.engines %}
       <div class="evt">
@@ -35,37 +35,37 @@
 {% endif %}
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Quick actions</h3>
+  <h3 class="h3-tight">Quick actions</h3>
   <form method="post" action="/handoff" class="row">
     <input name="tag" value="lab-approved" />
-    <input name="note" placeholder="Reason / Ticket / Lab-Case" style="min-width:280px" />
-    <button type="submit">Handoff → LAN_OPS</button>
+    <input name="note" placeholder="Reason / Ticket / Lab-Case" class="min-w-280" />
+    <button type="submit" class="btn">Handoff → LAN_OPS</button>
   </form>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">AI Mode</h3>
+  <h3 class="h3-tight">AI Mode</h3>
   <form method="post" action="/ai/plan" class="row">
     <input name="scope" value="10.0.10.0/24" />
     <input name="note" placeholder="plan note (optional)" />
-    <button type="submit" class="secondary">Generate Plan</button>
+    <button type="submit" class="btn secondary">Generate Plan</button>
   </form>
 
-  <div class="row" style="margin-top:10px">
+  <div class="row mt-md">
     <a class="btn" href="/ai/plans">AI Plans</a>
   </div>
 
-  <form method="post" action="/ai/run" style="margin-top:10px">
-    <button type="submit">Run Autonomous (safe)</button>
+  <form method="post" action="/ai/run" class="mt-md">
+    <button type="submit" class="btn">Run Autonomous (safe)</button>
   </form>
 
-  <div class="muted" style="margin-top:10px">
+  <div class="muted mt-md">
     Autonomous runs only actions explicitly marked allow_autonomous + allowed by policy (network_scan + vuln_assess).
   </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Recent events</h3>
+  <h3 class="h3-tight">Recent events</h3>
   <div class="events">
     {% for e in events %}
       <div class="evt">

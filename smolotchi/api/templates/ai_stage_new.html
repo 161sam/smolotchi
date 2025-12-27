@@ -4,9 +4,9 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; flex-wrap:wrap; gap:10px">
+  <div class="row between">
     <a href="{{ url_for('ai_stages') }}" class="btn secondary">← Back</a>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="row">
       <span class="pill">cap.intrusive: {{ 'ON' if intrusive_ok else 'OFF' }}</span>
       <span class="pill">cap.dangerous: {{ 'ON' if dangerous_ok else 'OFF' }}</span>
     </div>
@@ -18,28 +18,28 @@
     <label>plan_artifact_id</label>
     <input name="plan_artifact_id" placeholder="e.g. 1735123456-ai_plan" />
 
-    <label style="margin-top:10px">stage</label>
+    <label class="mt-md">stage</label>
     <select name="stage">
       <option value="exploit">exploit</option>
       <option value="post">post</option>
     </select>
 
-    <label style="margin-top:10px">target</label>
+    <label class="mt-md">target</label>
     <input name="target" placeholder="e.g. 10.0.10.23" />
 
-    <label style="margin-top:10px">exploit</label>
+    <label class="mt-md">exploit</label>
     <input name="exploit" placeholder="module-id / technique" />
 
-    <label style="margin-top:10px">risk</label>
+    <label class="mt-md">risk</label>
     <select name="risk">
       <option value="intrusive">intrusive</option>
       <option value="dangerous">dangerous</option>
     </select>
 
-    <button style="margin-top:14px" class="btn" type="submit">Create request</button>
+    <button class="btn mt-xl" type="submit">Create request</button>
   </form>
 
-  <div class="muted" style="margin-top:10px">
+  <div class="muted mt-md">
     Approvals resume blocked AI plans at the requested stage.
   </div>
 </section>
