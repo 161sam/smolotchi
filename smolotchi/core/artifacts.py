@@ -224,15 +224,30 @@ class ArtifactStore:
                 continue
             aid = str(row.get("id"))
             req = self.get_json(aid)
+            if req:
+                req = self._inject_stage_request_id(req, aid)
             if req and self.is_stage_request_pending(req):
                 count += 1
         return count
+
+    def _inject_stage_request_id(
+        self, request: Dict[str, Any], artifact_id: str
+    ) -> Dict[str, Any]:
+        req_id = str(artifact_id)
+        if request.get("id") != req_id:
+            request["id"] = req_id
+        if not request.get("request_id"):
+            request["request_id"] = req_id
+        return request
 
     def find_latest_stage_request(self) -> Optional[Dict[str, Any]]:
         latest = self.list(limit=1, kind="ai_stage_request")
         if not latest:
             return None
-        return self.get_json(latest[0].id)
+        req = self.get_json(latest[0].id)
+        if not req:
+            return None
+        return self._inject_stage_request_id(req, latest[0].id)
 
     def find_latest_pending_stage_request(self) -> Optional[Dict[str, Any]]:
         """
@@ -246,6 +261,7 @@ class ArtifactStore:
             req = self.get_json(aid)
             if not req:
                 continue
+            req = self._inject_stage_request_id(req, aid)
             if self.is_stage_request_pending(req):
                 return req
         return None
@@ -337,7 +353,7 @@ class ArtifactStore:
 
     def delete(self, artifact_id: str) -> None:
         meta = self.get_meta(artifact_id)
-        if not meta:
+        if meta is None:
             return
         path = meta.get("path")
         if path:
