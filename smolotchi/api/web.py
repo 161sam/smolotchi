@@ -256,6 +256,26 @@ def create_app(config_path: str = "config.toml") -> Flask:
             sid = s.title.replace("wifi session ", "").strip()
             setattr(s, "report_id", rep_map.get(sid))
 
+        wifi_profile_selections = artifacts.list(limit=20, kind="wifi_profile_selection")
+        wifi_connect_attempts = artifacts.list(limit=20, kind="wifi_connect_attempt")
+        wifi_connect_results = artifacts.list(limit=20, kind="wifi_connect_result")
+        wifi_disconnect_attempts = artifacts.list(limit=20, kind="wifi_disconnect_attempt")
+        wifi_disconnect_results = artifacts.list(limit=20, kind="wifi_disconnect_result")
+        wifi_config_patches = artifacts.list(limit=30, kind="wifi_config_patch")
+        wifi_config_snapshots = artifacts.list(
+            limit=30, kind="wifi_config_toml_snapshot"
+        )
+
+        snap_by_patch_type = {}
+        for snap in wifi_config_snapshots or []:
+            title = (snap.title or "").strip()
+            if "wifi config snapshot " in title:
+                patch_type = (
+                    title.replace("wifi config snapshot ", "", 1).strip().split()[0]
+                )
+                if patch_type and patch_type not in snap_by_patch_type:
+                    snap_by_patch_type[patch_type] = snap.id
+
         targets_latest = artifacts.list(limit=1, kind="wifi_targets")
         targets_state = (
             artifacts.get_json(targets_latest[0].id) if targets_latest else {}
@@ -299,6 +319,15 @@ def create_app(config_path: str = "config.toml") -> Flask:
             profile_hashes=profile_hashes,
             selected_profile_evt=selected_profile_evt,
             profiles_error=profiles_error,
+            artifacts=artifacts,
+            wifi_profile_selections=wifi_profile_selections,
+            wifi_connect_attempts=wifi_connect_attempts,
+            wifi_connect_results=wifi_connect_results,
+            wifi_disconnect_attempts=wifi_disconnect_attempts,
+            wifi_disconnect_results=wifi_disconnect_results,
+            wifi_config_patches=wifi_config_patches,
+            wifi_config_snapshots=wifi_config_snapshots,
+            wifi_snap_by_patch_type=snap_by_patch_type,
         )
 
     @app.post("/wifi/connect")

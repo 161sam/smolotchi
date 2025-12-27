@@ -278,6 +278,237 @@
 </section>
 
 <section class="card">
+  <h3 class="h3-tight">WiFi • Profile selections (artifacts)</h3>
+  {% if wifi_profile_selections and wifi_profile_selections|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>iface</th>
+            <th>ssid</th>
+            <th>profile_hash</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in wifi_profile_selections %}
+            {% set p = artifacts.get_json(a.id) %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.ts if p else None) }}</td>
+              <td>{{ p.iface if p else "-" }}</td>
+              <td>{{ p.ssid if p else "-" }}</td>
+              <td><code>{{ p.wifi_profile_hash if p and p.wifi_profile_hash else "-" }}</code></td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="h3-tight">WiFi • Connect attempts (artifacts)</h3>
+  {% if wifi_connect_attempts and wifi_connect_attempts|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>iface</th>
+            <th>ssid</th>
+            <th>allowed</th>
+            <th>has_cred</th>
+            <th>ok</th>
+            <th>note</th>
+            <th>profile_hash</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in wifi_connect_attempts %}
+            {% set p = artifacts.get_json(a.id) %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.ts if p else None) }}</td>
+              <td>{{ p.iface if p else "-" }}</td>
+              <td>{{ p.ssid if p else "-" }}</td>
+              <td>{{ p.allowed if p is not none else "-" }}</td>
+              <td>{{ p.has_cred if p is not none else "-" }}</td>
+              <td>{{ p.ok if p is not none else "-" }}</td>
+              <td><small>{{ p.note if p and p.note else "-" }}</small></td>
+              <td><code>{{ p.wifi_profile_hash if p and p.wifi_profile_hash else "-" }}</code></td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="h3-tight">WiFi • Connect results (artifacts)</h3>
+  {% if wifi_connect_results and wifi_connect_results|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>iface</th>
+            <th>ssid</th>
+            <th>allowed</th>
+            <th>has_cred</th>
+            <th>ok</th>
+            <th>note</th>
+            <th>profile_hash</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in wifi_connect_results %}
+            {% set p = artifacts.get_json(a.id) %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.ts if p else None) }}</td>
+              <td>{{ p.iface if p else "-" }}</td>
+              <td>{{ p.ssid if p else "-" }}</td>
+              <td>{{ p.allowed if p is not none else "-" }}</td>
+              <td>{{ p.has_cred if p is not none else "-" }}</td>
+              <td>{{ p.ok if p is not none else "-" }}</td>
+              <td><small>{{ p.note if p and p.note else "-" }}</small></td>
+              <td><code>{{ p.wifi_profile_hash if p and p.wifi_profile_hash else "-" }}</code></td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="h3-tight">WiFi • Disconnect attempts (artifacts)</h3>
+  {% if wifi_disconnect_attempts and wifi_disconnect_attempts|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>iface</th>
+            <th>ssid</th>
+            <th>reason</th>
+            <th>ok</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in wifi_disconnect_attempts %}
+            {% set p = artifacts.get_json(a.id) %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.ts if p else None) }}</td>
+              <td>{{ p.iface if p else "-" }}</td>
+              <td>{{ p.ssid if p else "-" }}</td>
+              <td>{{ p.reason if p and p.reason else "-" }}</td>
+              <td>{{ p.ok if p is not none else "-" }}</td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="h3-tight">WiFi • Disconnect results (artifacts)</h3>
+  {% if wifi_disconnect_results and wifi_disconnect_results|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>iface</th>
+            <th>ssid</th>
+            <th>reason</th>
+            <th>ok</th>
+            <th>note</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in wifi_disconnect_results %}
+            {% set p = artifacts.get_json(a.id) %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.ts if p else None) }}</td>
+              <td>{{ p.iface if p else "-" }}</td>
+              <td>{{ p.ssid if p else "-" }}</td>
+              <td>{{ p.reason if p and p.reason else "-" }}</td>
+              <td>{{ p.ok if p is not none else "-" }}</td>
+              <td><small>{{ p.note if p and p.note else "-" }}</small></td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="h3-tight">WiFi • Config patches (artifacts)</h3>
+  {% if wifi_config_patches and wifi_config_patches|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>patch_type</th>
+            <th>summary</th>
+            <th>before_hash</th>
+            <th>after_hash</th>
+            <th>snapshot</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in wifi_config_patches %}
+            {% set p = artifacts.get_json(a.id) %}
+            {% set pt = p.patch_type if p and p.patch_type else "" %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.ts if p else None) }}</td>
+              <td><code>{{ pt if pt else "-" }}</code></td>
+              <td><small>{{ p.summary if p and p.summary else "-" }}</small></td>
+              <td><code>{{ p.before_hash[:12] ~ "…" if p and p.before_hash else "-" }}</code></td>
+              <td><code>{{ p.after_hash[:12] ~ "…" if p and p.after_hash else "-" }}</code></td>
+              <td>
+                {% if wifi_snap_by_patch_type and pt and pt in wifi_snap_by_patch_type %}
+                  <a class="pill" href="{{ url_for('artifact_file_download', artifact_id=wifi_snap_by_patch_type[pt]) }}">Download</a>
+                {% else %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
   <h3 class="h3-tight">Recent WiFi events</h3>
   <div class="events">
     {% for e in events[:25] %}
