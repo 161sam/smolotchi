@@ -222,6 +222,22 @@ class ArtifactStore:
             return None
         return self.get_json(latest[0].id)
 
+    def find_latest_pending_stage_request(self) -> Optional[Dict[str, Any]]:
+        """
+        Returns newest ai_stage_request that has no matching ai_stage_approval.
+        """
+        idx = self._load_index()
+        for row in idx:
+            if row.get("kind") != "ai_stage_request":
+                continue
+            aid = str(row.get("id"))
+            req = self.get_json(aid)
+            if not req:
+                continue
+            if self.is_stage_request_pending(req):
+                return req
+        return None
+
     def find_latest_stage_approval_for_request(
         self, request_id: str
     ) -> Optional[Dict[str, Any]]:
