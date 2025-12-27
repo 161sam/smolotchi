@@ -273,6 +273,43 @@ def create_app(config_path: str = "config.toml") -> Flask:
         wifi_disconnect_results = _artifact_rows("wifi_disconnect_result", limit=20)
         wifi_config_patches = _artifact_rows("wifi_config_patch", limit=30)
         wifi_config_snapshots = _artifact_rows("wifi_config_toml_snapshot", limit=30)
+        wifi_lan_timeline = _artifact_rows("wifi_lan_timeline", limit=30)
+
+        def _job_status(job_id: str) -> str:
+            if not job_id:
+                return "-"
+            for e in events:
+                if not getattr(e, "payload", None):
+                    continue
+                job = e.payload.get("job") if isinstance(e.payload, dict) else None
+                if (
+                    isinstance(job, dict)
+                    and job.get("id") == job_id
+                    and e.topic == "ui.lan.enqueue"
+                ):
+                    continue
+                if e.topic in ("lan.job.started", "lan.job.running", "lan.job.done", "lan.done"):
+                    if isinstance(e.payload, dict) and e.payload.get("id") == job_id:
+                        if e.topic in ("lan.job.done", "lan.done"):
+                            return "done"
+                        return "running"
+            return "enqueued"
+
+        def _job_links(job_id: str) -> dict:
+            if not job_id:
+                return {}
+            job = jobstore.get(job_id)
+            resolved = resolve_result_by_job_id(job_id)
+            bundle_id = resolved.get("bundle_id")
+            report_id = resolved.get("report_id")
+            links = {}
+            if job:
+                links["job_json"] = url_for("lan_job_json", job_id=job_id)
+            if bundle_id:
+                links["bundle"] = url_for("lan_result_details", bundle_id=bundle_id)
+            if report_id:
+                links["report"] = url_for("report_view", artifact_id=report_id)
+            return links
 
         snap_by_patch_type: dict[str, str] = {}
         for row in wifi_config_snapshots or []:
@@ -337,6 +374,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
             wifi_config_patches=wifi_config_patches,
             wifi_config_snapshots=wifi_config_snapshots,
             wifi_snap_by_patch_type=snap_by_patch_type,
+            wifi_lan_timeline=wifi_lan_timeline,
+            job_status=_job_status,
+            job_links=_job_links,
         )
 
     @app.post("/wifi/connect")
@@ -1615,6 +1655,27 @@ def create_app(config_path: str = "config.toml") -> Flask:
         ok = jobstore.delete(job_id)
         bus.publish("ui.job.delete", {"id": job_id, "ok": ok})
         return redirect(url_for("lan_jobs"))
+
+    @app.get("/lan/job/<job_id>/json")
+    def lan_job_json(job_id: str):
+        job = jobstore.get(job_id)
+        if not job:
+            abort(404)
+        payload = {
+            "id": job.id,
+            "kind": job.kind,
+            "scope": job.scope,
+            "note": job.note,
+            "meta": job.meta,
+            "status": job.status,
+            "created_ts": job.created_ts,
+            "updated_ts": job.updated_ts,
+        }
+        return Response(
+            response=json.dumps(payload, ensure_ascii=False, indent=2),
+            status=200,
+            mimetype="application/json",
+        )
 
     @app.get("/lan/policy")
     def lan_policy():

@@ -31,6 +31,7 @@ class WifiEngine:
         self._connected_profile: Optional[dict] = None
         self._session_started_ts = None
         self._session_id = None
+        self._current_job_id: Optional[str] = None
         self._lan_busy = False
         self._lan_locked = False
         self._last_lan_evt_ts = 0.0
@@ -86,6 +87,7 @@ class WifiEngine:
             "duration_sec": round(duration, 2),
             "scope": scope,
             "reason": reason,
+            "job_id": self._current_job_id,
         }
 
         try:
@@ -122,6 +124,7 @@ class WifiEngine:
 
         self._session_started_ts = None
         self._session_id = None
+        self._current_job_id = None
 
     def tick(self) -> None:
         if not self._running:
@@ -252,6 +255,7 @@ class WifiEngine:
             ok: Optional[bool] = False
             note = None
             wifi_prof_hash = None
+            job_id: Optional[str] = None
             if self._lan_locked:
                 note = "lan_locked"
             elif ssid and has_cred and allowed:
@@ -282,6 +286,42 @@ class WifiEngine:
                         wifi_prof_hash = profile_hash(profile_norm)
                     self._connected_profile = profile_norm if apply_on_connect else {}
                     self._start_session(iface_req, ssid)
+                    scope_map = getattr(w, "scope_map", None) or {}
+                    mapped = (
+                        (scope_map.get(ssid) or "").strip()
+                        if isinstance(scope_map, dict)
+                        else ""
+                    )
+                    p_scope = (
+                        (profile_norm.get("scope") or "").strip()
+                        if apply_on_connect
+                        else ""
+                    )
+                    scope = (
+                        p_scope
+                        or mapped
+                        or detect_scope_for_iface(iface_req)
+                        or getattr(
+                            getattr(cfg, "lan", None),
+                            "default_scope",
+                            "10.0.10.0/24",
+                        )
+                    )
+                    lan_overrides = {}
+                    if apply_on_connect:
+                        if profile_norm.get("lan_pack"):
+                            lan_overrides["pack"] = profile_norm.get("lan_pack")
+                        if profile_norm.get("lan_throttle_rps") is not None:
+                            lan_overrides["throttle_rps"] = profile_norm.get(
+                                "lan_throttle_rps"
+                            )
+                        if profile_norm.get("lan_batch_size") is not None:
+                            lan_overrides["batch_size"] = profile_norm.get(
+                                "lan_batch_size"
+                            )
+
+                    job_id = f"job-{int(time.time())}"
+                    self._current_job_id = job_id
                     if apply_on_connect:
                         self.artifacts.put_json(
                             kind="profile_timeline",
@@ -291,11 +331,48 @@ class WifiEngine:
                                 "profile_hash": wifi_prof_hash,
                                 "profile": profile_norm,
                                 "applied_at": time.time(),
-                                "job_id": None,
+                                "job_id": job_id,
                                 "bundle_id": None,
                                 "reason": "wifi_connect",
                             },
                         )
+                    self.bus.publish(
+                        "ui.lan.enqueue",
+                        {
+                            "job": {
+                                "id": job_id,
+                                "kind": "inventory",
+                                "scope": scope,
+                                "note": f"triggered by wifi ssid={ssid} iface={iface_req}",
+                                "meta": {
+                                    "wifi_ssid": ssid,
+                                    "wifi_iface": iface_req,
+                                    "wifi_profile": profile_norm
+                                    if apply_on_connect
+                                    else {},
+                                    "wifi_profile_hash": wifi_prof_hash
+                                    if apply_on_connect
+                                    else None,
+                                    "lan_overrides": lan_overrides,
+                                    "reason": "wifi_connect_ui",
+                                },
+                            }
+                        },
+                    )
+                    self.artifacts.put_json(
+                        kind="wifi_lan_timeline",
+                        title=f"wifi→lan {ssid} {job_id}",
+                        payload={
+                            "ts": time.time(),
+                            "ssid": ssid,
+                            "iface": iface_req,
+                            "wifi_profile_hash": wifi_prof_hash,
+                            "job_id": job_id,
+                            "scope": scope,
+                            "lan_overrides": lan_overrides,
+                            "reason": "wifi_connect_ui",
+                        },
+                    )
                     if self._forced_profile_ssid == ssid:
                         self._forced_profile_ssid = None
             else:
@@ -319,6 +396,7 @@ class WifiEngine:
                     "ok": ok,
                     "note": self._truncate_note(note),
                     "wifi_profile_hash": wifi_prof_hash,
+                    "job_id": job_id,
                 },
             )
 
@@ -358,6 +436,7 @@ class WifiEngine:
                         "reason": "lan_locked",
                         "ok": False,
                         "note": None,
+                        "job_id": self._current_job_id,
                     },
                 )
             elif self._connected_ssid:
@@ -383,6 +462,7 @@ class WifiEngine:
                         "reason": "ui_request",
                         "ok": ok,
                         "note": self._truncate_note(out),
+                        "job_id": self._current_job_id,
                     },
                 )
                 self._end_session(iface, "ui_request")
@@ -400,6 +480,7 @@ class WifiEngine:
                         "reason": "not_connected",
                         "ok": False,
                         "note": None,
+                        "job_id": None,
                     },
                 )
 
@@ -604,6 +685,7 @@ class WifiEngine:
                 },
             )
         job_id = f"job-{int(time.time())}"
+        self._current_job_id = job_id
         if apply_on_connect:
             self.artifacts.put_json(
                 kind="profile_timeline",
