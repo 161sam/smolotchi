@@ -1,0 +1,15 @@
+[Unit]
+Description=Smolotchi E-Paper Display Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=smolotchi
+WorkingDirectory=/opt/smolotchi
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/smolotchi/.venv/bin/python -m smolotchi.display.displayd
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
