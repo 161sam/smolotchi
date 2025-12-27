@@ -8,13 +8,13 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Running</h3>
+  <h3 class="mb-sm">Running</h3>
   <div class="events">
     {% for j in running %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
@@ -22,29 +22,34 @@
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
         {% if j.meta %}
-          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+          <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
-        <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Reset to queued</button>
+        <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" class="mt-sm">
+          <button class="btn secondary" type="submit">Reset to queued</button>
         </form>
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <div><strong>No running jobs.</strong></div>
+        <div class="muted">Wenn Core/Worker aktiv sind, werden Jobs hier als running angezeigt.</div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Queued</h3>
+  <h3 class="mb-sm">Queued</h3>
   <div class="events">
     {% for j in queued %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
@@ -52,24 +57,29 @@
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
         {% if j.meta %}
-          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+          <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
-        <form method="post" action="{{ url_for('lan_job_cancel', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Cancel</button>
+        <form method="post" action="{{ url_for('lan_job_cancel', job_id=j.id) }}" class="mt-sm">
+          <button class="btn secondary" type="submit">Cancel</button>
         </form>
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <div><strong>No queued jobs.</strong></div>
+        <div class="muted">Nächster Tick oder Enqueue füllt diese Liste.</div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Done</h3>
+  <h3 class="mb-sm">Done</h3>
   <div class="events">
     {% for j in done %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
-        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
@@ -77,32 +87,37 @@
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
         {% if j.meta %}
-          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+          <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
-        <div class="btn-row" style="margin-top:8px">
+        <div class="btn-row mt-sm">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>
-        <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Delete</button>
+        <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" class="mt-sm">
+          <button class="btn secondary" type="submit">Delete</button>
         </form>
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <div><strong>No completed jobs yet.</strong></div>
+        <div class="muted">Sobald ein Job fertig ist, taucht er hier auf.</div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Failed</h3>
+  <h3 class="mb-sm">Failed</h3>
   <div class="events">
     {% for j in failed %}
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
-        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
           <span class="pill">pack: {{ j.eff_pack }}</span>
           <span class="pill">rps: {{ j.eff_throttle_rps }}</span>
@@ -110,21 +125,26 @@
           {% if j.wifi_ssid %}<span class="pill">ssid: {{ j.wifi_ssid }}</span>{% endif %}
         </div>
         {% if j.meta %}
-          <pre class="muted" style="margin-top:6px">meta: {{ j.meta }}</pre>
+          <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
         {% if run_by_job.get(j.id) %}
-          <div class="btn-row" style="margin-top:8px">
+          <div class="btn-row mt-sm">
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
-        <div class="btn-row" style="margin-top:8px">
+        <div class="btn-row mt-sm">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
         </div>
-        <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" style="margin-top:8px">
-          <button class="secondary" type="submit">Delete</button>
+        <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" class="mt-sm">
+          <button class="btn secondary" type="submit">Delete</button>
         </form>
       </div>
-    {% else %}<div class="muted">none</div>{% endfor %}
+    {% else %}
+      <div class="empty">
+        <div><strong>No failed jobs.</strong></div>
+        <div class="muted">Fehlgeschlagene Jobs erscheinen hier inkl. Note.</div>
+      </div>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}
