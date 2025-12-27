@@ -4,12 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ title }}</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:20px;color:#111}
-    .muted{color:#666;font-size:12px}
-    .card{border:1px solid #ddd;border-radius:12px;padding:14px;margin:12px 0}
-    pre{background:#f6f7f8;padding:12px;border-radius:10px;overflow:auto}
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}" />
 </head>
 <body>
   <h1>{{ title }}</h1>

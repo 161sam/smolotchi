@@ -4,7 +4,7 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between">
+  <div class="row between">
     <a href="/ai/plans" class="btn secondary">← Back to Plans</a>
     <a class="btn secondary" href="/ai/jobs">Jobs</a>
 
@@ -16,13 +16,13 @@
 </section>
 
 <section class="card">
-  <h3>Live progress</h3>
+  <h3 class="h3-tight">Live progress</h3>
   <div class="muted">Job ID: <span id="ai-job-id">job-{{ plan.id }}</span></div>
-  <pre id="ai-progress" style="margin-top:10px; max-height:320px; overflow:auto;">(waiting…)</pre>
+  <pre id="ai-progress" class="pre-scroll mt-md">(waiting…)</pre>
 </section>
 
 <section class="card">
-  <h3>Steps</h3>
+  <h3 class="h3-tight">Steps</h3>
   <div class="events">
     {% for s in plan.steps %}
       <div class="evt">
@@ -36,12 +36,12 @@
 </section>
 
 <section class="card">
-  <h3>Explain</h3>
+  <h3 class="h3-tight">Explain</h3>
   <pre>{{ plan.explain | tojson(indent=2) }}</pre>
 </section>
 
 <section class="card">
-  <h3>Runs</h3>
+  <h3 class="h3-tight">Runs</h3>
   <div class="events">
     {% for r in runs %}
         <div class="evt">
@@ -87,7 +87,7 @@
 </script>
 
 <section class="card">
-  <h3>Raw JSON</h3>
+  <h3 class="h3-tight">Raw JSON</h3>
   <pre>{{ plan_pretty }}</pre>
 </section>
 {% endblock %}

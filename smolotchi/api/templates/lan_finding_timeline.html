@@ -8,11 +8,11 @@
     <a class="pill" href="{{ url_for('lan_results') }}">← Back to LAN Results</a>
     <a class="pill" href="{{ url_for('lan_results') }}?finding={{ fid }}">Filter bundles</a>
     <a class="pill" href="{{ url_for('lan_finding_jump', fid=fid) }}">Jump (latest active)</a>
-    <form method="post" action="{{ url_for('lan_baseline_add') }}" style="display:inline">
+    <form method="post" action="{{ url_for('lan_baseline_add') }}" class="inline-form">
       <input type="hidden" name="scope" value="{{ app_cfg.lan.default_scope if app_cfg and app_cfg.lan else '' }}">
       <input type="hidden" name="fid" value="{{ fid }}">
       <input type="hidden" name="back" value="{{ request.full_path }}">
-      <button class="secondary" type="submit">Add to baseline</button>
+      <button class="btn secondary" type="submit">Add to baseline</button>
     </form>
   </div>
 </section>

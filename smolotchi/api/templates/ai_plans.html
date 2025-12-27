@@ -4,12 +4,12 @@
 
 {% block content %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  <div class="row between">
     <div>
-      <h3 style="margin:0 0 6px 0">Plans</h3>
+      <h3 class="h3-tight-sm">Plans</h3>
       <div class="muted">Latest AI plans (generate a new one from here)</div>
     </div>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="row">
       <a class="btn secondary" href="{{ url_for('ai_jobs') }}">AI Jobs</a>
       <form method="post" action="{{ url_for('ai_plan') }}">
         <input type="hidden" name="scope" value="10.0.10.0/24" />
@@ -26,7 +26,7 @@
         {% if p.data.scope %}<div class="muted">scope: {{ p.data.scope }}</div>{% endif %}
         {% if p.data.note %}<div class="muted">note: {{ p.data.note }}</div>{% endif %}
         <div class="muted">artifact id: {{ p.meta.id }}</div>
-        <div class="row" style="margin-top:8px; gap:10px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <a class="btn" href="{{ url_for('ai_plan_detail', artifact_id=p.meta.id) }}">Open</a>
           <form method="post" action="{{ url_for('ai_run') }}">
             <input type="hidden" name="plan_artifact_id" value="{{ p.meta.id }}" />
@@ -35,7 +35,7 @@
         </div>
 
         {% if runs_by_plan.get(p.plan_id) %}
-          <div class="muted" style="margin-top:6px">
+          <div class="muted mt-xs">
             Runs: {{ runs_by_plan[p.plan_id]|length }}
           </div>
         {% endif %}
@@ -44,7 +44,7 @@
       <div class="evt">
         <div class="evt-top">No AI plans yet</div>
         <div class="muted">Generate a plan to review suggested steps and run them safely.</div>
-        <div class="row" style="margin-top:8px; gap:10px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <form method="post" action="{{ url_for('ai_plan') }}">
             <input type="hidden" name="scope" value="10.0.10.0/24" />
             <input type="hidden" name="note" value="" />

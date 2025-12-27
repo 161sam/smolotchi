@@ -6,9 +6,9 @@
 
 {% if profiles_error %}
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  <div class="row between">
     <div>
-      <div style="font-weight:900">Profiles not saved</div>
+      <div class="fw-900">Profiles not saved</div>
       <div class="muted">Validation failed. Check the Audit tab for details (ui.wifi.profiles.invalid).</div>
     </div>
     <a class="pill" href="{{ url_for('audit') }}">Open audit</a>
@@ -17,31 +17,31 @@
 {% endif %}
 
 <section class="card">
-  <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  <div class="row between">
     <div>
       <div class="muted">Interface</div>
-      <div style="font-weight:900">{{ iface }}</div>
+      <div class="fw-900">{{ iface }}</div>
     </div>
     <div>
       <div class="muted">IPv4</div>
-      <div style="font-weight:900">{{ ip_cidr or "—" }}</div>
+      <div class="fw-900">{{ ip_cidr or "—" }}</div>
     </div>
     <div>
       <div class="muted">Derived scope</div>
-      <div style="font-weight:900">{{ scope or "—" }}</div>
+      <div class="fw-900">{{ scope or "—" }}</div>
     </div>
-    <div class="row" style="gap:10px; flex-wrap:wrap;">
+    <div class="row">
       <a class="pill" href="{{ url_for('config') }}">Config</a>
       <a class="pill" href="{{ url_for('lan') }}">LAN</a>
       <a class="pill" href="{{ url_for('audit') }}">Audit</a>
-      <form method="post" action="/wifi/disconnect" style="margin:0">
+      <form method="post" action="/wifi/disconnect" class="m-0">
         <input type="hidden" name="iface" value="{{ iface }}">
-        <button class="secondary" type="submit">Disconnect now</button>
+        <button class="btn secondary" type="submit">Disconnect now</button>
       </form>
     </div>
   </div>
 
-  <div style="margin-top:10px" class="row" style="gap:12px; flex-wrap:wrap;">
+  <div class="row mt-md gap-lg">
     <span class="pill">auto_connect: {{ "on" if auto_connect else "off" }}</span>
     {% if preferred_ssid %}
       <span class="pill">preferred: {{ preferred_ssid }}</span>
@@ -65,7 +65,7 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">WiFi → LAN timeline</h3>
+  <h3 class="h3-tight">WiFi → LAN timeline</h3>
   <div class="events">
     {% for e in events[:30] %}
       {% if e.topic.startswith("wifi.") or e.topic.startswith("ui.wifi.") or e.topic.startswith("ui.lan.") or e.topic.startswith("lan.") %}
@@ -79,88 +79,88 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Nearby APs</h3>
+  <h3 class="h3-tight">Nearby APs</h3>
 
   {% if aps %}
-    <div style="overflow:auto">
-      <table style="width:100%; border-collapse:separate; border-spacing:0 10px;">
+    <div class="table-scroll">
+      <table class="table-list">
         <thead>
-          <tr class="muted" style="text-align:left">
-            <th style="padding:0 10px">SSID</th>
-            <th style="padding:0 10px">BSSID</th>
-            <th style="padding:0 10px">Signal</th>
-            <th style="padding:0 10px">Seen</th>
-            <th style="padding:0 10px">Best</th>
-            <th style="padding:0 10px">Security</th>
-            <th style="padding:0 10px">Freq</th>
-            <th style="padding:0 10px">Allow</th>
-            <th style="padding:0 10px">Scope</th>
-            <th style="padding:0 10px">Action</th>
+          <tr class="muted table-head">
+            <th>SSID</th>
+            <th>BSSID</th>
+            <th>Signal</th>
+            <th>Seen</th>
+            <th>Best</th>
+            <th>Security</th>
+            <th>Freq</th>
+            <th>Allow</th>
+            <th>Scope</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {% for a in aps %}
-            <tr style="background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.10); border-radius:14px;">
-              <td style="padding:10px; font-weight:900;">
+            <tr class="table-row">
+              <td class="fw-900">
                 {{ a.ssid or "(hidden)" }}
                 {% if a._preferred %}<span class="pill">preferred</span>{% endif %}
                 {% if not a._allowed %}<span class="pill">blocked</span>{% endif %}
               </td>
-              <td style="padding:10px" class="muted">{{ a.bssid }}</td>
-              <td style="padding:10px">{{ a.signal }} dBm</td>
-              <td style="padding:10px">{{ a._seen_count or 0 }}</td>
-              <td style="padding:10px">{{ a._strongest if a._strongest is not none else "—" }}</td>
-              <td style="padding:10px">{{ a.sec or "unknown" }}</td>
-              <td style="padding:10px">{{ a.freq or "" }}</td>
-              <td style="padding:10px">
+              <td class="muted">{{ a.bssid }}</td>
+              <td>{{ a.signal }} dBm</td>
+              <td>{{ a._seen_count or 0 }}</td>
+              <td>{{ a._strongest if a._strongest is not none else "—" }}</td>
+              <td>{{ a.sec or "unknown" }}</td>
+              <td>{{ a.freq or "" }}</td>
+              <td>
                 {% if a.ssid and (not a._allowed) %}
-                  <form method="post" action="/wifi/allowlist/add" style="margin:0">
+                  <form method="post" action="/wifi/allowlist/add" class="m-0">
                     <input type="hidden" name="ssid" value="{{ a.ssid }}">
-                    <button class="secondary" type="submit">Allow</button>
+                    <button class="btn secondary" type="submit">Allow</button>
                   </form>
                 {% elif a.ssid and a._allowed %}
-                  <form method="post" action="/wifi/allowlist/remove" style="margin:0" class="row">
+                  <form method="post" action="/wifi/allowlist/remove" class="row m-0">
                     <input type="hidden" name="ssid" value="{{ a.ssid }}">
-                    <button class="secondary" type="submit">Remove</button>
+                    <button class="btn secondary" type="submit">Remove</button>
                   </form>
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
               </td>
-              <td style="padding:10px">
+              <td>
                 {% if a.ssid %}
-                  <form method="post" action="/wifi/scope_map/set" class="row" style="gap:8px; flex-wrap:wrap; margin:0">
+                  <form method="post" action="/wifi/scope_map/set" class="row gap-sm m-0">
                     <input type="hidden" name="ssid" value="{{ a.ssid }}">
                     <input name="scope"
                       value="{{ a._mapped_scope or scope or preferred_scope or '' }}"
                       placeholder="10.0.10.0/24"
-                      style="width:140px; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:8px 10px; font-family: ui-monospace,monospace; font-size:12px;">
-                    <button class="secondary" type="submit">Set</button>
+                      class="input-compact font-mono w-140">
+                    <button class="btn secondary" type="submit">Set</button>
                   </form>
                   {% if a._mapped_scope %}
-                    <div class="muted" style="margin-top:6px">mapped</div>
-                    <form method="post" action="/wifi/scope_map/remove" style="margin-top:8px">
+                    <div class="muted mt-xs">mapped</div>
+                    <form method="post" action="/wifi/scope_map/remove" class="mt-sm">
                       <input type="hidden" name="ssid" value="{{ a.ssid }}">
-                      <button class="secondary" type="submit">Undo</button>
+                      <button class="btn secondary" type="submit">Undo</button>
                     </form>
                   {% endif %}
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
               </td>
-              <td style="padding:10px">
+              <td>
                 {% if a._has_cred and a._allowed and a.ssid %}
-                  <div class="row" style="gap:8px; flex-wrap:wrap;">
-                    <form method="post" action="/wifi/connect" style="margin:0">
+                  <div class="row gap-sm">
+                    <form method="post" action="/wifi/connect" class="m-0">
                       <input type="hidden" name="ssid" value="{{ a.ssid }}">
                       <input type="hidden" name="iface" value="{{ iface }}">
-                      <button class="secondary" type="submit">Connect</button>
+                      <button class="btn secondary" type="submit">Connect</button>
                     </form>
                     {% if wifi_profiles and a.ssid in wifi_profiles %}
-                      <form method="post" action="/wifi/profile/apply" style="margin:0">
+                      <form method="post" action="/wifi/profile/apply" class="m-0">
                         <input type="hidden" name="ssid" value="{{ a.ssid }}">
                         <input type="hidden" name="iface" value="{{ iface }}">
-                        <button class="secondary" type="submit">Apply profile</button>
+                        <button class="btn secondary" type="submit">Apply profile</button>
                       </form>
                     {% endif %}
                   </div>
@@ -170,21 +170,20 @@
                   <span class="muted">—</span>
                 {% endif %}
                 {% if a.ssid %}
-                  <form method="post" action="/wifi/profile/preset" class="row" style="gap:8px; flex-wrap:wrap; margin:8px 0 0 0">
+                  <form method="post" action="/wifi/profile/preset" class="row gap-sm mt-sm">
                     <input type="hidden" name="ssid" value="{{ a.ssid }}">
-                    <select name="preset"
-                      style="background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:8px 10px; font-size:12px;">
+                    <select name="preset" class="input-compact">
                       <option value="safe">preset: safe</option>
                       <option value="stealth">preset: stealth</option>
                       <option value="fast">preset: fast</option>
                     </select>
-                    <button class="secondary" type="submit">Apply preset</button>
+                    <button class="btn secondary" type="submit">Apply preset</button>
                   </form>
                 {% endif %}
                 {% if a.ssid and (not profiles or a.ssid not in profiles) %}
-                  <form method="post" action="/wifi/profile/create" style="margin-top:8px">
+                  <form method="post" action="/wifi/profile/create" class="mt-sm">
                     <input type="hidden" name="ssid" value="{{ a.ssid }}">
-                    <button class="secondary" type="submit">Create profile</button>
+                    <button class="btn secondary" type="submit">Create profile</button>
                   </form>
                 {% endif %}
               </td>
@@ -193,9 +192,9 @@
         </tbody>
       </table>
     </div>
-    <div class="muted" style="margin-top:10px">Tip: Add credentials in config (wifi.credentials).</div>
+    <div class="muted mt-md">Tip: Add credentials in config (wifi.credentials).</div>
     {% if targets_id %}
-      <div class="muted" style="margin-top:10px">
+      <div class="muted mt-md">
         Target memory: <a class="pill" href="{{ url_for('artifact_view', artifact_id=targets_id) }}">Open</a>
         <a class="pill" href="{{ url_for('artifact_download', artifact_id=targets_id) }}">Download</a>
       </div>
@@ -206,22 +205,20 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">WiFi credentials (lab-only)</h3>
-  <div class="muted" style="margin-bottom:10px">
+  <h3 class="h3-tight">WiFi credentials (lab-only)</h3>
+  <div class="muted mb-sm">
     Format: <code>SSID=psk</code> (one per line). Saved into <code>[wifi.credentials]</code>
     in config.
   </div>
 
   <form method="post" action="/wifi/credentials/save">
-    <textarea name="creds" spellcheck="false"
-      style="width:100%; min-height:24vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,monospace; font-size:12px; line-height:1.4;"
-    >{% if app_cfg and app_cfg.wifi and app_cfg.wifi.credentials %}
+    <textarea name="creds" spellcheck="false" class="code-area font-mono w-100 min-h-24">{% if app_cfg and app_cfg.wifi and app_cfg.wifi.credentials %}
 {% for k,v in (app_cfg.wifi.credentials or {})|dictsort %}
 {{ k }}={{ v }}
 {% endfor %}
 {% endif %}</textarea>
 
-    <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
+    <div class="row end mt-lg">
       <button class="btn" type="submit">Save</button>
       <button class="btn" type="submit" formaction="/wifi/credentials/save_reload" formmethod="post">Save + Reload</button>
     </div>
@@ -229,17 +226,15 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">WiFi profiles (per SSID)</h3>
-  <div class="muted" style="margin-bottom:10px">
+  <h3 class="h3-tight">WiFi profiles (per SSID)</h3>
+  <div class="muted mb-sm">
     Format:
     <code>[SSID]</code> then <code>key=value</code>.
     Types: true/false, int/float, strings.
   </div>
 
   <form method="post" action="/wifi/profiles/save">
-    <textarea name="profiles" spellcheck="false"
-      style="width:100%; min-height:26vh; resize:vertical; background:#0f1722; color:#e7eef7; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; font-family: ui-monospace,monospace; font-size:12px; line-height:1.4;"
-    >{% for ssid, p in (profiles or {})|dictsort %}
+    <textarea name="profiles" spellcheck="false" class="code-area font-mono w-100 min-h-26">{% for ssid, p in (profiles or {})|dictsort %}
 [{{ ssid }}]
 {% for k,v in (p or {})|dictsort %}{{ k }}={{ v }}
 {% endfor %}
@@ -247,14 +242,14 @@
 {% endfor %}</textarea>
 
     {% if profile_hashes %}
-      <div class="row" style="gap:8px; margin-top:10px; flex-wrap:wrap;">
+      <div class="row gap-sm mt-md">
         {% for ssid, h in profile_hashes|dictsort %}
           <span class="pill">hash: {{ ssid }} · {{ h }}</span>
         {% endfor %}
       </div>
     {% endif %}
 
-    <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
+    <div class="row end mt-lg">
       <button class="btn" type="submit">Save</button>
       <button class="btn" type="submit" formaction="/wifi/profiles/save_reload" formmethod="post">Save + Reload</button>
     </div>
@@ -262,13 +257,13 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Recent WiFi sessions</h3>
+  <h3 class="h3-tight">Recent WiFi sessions</h3>
   <div class="events">
     {% for s in sessions %}
       <div class="evt">
         <div class="evt-top">{{ s.title }}</div>
         <div class="muted">id: {{ s.id }}</div>
-        <div class="row" style="gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <div class="row mt-sm">
           <a class="pill" href="{{ url_for('artifact_view', artifact_id=s.id) }}">Open JSON</a>
           <a class="pill" href="{{ url_for('artifact_download', artifact_id=s.id) }}">Download</a>
           {% if s.report_id %}
@@ -283,7 +278,7 @@
 </section>
 
 <section class="card">
-  <h3 style="margin:0 0 10px 0">Recent WiFi events</h3>
+  <h3 class="h3-tight">Recent WiFi events</h3>
   <div class="events">
     {% for e in events[:25] %}
       <div class="evt">
