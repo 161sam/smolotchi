@@ -58,7 +58,7 @@
             <input type="hidden" name="profile" value="{{ baseline_profile }}">
             <input type="hidden" name="fid" value="{{ f.id }}">
             <input type="hidden" name="back" value="{{ request.full_path }}">
-            <button class="secondary" type="submit">Add to baseline</button>
+            <button class="btn secondary" type="submit">Add to baseline</button>
           </form>
           {% if f.suppressed_count and f.suppressed_count > 0 %}
             <span class="muted">·</span>
@@ -101,7 +101,7 @@
 <section class="card">
   <div class="row between">
     <h3 class="mb-sm">Latest bundles</h3>
-    <div class="row">
+    <div class="btn-row">
       <a class="btn secondary" href="/lan/summary">Executive Summary</a>
       <a class="btn secondary" href="/lan/summary.md">MD</a>
       <a class="btn secondary" href="/lan/summary.json">JSON</a>
@@ -119,13 +119,13 @@
             <span class="pill">suppressed finding</span>
           {% endif %}
         {% endif %}
-        <div class="row mt-md">
+        <div class="btn-row mt-md">
           <a class="btn" href="{{ url_for('lan_result_details', bundle_id=a.id) }}">Open details</a>
           <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=a.id) }}">Download bundle JSON</a>
         </div>
 
         {% if a.eff %}
-          <div class="row mt-md">
+          <div class="row mt-sm">
             {% if a.eff.wifi_ssid %}<span class="pill">ssid: {{ a.eff.wifi_ssid }}</span>{% endif %}
             <span class="pill">pack: {{ a.eff.pack }}</span>
             <span class="pill">rps: {{ a.eff.throttle_rps }}</span>
@@ -134,7 +134,7 @@
         {% endif %}
 
         {% if a.diff_badges %}
-          <div class="row mt-md">
+          <div class="row mt-sm">
             <span class="pill">Changed: {{ a.diff_badges.changed_hosts or 0 }}</span>
             {% for k,v in (a.diff_badges.transitions or {}).items() %}
               <span class="pill">{{ k }}: {{ v }}</span>
@@ -155,11 +155,11 @@
       </div>
     {% else %}
       <div class="empty">
-        <div><strong>No results yet.</strong></div>
-        <div class="muted">Enqueue a LAN job to generate results and bundle reports.</div>
+        <div><strong>No bundles yet.</strong></div>
+        <div class="muted">Starte einen LAN Job, dann werden Bundles hier gelistet.</div>
         <div class="btn-row mt-md">
-          <a class="btn" href="{{ url_for('lan') }}">Enqueue LAN job</a>
-          <a class="btn secondary" href="{{ url_for('lan_reports') }}">Open reports</a>
+          <a class="btn" href="{{ url_for('lan') }}">Go to LAN</a>
+          <a class="btn secondary" href="{{ url_for('lan_jobs') }}">View Jobs</a>
         </div>
       </div>
     {% endfor %}

@@ -19,7 +19,7 @@
         {% if a.job_id %}
           <div class="muted">job_id: {{ a.job_id }}</div>
         {% endif %}
-        <div class="row mt-md">
+        <div class="btn-row mt-md">
           <a class="btn" href="{{ url_for('report_view', artifact_id=a.id) }}">Open</a>
           <a class="btn secondary" href="{{ url_for('artifact_file_download', artifact_id=a.id) }}">Download</a>
 
