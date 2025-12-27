@@ -1979,6 +1979,11 @@ def create_app(config_path: str = "config.toml") -> Flask:
 
     @app.post("/ai/stage/<request_id>/approve")
     def ai_stage_approve(request_id: str):
+        existing_approvals = artifacts.list(limit=200, kind="ai_stage_approval")
+        for approval in existing_approvals:
+            doc = artifacts.get_json(approval.id) or {}
+            if str(doc.get("request_id")) == str(request_id):
+                return redirect(url_for("ai_stages"))
         stage_req = artifacts.get_json(request_id) or {}
         appr_payload = {
             "request_id": request_id,
@@ -1994,9 +1999,12 @@ def create_app(config_path: str = "config.toml") -> Flask:
         )
         job_id = stage_req.get("job_id")
         step_index = stage_req.get("step_index")
-        if job_id and step_index:
+        if job_id and step_index is not None:
             try:
-                note = f"approval granted resume_from:{int(step_index)} stage_req:{request_id}"
+                note = (
+                    f"approval granted resume_from:{int(step_index)} "
+                    f"stage_req:{request_id}"
+                )
                 jobstore.mark_queued(str(job_id), note=note)
             except Exception:
                 pass

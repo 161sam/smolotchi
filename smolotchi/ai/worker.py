@@ -194,10 +194,12 @@ class AIWorker:
                 if stage_req:
                     resume_from = stage_req.get("step_index")
                     stage_req_id = stage_req.get("request_id")
+                    if stage_req_id and stage_req_id in (job.note or ""):
+                        continue
                     try:
                         note = "approval granted"
-                        if resume_from:
-                            note = f"{note} resume_from:{resume_from}"
+                        if resume_from is not None:
+                            note = f"{note} resume_from:{int(resume_from)}"
                         if stage_req_id:
                             note = f"{note} stage_req:{stage_req_id}"
                         self.jobstore.mark_queued(job.id, note=note)
@@ -285,6 +287,7 @@ class AIWorker:
             scope = (req.get("scope") or "").strip()
             note = req.get("note") or ""
             resume_from = self._extract_resume_from(getattr(job, "note", "") or "")
+            start_step_index = resume_from if resume_from is not None else 1
 
             try:
                 self.jobstore.mark_running(job_id)
@@ -306,7 +309,7 @@ class AIWorker:
                 self._run_plan_artifact(
                     plan_artifact_id,
                     job_id=job_id,
-                    start_step_index=resume_from or 1,
+                    start_step_index=start_step_index,
                 )
             else:
                 planner = AIPlanner(
@@ -331,7 +334,7 @@ class AIWorker:
                     plan,
                     runner,
                     job_id=job_id,
-                    start_step_index=resume_from or 1,
+                    start_step_index=start_step_index,
                 )
         except Exception as exc:
             self.jobstore.mark_failed(job_id, note=str(exc))

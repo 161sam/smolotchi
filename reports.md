@@ -5,6 +5,15 @@ Smolotchi’s Flask UI is functional but relies on several implicit runtime assu
 
 ---
 
+## Fixed
+- ✅ Idempotent stage approvals + deterministic resume notes (`smolotchi/api/web.py`, `smolotchi/ai/worker.py`)
+- ✅ CLI subcommands for jobs/artifacts/stages/health (`smolotchi/cli.py`, `smolotchi/cli_artifacts.py`)
+- ✅ Smoke test now uses CLI for status/artifact checks (`scripts/smoke_ai_run.sh`)
+- ✅ Added minimal pytest CI workflow (`.github/workflows/ci.yml`)
+- ✅ Added troubleshooting notes for worker/approvals/artifacts (`README.md`)
+
+---
+
 ## AI worker execution pipeline
 1. UI enqueues `ai_plan` jobs via `POST /ai/run`, storing an `ai_run_request` artifact with `plan_artifact_id` or `scope`.
 2. The AI worker (`python -m smolotchi.ai.worker --loop`) polls the JobStore for queued `ai_plan` jobs, parses `req:<artifact_id>` from the job note, and loads the request artifact.
@@ -20,13 +29,13 @@ Smolotchi’s Flask UI is functional but relies on several implicit runtime assu
 
 ## Priority P0 (Immediate)
 
-### P0-1: AI job execution uses a registry that may not have runnable actions
+### P0-1 🟡: AI job execution uses a registry that may not have runnable actions
 **Symptom →** AI jobs can enqueue/attempt to run but fail at runtime with “Unknown action” or attribute errors when invoking `action.run`.
 **Cause →** `PlanRunner` expects action instances with a `.run()` method, but in several entry points only `ActionSpec` metadata is loaded (e.g., `load_pack` in `smolotchi/actions/registry.py`), which does not provide executable actions.
 **Fix Proposal →** Either (a) load executable action implementations into the registry used by `PlanRunner`, or (b) update `PlanRunner` to dispatch via `ActionRunner` (which already knows how to execute actions by id). Ensure the same registry is used by worker + core.
 **Effort →** M
 
-### P0-2: Artifact/report file handling relies on stored paths without validation
+### P0-2 🟡: Artifact/report file handling relies on stored paths without validation
 **Symptom →** `/artifact/<id>/download` and `/report/<id>` trust paths from the artifact index; corrupted index entries can produce unexpected file access or failures.
 **Cause →** `send_file` uses whatever `path` is stored in the artifact index without enforcing a root or validating file extension.
 **Fix Proposal →** Constrain artifacts to the artifact store root (`ArtifactStore.root`) and verify path resolution before sending files. Return 404 for any path outside root.
@@ -36,19 +45,19 @@ Smolotchi’s Flask UI is functional but relies on several implicit runtime assu
 
 ## Priority P1 (Soon)
 
-### P1-1: UI assumes background services are running
+### P1-1 🟡: UI assumes background services are running
 **Symptom →** UI actions (e.g., plan generation) are acknowledged but no artifacts appear if core/worker is not running.
 **Cause →** The web UI publishes bus events without verifying that a core daemon is consuming them.
 **Fix Proposal →** Add “core health” indicators and a small status banner if no recent `core.health` ticks are seen; optionally queue fallback tasks or show “pending” states in the UI.
 **Effort →** S
 
-### P1-2: Inconsistent link/button styling across templates
+### P1-2 🟡: Inconsistent link/button styling across templates
 **Symptom →** Mixed inline styles and button classes cause inconsistent visual hierarchy and spacing.
 **Cause →** Templates combine inline-styled anchors with `.btn` and `.pill` classes.
 **Fix Proposal →** Consolidate common action rows into reusable partials, adopt `.btn`/`.btn.secondary` consistently, and remove inline styles for common actions.
 **Effort →** S
 
-### P1-3: Missing or sparse empty-state guidance
+### P1-3 🟡: Missing or sparse empty-state guidance
 **Symptom →** Pages like LAN reports/results and AI plans can appear blank with no next step.
 **Cause →** Empty state text is minimal and lacks CTAs.
 **Fix Proposal →** Standardize an empty-state component with a short explanation and a primary action button (e.g., “Run LAN Job”).
@@ -58,19 +67,19 @@ Smolotchi’s Flask UI is functional but relies on several implicit runtime assu
 
 ## Priority P2 (Backlog)
 
-### P2-1: Inline styles across templates
+### P2-1 🔴: Inline styles across templates
 **Symptom →** Styling in templates is hard to maintain and inconsistent.
 **Cause →** Many templates rely on per-element inline styles instead of a shared CSS system.
 **Fix Proposal →** Promote repeated inline styles into CSS utility classes (`.row`, `.btn-row`, spacing helpers).
 **Effort →** M
 
-### P2-2: Sparse test coverage and validation
+### P2-2 🟡: Sparse test coverage and validation
 **Symptom →** Changes to templates or core logic can regress without detection.
 **Cause →** No UI/template tests, limited input validation on routes, and few assertions on artifact payloads.
 **Fix Proposal →** Add lightweight tests for view rendering and core artifact validation; consider schema validation for artifact payloads.
 **Effort →** M
 
-### P2-3: Mixed concerns in `smolotchi/api/web.py`
+### P2-3 🟡: Mixed concerns in `smolotchi/api/web.py`
 **Symptom →** `web.py` contains data access, normalization, and presentation logic in a single file.
 **Cause →** View logic is monolithic rather than separated into helpers/services.
 **Fix Proposal →** Introduce helpers for artifact normalization and move reusable logic into `smolotchi/api/view_models.py`.

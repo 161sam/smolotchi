@@ -20,6 +20,31 @@ from smolotchi.core.state import SmolotchiCore
 
 DEFAULT_DB = os.environ.get("SMOLOTCHI_DB", "/var/lib/smolotchi/events.db")
 DEFAULT_TAG = os.environ.get("SMOLOTCHI_DEFAULT_TAG", "lab-approved")
+DEFAULT_ARTIFACT_ROOT = os.environ.get(
+    "SMOLOTCHI_ARTIFACT_ROOT", "/var/lib/smolotchi/artifacts"
+)
+
+
+def _format_ts(ts: float | None) -> str:
+    if not ts:
+        return "-"
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(ts)))
+
+
+def _print_json(payload) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _print_table(headers: list[str], rows: list[list[str]]) -> None:
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for idx, cell in enumerate(row):
+            widths[idx] = max(widths[idx], len(str(cell)))
+    fmt = "  ".join(f"{{:{w}}}" for w in widths)
+    print(fmt.format(*headers))
+    print(fmt.format(*["-" * w for w in widths]))
+    for row in rows:
+        print(fmt.format(*row))
 
 
 def cmd_web(args) -> int:
@@ -412,16 +437,226 @@ def cmd_wifi_status(args) -> int:
     return 0
 
 
-def cmd_jobs(args) -> int:
+def cmd_jobs_list(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
-    rows = js.list(limit=args.limit, status=args.status)
-    for j in rows:
-        print(f"{j.status:7} {j.id} {j.kind} {j.scope} {j.note}".strip())
+    statuses = args.status or []
+    rows = []
+    if statuses:
+        if len(statuses) == 1:
+            rows = js.list(limit=args.limit, status=statuses[0])
+        else:
+            rows = js.list(limit=max(args.limit, 200))
+            rows = [row for row in rows if row.status in statuses]
+    else:
+        rows = js.list(limit=args.limit)
+
+    if args.kind:
+        rows = [row for row in rows if row.kind == args.kind]
+    if args.note_contains:
+        rows = [row for row in rows if args.note_contains in (row.note or "")]
+    rows = rows[: args.limit]
+
+    if args.format == "json":
+        payload = [
+            {
+                "id": row.id,
+                "kind": row.kind,
+                "scope": row.scope,
+                "note": row.note,
+                "status": row.status,
+                "created_ts": row.created_ts,
+                "updated_ts": row.updated_ts,
+            }
+            for row in rows
+        ]
+        _print_json(payload)
+        return 0
+
+    table_rows = [
+        [
+            row.id,
+            row.status,
+            row.kind,
+            _format_ts(row.created_ts),
+            row.scope,
+        ]
+        for row in rows
+    ]
+    _print_table(["ID", "STATUS", "KIND", "CREATED", "SCOPE"], table_rows)
     return 0
 
 
+def cmd_jobs_get(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    js = JobStore(args.db)
+    row = js.get(args.job_id)
+    if not row:
+        print("error: job not found")
+        return 2
+    payload = {
+        "id": row.id,
+        "kind": row.kind,
+        "scope": row.scope,
+        "note": row.note,
+        "status": row.status,
+        "created_ts": row.created_ts,
+        "updated_ts": row.updated_ts,
+        "meta": row.meta,
+    }
+    if args.format == "json":
+        _print_json(payload)
+    else:
+        _print_table(
+            ["FIELD", "VALUE"],
+            [[key, str(value)] for key, value in payload.items()],
+        )
+    return 0
+
+
+def cmd_jobs_tail(args) -> int:
+    bus = SQLiteBus(db_path=args.db)
+    events = bus.tail(limit=args.limit, topic_prefix=args.topic_prefix)
+    if args.job_id:
+        events = [
+            evt
+            for evt in events
+            if str((evt.payload or {}).get("job_id")) == str(args.job_id)
+        ]
+
+    if args.format == "json":
+        payload = [
+            {
+                "ts": evt.ts,
+                "topic": evt.topic,
+                "payload": evt.payload,
+            }
+            for evt in events
+        ]
+        _print_json(payload)
+        return 0
+
+    rows = [
+        [_format_ts(evt.ts), evt.topic, json.dumps(evt.payload, ensure_ascii=False)]
+        for evt in events
+    ]
+    _print_table(["TS", "TOPIC", "PAYLOAD"], rows)
+    return 0
+
+
+def _stage_approval_index(store: ArtifactStore) -> dict[str, dict]:
+    approvals = {}
+    for approval in store.list(limit=500, kind="ai_stage_approval"):
+        doc = store.get_json(approval.id) or {}
+        rid = doc.get("request_id")
+        if rid:
+            approvals[str(rid)] = {"id": approval.id, "payload": doc}
+    return approvals
+
+
+def cmd_stages_list(args) -> int:
+    store = ArtifactStore(args.artifact_root)
+    approvals = _stage_approval_index(store)
+    requests = store.list(limit=args.limit, kind="ai_stage_request")
+    rows = []
+    for req in requests:
+        doc = store.get_json(req.id) or {}
+        approved = str(req.id) in approvals
+        rows.append(
+            {
+                "request_id": req.id,
+                "job_id": doc.get("job_id"),
+                "plan_id": doc.get("plan_id"),
+                "step_index": doc.get("step_index"),
+                "action_id": doc.get("action_id"),
+                "risk": doc.get("risk"),
+                "approved": approved,
+                "created_ts": req.created_ts,
+            }
+        )
+
+    if args.format == "json":
+        _print_json(rows)
+        return 0
+
+    table_rows = [
+        [
+            str(row["request_id"]),
+            str(row["job_id"] or "-"),
+            str(row["step_index"] or "-"),
+            str(row["action_id"] or "-"),
+            str(row["risk"] or "-"),
+            "yes" if row["approved"] else "no",
+        ]
+        for row in rows
+    ]
+    _print_table(["REQUEST", "JOB", "STEP", "ACTION", "RISK", "APPROVED"], table_rows)
+    return 0
+
+
+def cmd_stages_approve(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    store = ArtifactStore(args.artifact_root)
+    approvals = _stage_approval_index(store)
+    if str(args.request_id) in approvals:
+        print("ok: already approved")
+        return 0
+    stage_req = store.get_json(args.request_id)
+    if not stage_req:
+        print("error: stage request not found")
+        return 2
+    payload = {
+        "request_id": args.request_id,
+        "approved_by": args.approved_by,
+        "ts": time.time(),
+    }
+    meta = store.put_json(
+        kind="ai_stage_approval",
+        title=f"AI Stage Approval {args.request_id}",
+        payload=payload,
+        tags=["ai", "stage", "approval"],
+        meta={"request_id": args.request_id},
+    )
+
+    job_id = stage_req.get("job_id")
+    step_index = stage_req.get("step_index")
+    if job_id and step_index is not None:
+        note = f"approval granted resume_from:{int(step_index)} stage_req:{args.request_id}"
+        JobStore(args.db).mark_queued(str(job_id), note=note)
+
+    if args.format == "json":
+        _print_json({"approval_id": meta.id, "request_id": args.request_id})
+    else:
+        print(f"approved: {args.request_id} ({meta.id})")
+    return 0
+
+
+def cmd_health(args) -> int:
+    store = ArtifactStore(args.artifact_root)
+    latest = store.list(limit=1, kind="worker_health")
+    if not latest:
+        print("worker: no health artifacts")
+        return 1
+    meta = latest[0]
+    doc = store.get_json(meta.id) or {}
+    ts = doc.get("ts") or meta.created_ts
+    payload = {
+        "worker_artifact_id": meta.id,
+        "worker_ts": ts,
+        "worker_pid": doc.get("pid"),
+        "job_id": doc.get("job_id"),
+    }
+    if args.format == "json":
+        _print_json(payload)
+    else:
+        _print_table(
+            ["FIELD", "VALUE"],
+            [[key, str(value)] for key, value in payload.items()],
+        )
+    return 0
 def cmd_job_cancel(args) -> int:
     from smolotchi.core.jobs import JobStore
 
@@ -458,7 +693,7 @@ def cmd_prune(args) -> int:
     cfg = store.load()
     bus = SQLiteBus(db_path=args.db)
     jobs = JobStore(args.db)
-    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
+    artifacts = ArtifactStore(args.artifact_root)
 
     r = cfg.retention
     deleted_events = bus.prune(
@@ -497,7 +732,7 @@ def cmd_lan_done(args) -> int:
 
 
 def cmd_diff_baseline_set(args) -> int:
-    artifacts = ArtifactStore()
+    artifacts = ArtifactStore(args.artifact_root)
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
     state.baseline_host_summary_id = str(args.artifact_id or "").strip()
@@ -507,7 +742,7 @@ def cmd_diff_baseline_set(args) -> int:
 
 
 def cmd_diff_baseline_show(args) -> int:
-    artifacts = ArtifactStore()
+    artifacts = ArtifactStore(args.artifact_root)
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
     print(state.baseline_host_summary_id or "")
@@ -873,6 +1108,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--db", default=DEFAULT_DB, help=f"SQLite DB path (default: {DEFAULT_DB})")
     p.add_argument(
+        "--artifact-root",
+        default=DEFAULT_ARTIFACT_ROOT,
+        help="Artifact store root path",
+    )
+    p.add_argument(
         "--config",
         default=os.environ.get("SMOLOTCHI_CONFIG", "config.toml"),
         help="Path to config.toml (default: config.toml)",
@@ -926,10 +1166,33 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--iface", default=None)
     s.set_defaults(fn=cmd_wifi_status)
 
-    s = sub.add_parser("jobs", help="List jobs")
-    s.add_argument("--status", default=None)
+    jobs = sub.add_parser("jobs", help="Job utilities")
+    jobs_sub = jobs.add_subparsers(dest="jobs_cmd", required=True)
+
+    s = jobs_sub.add_parser("list", help="List jobs")
+    s.add_argument("--status", action="append", default=None, help="Filter by status")
+    s.add_argument("--kind", default=None, help="Filter by job kind")
+    s.add_argument(
+        "--note-contains",
+        dest="note_contains",
+        default=None,
+        help="Filter by note substring",
+    )
     s.add_argument("--limit", type=int, default=50)
-    s.set_defaults(fn=cmd_jobs)
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_jobs_list)
+
+    s = jobs_sub.add_parser("get", help="Get job details")
+    s.add_argument("job_id")
+    s.add_argument("--format", choices=["json", "table"], default="json")
+    s.set_defaults(fn=cmd_jobs_get)
+
+    s = jobs_sub.add_parser("tail", help="Tail job-related events")
+    s.add_argument("--job-id", default=None, help="Filter by job id")
+    s.add_argument("--topic-prefix", default=None)
+    s.add_argument("--limit", type=int, default=50)
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_jobs_tail)
 
     s = sub.add_parser("job-cancel", help="Cancel queued job")
     s.add_argument("job_id")
@@ -942,6 +1205,22 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("job-delete", help="Delete job")
     s.add_argument("job_id")
     s.set_defaults(fn=cmd_job_delete)
+
+    stages = sub.add_parser("stages", help="Stage approvals")
+    stages_sub = stages.add_subparsers(dest="stages_cmd", required=True)
+    s = stages_sub.add_parser("list", help="List stage requests")
+    s.add_argument("--limit", type=int, default=50)
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_stages_list)
+    s = stages_sub.add_parser("approve", help="Approve a stage request")
+    s.add_argument("request_id")
+    s.add_argument("--approved-by", default="cli")
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_stages_approve)
+
+    s = sub.add_parser("health", help="Show worker health")
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_health)
 
     s = sub.add_parser("prune", help="Run retention prune once")
     s.set_defaults(fn=cmd_prune)
