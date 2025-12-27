@@ -15,13 +15,19 @@ from smolotchi.cli_profiles import add_profiles_subcommands
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.app_state import load_state, save_state, state_path_for_artifacts
 from smolotchi.core.bus import SQLiteBus
-from smolotchi.core.paths import DEFAULT_ARTIFACT_ROOT, DEFAULT_DB_PATH
+from smolotchi.core.paths import (
+    resolve_artifact_root,
+    resolve_config_path,
+    resolve_db_path,
+    resolve_default_tag,
+    resolve_device,
+)
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
 
-DEFAULT_DB = os.environ.get("SMOLOTCHI_DB", DEFAULT_DB_PATH)
-DEFAULT_TAG = os.environ.get("SMOLOTCHI_DEFAULT_TAG", "lab-approved")
-DEFAULT_ARTIFACT_ROOT = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", DEFAULT_ARTIFACT_ROOT)
+DEFAULT_DB = resolve_db_path()
+DEFAULT_TAG = resolve_default_tag()
+DEFAULT_ARTIFACT_ROOT = resolve_artifact_root()
 
 
 def _format_ts(ts: float | None) -> str:
@@ -100,7 +106,7 @@ def cmd_core(args) -> int:
         autonomous_categories=cfg.policy.autonomous_categories,
     )
 
-    artifact_root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", DEFAULT_ARTIFACT_ROOT)
+    artifact_root = resolve_artifact_root()
     artifacts = ArtifactStore(artifact_root)
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
@@ -1121,7 +1127,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--config",
-        default=os.environ.get("SMOLOTCHI_CONFIG", "config.toml"),
+        default=resolve_config_path(),
         help="Path to config.toml (default: config.toml)",
     )
 
@@ -1133,7 +1139,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_web)
 
     s = sub.add_parser("display", help="Run e-paper display daemon")
-    s.add_argument("--device", default=os.environ.get("SMOLOTCHI_DEVICE", "pi_zero"))
+    s.add_argument("--device", default=resolve_device())
     s.add_argument("--db", default=DEFAULT_DB)
     s.add_argument("--artifact-root", default=DEFAULT_ARTIFACT_ROOT)
     s.set_defaults(fn=cmd_display)
