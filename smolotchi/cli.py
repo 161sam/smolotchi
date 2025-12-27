@@ -15,18 +15,13 @@ from smolotchi.cli_profiles import add_profiles_subcommands
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.app_state import load_state, save_state, state_path_for_artifacts
 from smolotchi.core.bus import SQLiteBus
-from smolotchi.core.paths import (
-    DEFAULT_ARTIFACT_ROOT as DEFAULT_ARTIFACT_ROOT_PATH,
-    DEFAULT_DB_PATH,
-)
+from smolotchi.core.paths import DEFAULT_ARTIFACT_ROOT, DEFAULT_DB_PATH
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
 
 DEFAULT_DB = os.environ.get("SMOLOTCHI_DB", DEFAULT_DB_PATH)
 DEFAULT_TAG = os.environ.get("SMOLOTCHI_DEFAULT_TAG", "lab-approved")
-DEFAULT_ARTIFACT_ROOT = os.environ.get(
-    "SMOLOTCHI_ARTIFACT_ROOT", DEFAULT_ARTIFACT_ROOT_PATH
-)
+DEFAULT_ARTIFACT_ROOT = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", DEFAULT_ARTIFACT_ROOT)
 
 
 def _format_ts(ts: float | None) -> str:
