@@ -230,8 +230,13 @@ def cmd_core(args) -> int:
     core.set_state(cfg.core.default_state, "default from config")
 
     bus.publish("core.started", {"pid": os.getpid(), "config": args.config})
+    last_health = 0.0
     try:
         while True:
+            now = time.time()
+            if now - last_health > 10.0:
+                last_health = now
+                bus.publish("core.health", {"ts": now, "pid": os.getpid()})
             new_cfg = store.get()
             lan = reg.get("lan")
             if lan:
@@ -311,7 +316,6 @@ def cmd_core(args) -> int:
                     bus=bus, jobs=jobs, config=store
                 )
 
-            now = time.time()
             if now - cmd_core._last_prune > 60.0:  # type: ignore[attr-defined]
                 cmd_core._last_prune = now  # type: ignore[attr-defined]
                 r = new_cfg.retention

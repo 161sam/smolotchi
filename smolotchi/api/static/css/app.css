@@ -144,12 +144,18 @@ body{
 }
 
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.mt-sm{margin-top:8px}
+.mt-md{margin-top:10px}
+.mb-sm{margin-bottom:10px}
 
 .banner{
-  background: rgba(255, 204, 102, 0.08);
-  border: 1px solid rgba(255, 204, 102, 0.35);
   border-radius: var(--r-lg);
   padding: 12px 14px;
+}
+.banner.warn{
+  background: rgba(255, 204, 102, 0.08);
+  border: 1px solid rgba(255, 204, 102, 0.35);
 }
 .banner-title{
   font-weight: 900;
@@ -273,6 +279,14 @@ pre{margin:8px 0 0;color:var(--muted);font-size:12px;white-space:pre-wrap}
 }
 .btn:hover{border-color: rgba(255,255,255,.22)}
 .btn.primary{background: rgba(95,209,255,.10); border-color: rgba(95,209,255,.22); color: var(--accent);}
+.btn.secondary{opacity:.9}
+.btn.danger{border-color: rgba(255,120,120,.35); color: #ffdede;}
+.link{
+  color: var(--accent);
+  text-decoration:none;
+  font-weight:900;
+}
+.link:hover{text-decoration:underline}
 .hr{height:1px;background:var(--border);margin:12px 0}
 .small{font-size:12px;color:var(--muted)}
 
