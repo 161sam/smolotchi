@@ -109,3 +109,35 @@ def test_wifi_disconnect_artifacts(tmp_path: Path, monkeypatch) -> None:
     assert result_payload
     assert attempt_payload["ok"] is None
     assert result_payload["ok"] is True
+
+
+def test_wifi_ui_connect_enqueues_lan_and_records_timeline(
+    tmp_path: Path, monkeypatch
+) -> None:
+    engine, bus, artifacts = _make_engine(tmp_path)
+
+    monkeypatch.setattr(wifi_engine, "connect_wpa_psk", lambda iface, ssid, psk: (True, "ok"))
+    monkeypatch.setattr(
+        wifi_engine, "detect_scope_for_iface", lambda iface: "10.0.10.0/24"
+    )
+
+    bus.publish("ui.wifi.connect", {"ssid": "TestNet", "iface": "wlan0"})
+    engine.tick()
+
+    timeline = artifacts.list(kind="wifi_lan_timeline", limit=5)
+    assert len(timeline) == 1
+    timeline_payload = artifacts.get_json(timeline[0].id)
+    assert timeline_payload
+    assert timeline_payload.get("job_id")
+
+    results = artifacts.list(kind="wifi_connect_result", limit=5)
+    result_payload = artifacts.get_json(results[0].id)
+    assert result_payload
+    assert result_payload.get("job_id") == timeline_payload.get("job_id")
+
+    evts = bus.tail(limit=50, topic_prefix="ui.lan.")
+    assert any(
+        e.topic == "ui.lan.enqueue"
+        and (e.payload.get("job") or {}).get("id") == timeline_payload["job_id"]
+        for e in evts
+    )

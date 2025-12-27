@@ -312,6 +312,63 @@
 </section>
 
 <section class="card">
+  <h3 class="h3-tight">WiFi → LAN timeline</h3>
+  {% if wifi_lan_timeline and wifi_lan_timeline|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>ssid</th>
+            <th>iface</th>
+            <th>profile_hash</th>
+            <th>job_id</th>
+            <th>scope</th>
+            <th>status</th>
+            <th>links</th>
+            <th>artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in wifi_lan_timeline %}
+            {% set p = row.payload %}
+            {% set a = row.meta %}
+            {% set jid = p.get("job_id","") %}
+            {% set links = job_links(jid) if jid else {} %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p["ts"] if "ts" in p else None) }}</td>
+              <td>{{ p.get("ssid","-") }}</td>
+              <td>{{ p.get("iface","-") }}</td>
+              <td><code>{{ p.get("wifi_profile_hash","-") }}</code></td>
+              <td><code>{{ jid if jid else "-" }}</code></td>
+              <td><code>{{ p.get("scope","-") }}</code></td>
+              <td>{{ job_status(jid) if jid else "-" }}</td>
+              <td>
+                {% if links and links.get("job_json") %}
+                  <a class="pill" href="{{ links.get('job_json') }}">Job JSON</a>
+                {% endif %}
+                {% if links and links.get("bundle") %}
+                  <a class="pill" href="{{ links.get('bundle') }}">Bundle</a>
+                {% endif %}
+                {% if links and links.get("report") %}
+                  <a class="pill" href="{{ links.get('report') }}">Report</a>
+                {% endif %}
+                {% if not links %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+              <td><code>{{ a.id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
   <h3 class="h3-tight">WiFi • Connect attempts (artifacts)</h3>
   {% if wifi_connect_attempts and wifi_connect_attempts|length > 0 %}
     <div class="table-scroll">
