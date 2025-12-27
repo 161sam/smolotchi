@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 import time
 from datetime import datetime, timezone
@@ -138,6 +139,32 @@ def create_app(config_path: str = "config.toml") -> Flask:
             abort(404)
 
         return p
+
+    def _record_wifi_config_patch(
+        patch_type: str, summary: dict, before_text: str, after_text: str
+    ) -> None:
+        ts = time.time()
+        before_hash = hashlib.sha256(before_text.encode("utf-8")).hexdigest()
+        after_hash = hashlib.sha256(after_text.encode("utf-8")).hexdigest()
+        artifacts.put_json(
+            kind="wifi_config_patch",
+            title=f"wifi config patch {patch_type}",
+            payload={
+                "ts": ts,
+                "patch_type": patch_type,
+                "summary": summary,
+                "before_hash": before_hash,
+                "after_hash": after_hash,
+            },
+        )
+        if len(after_text.encode("utf-8")) <= 20000:
+            artifacts.put_text(
+                kind="wifi_config_toml_snapshot",
+                title=f"wifi config snapshot {patch_type} {int(ts)}",
+                text=after_text,
+                ext=".toml",
+                mime="text/plain",
+            )
 
     @app.context_processor
     def inject_globals():
@@ -360,6 +387,12 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=profile_norm)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "profile_create",
+            {"ssid": ssid, "scope": scope, "profile_hash": prof_hash},
+            text,
+            patched,
+        )
 
         store.reload()
         bus.publish(
@@ -419,6 +452,12 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_profile_upsert(text, ssid=ssid, profile=prof_norm)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "profile_preset",
+            {"ssid": ssid, "scope": scope, "profile_hash": prof_hash},
+            text,
+            patched,
+        )
 
         store.reload()
         bus.publish(
@@ -445,6 +484,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_credentials(text, creds)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "credentials", {"count": len(creds)}, text, patched
+        )
 
         bus.publish("ui.wifi.credentials.saved", {"count": len(creds), "ts": time.time()})
         return redirect(url_for("wifi"))
@@ -458,6 +500,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_credentials(text, creds)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "credentials", {"count": len(creds)}, text, patched
+        )
 
         store.reload()
         bus.publish(
@@ -496,6 +541,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_profiles_set(text, norm_profiles)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch("profiles", {"count": len(prof)}, text, patched)
 
         bus.publish("ui.wifi.profiles.saved", {"count": len(prof), "ts": time.time()})
         return redirect(url_for("wifi"))
@@ -530,6 +576,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_profiles_set(text, norm_profiles)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch("profiles", {"count": len(prof)}, text, patched)
 
         store.reload()
         bus.publish(
@@ -553,6 +600,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_allow_add(text, ssid=ssid)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "allowlist_add", {"ssid": ssid}, text, patched
+        )
 
         store.reload()
         bus.publish("ui.wifi.allowlist.added", {"ssid": ssid, "ts": time.time()})
@@ -573,6 +623,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_allow_remove(text, ssid=ssid)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "allowlist_remove", {"ssid": ssid}, text, patched
+        )
 
         store.reload()
         bus.publish("ui.wifi.allowlist.removed", {"ssid": ssid, "ts": time.time()})
@@ -597,6 +650,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_scope_map_set(text, ssid=ssid, scope=scope)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "scope_map_set", {"ssid": ssid, "scope": scope}, text, patched
+        )
 
         store.reload()
         bus.publish(
@@ -620,6 +676,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
         text = cfg_file.read_text(encoding="utf-8")
         patched = patch_wifi_scope_map_remove(text, ssid=ssid)
         _atomic_write_text(cfg_file, patched)
+        _record_wifi_config_patch(
+            "scope_map_remove", {"ssid": ssid}, text, patched
+        )
 
         store.reload()
         bus.publish("ui.wifi.scope_map.removed", {"ssid": ssid, "ts": time.time()})
