@@ -25,10 +25,6 @@ from smolotchi.core.paths import (
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
 
-DEFAULT_DB = resolve_db_path()
-DEFAULT_TAG = resolve_default_tag()
-DEFAULT_ARTIFACT_ROOT = resolve_artifact_root()
-
 
 def _format_ts(ts: float | None) -> str:
     if not ts:
@@ -1115,14 +1111,21 @@ def add_ai_subcommands(subparsers) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_db = resolve_db_path()
+    default_artifact_root = resolve_artifact_root()
+    default_tag = resolve_default_tag()
     p = argparse.ArgumentParser(
         prog="smolotchi",
         description="Smolotchi (Pi Zero 2 W) – core/web/display CLI",
     )
-    p.add_argument("--db", default=DEFAULT_DB, help=f"SQLite DB path (default: {DEFAULT_DB})")
+    p.add_argument(
+        "--db",
+        default=default_db,
+        help=f"SQLite DB path (default: {default_db})",
+    )
     p.add_argument(
         "--artifact-root",
-        default=DEFAULT_ARTIFACT_ROOT,
+        default=default_artifact_root,
         help="Artifact store root path",
     )
     p.add_argument(
@@ -1140,8 +1143,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("display", help="Run e-paper display daemon")
     s.add_argument("--device", default=resolve_device())
-    s.add_argument("--db", default=DEFAULT_DB)
-    s.add_argument("--artifact-root", default=DEFAULT_ARTIFACT_ROOT)
+    s.add_argument("--db", default=default_db)
+    s.add_argument("--artifact-root", default=default_artifact_root)
     s.set_defaults(fn=cmd_display)
 
     s = sub.add_parser("core", help="Run core state-machine daemon")
@@ -1242,7 +1245,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("handoff", help="Request handoff to LAN_OPS (publishes event)")
-    s.add_argument("--tag", default=DEFAULT_TAG)
+    s.add_argument("--tag", default=default_tag)
     s.add_argument("--note", default="")
     s.set_defaults(fn=cmd_handoff)
 
@@ -1286,7 +1289,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("install-systemd", help="Install systemd units (needs sudo)")
     s.add_argument("--project-dir", default=".", help="Path to smolotchi project root")
     s.add_argument("--user", default=os.environ.get("SUDO_USER", "pi"))
-    s.add_argument("--db", default=DEFAULT_DB)
+    s.add_argument("--db", default=default_db)
     s.set_defaults(fn=cmd_install_systemd)
 
     add_ai_subcommands(sub)
