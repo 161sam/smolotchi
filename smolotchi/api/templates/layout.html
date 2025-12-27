@@ -64,12 +64,18 @@
           {% if not core_ok %}
             <div class="banner-title">Core offline</div>
             <div class="banner-body">
+              {% if core_last_ts %}
+                <div>Last seen: {{ fmt_ts(core_last_ts) }}</div>
+              {% endif %}
               <div>Start: <code>python -m smolotchi.cli core --config ...</code></div>
             </div>
           {% endif %}
           {% if not worker_ok %}
             <div class="banner-title">Worker offline</div>
             <div class="banner-body">
+              {% if worker_last_ts %}
+                <div>Last seen: {{ fmt_ts(worker_last_ts) }}</div>
+              {% endif %}
               <div>Start: <code>python -m smolotchi.ai.worker --loop</code></div>
             </div>
           {% endif %}

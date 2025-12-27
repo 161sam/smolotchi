@@ -88,6 +88,19 @@ def create_app(config_path: str = "config.toml") -> Flask:
     def nav_active(endpoint: str) -> str:
         return "active" if request.endpoint == endpoint else ""
 
+    def fmt_ts(ts: float | None) -> str:
+        if not ts:
+            return "-"
+        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(ts)))
+
+    def core_recently_active(window_s: float = 30.0) -> tuple[bool, float | None]:
+        now = time.time()
+        events = bus.tail(limit=5, topic_prefix="core.health")
+        if not events:
+            return False, None
+        last_ts = float(events[0].ts)
+        return (now - last_ts) <= window_s, last_ts
+
     def _build_policy(cfg) -> Policy:
         policy_cfg = getattr(cfg, "policy", None)
         if not policy_cfg:
@@ -140,6 +153,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             "core_last_ts": core_last_ts,
             "worker_ok": worker_ok,
             "worker_last_ts": worker_last_ts,
+            "fmt_ts": fmt_ts,
         }
 
     @app.get("/")
