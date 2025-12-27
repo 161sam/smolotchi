@@ -212,6 +212,35 @@ class ArtifactStore:
         aid = self.find_latest(kind)
         return self.get_json(aid) if aid else None
 
+    def count_kind(self, kind: str, limit_scan: int = 5000) -> int:
+        idx = self._load_index()
+        return sum(1 for row in idx[:limit_scan] if row.get("kind") == kind)
+
+    def find_latest_stage_request(self) -> Optional[Dict[str, Any]]:
+        latest = self.list(limit=1, kind="ai_stage_request")
+        if not latest:
+            return None
+        return self.get_json(latest[0].id)
+
+    def find_latest_stage_approval_for_request(
+        self, request_id: str
+    ) -> Optional[Dict[str, Any]]:
+        idx = self._load_index()
+        for row in idx:
+            if row.get("kind") != "ai_stage_approval":
+                continue
+            aid = str(row.get("id"))
+            data = self.get_json(aid)
+            if data and str(data.get("request_id")) == str(request_id):
+                return data
+        return None
+
+    def is_stage_request_pending(self, request: Dict[str, Any]) -> bool:
+        rid = request.get("id") or request.get("request_id")
+        if not rid:
+            return True
+        return self.find_latest_stage_approval_for_request(str(rid)) is None
+
     def prune(
         self, keep_last: int = 500, older_than_days: int = 30, kinds_keep_last=None
     ) -> int:

@@ -93,13 +93,33 @@ def main() -> None:
         if hw_ok:
             driver.clear()
 
+    last_prune = 0.0
+
     while True:
-        _poll_buttons(bus, ui, artifacts)
+        _poll_buttons(bus, ui, artifacts, jobs)
         _tick_render(driver, hw_ok, artifacts, jobs, power, ui, profile)
+
+        now = time.time()
+        if now - last_prune > 300.0:
+            last_prune = now
+            try:
+                artifacts.prune(
+                    keep_last=profile.artifacts_keep_max,
+                    older_than_days=profile.artifacts_keep_days,
+                )
+            except Exception:
+                pass
+            try:
+                bus.prune(keep_last=5000, older_than_days=30, vacuum=False)
+            except Exception:
+                pass
+
         time.sleep(0.2)
 
 
-def _poll_buttons(bus: SQLiteBus, ui: UIState, artifacts: ArtifactStore) -> None:
+def _poll_buttons(
+    bus: SQLiteBus, ui: UIState, artifacts: ArtifactStore, jobs: JobStore
+) -> None:
     events = bus.tail(limit=20, topic_prefix="ui.btn.")
     for evt in reversed(events):
         if evt.ts <= ui.last_btn_ts:
@@ -112,11 +132,53 @@ def _poll_buttons(bus: SQLiteBus, ui: UIState, artifacts: ArtifactStore) -> None
         elif evt.topic == "ui.btn.mode":
             ui.mode = "ops" if ui.mode != "ops" else "observe"
         elif evt.topic == "ui.btn.ok":
-            artifacts.put_json(
-                kind="ui_intent_ok",
-                title="UI intent OK",
-                payload={"ts": _utc_iso(), "screen": SCREENS[ui.screen_index]},
-            )
+            req = artifacts.find_latest_stage_request()
+            if req and artifacts.is_stage_request_pending(req):
+                rid = str(req.get("id") or req.get("request_id") or "")
+                job_id = req.get("job_id")
+                step_index = req.get("step_index")
+                artifacts.put_json(
+                    kind="ai_stage_approval",
+                    title="Stage approved (device)",
+                    payload={
+                        "request_id": rid,
+                        "approved_by": "device:button",
+                        "ts": _utc_iso(),
+                    },
+                )
+                if job_id:
+                    note = (
+                        f"resume_from:{step_index}"
+                        if step_index is not None
+                        else "resume_from:0"
+                    )
+                    try:
+                        jobs.mark_queued(str(job_id), note=note)
+                    except Exception:
+                        pass
+                bus.publish(
+                    "ai.stage.approved",
+                    {
+                        "request_id": rid,
+                        "job_id": job_id,
+                        "step_index": step_index,
+                        "ts": time.time(),
+                    },
+                )
+                artifacts.put_json(
+                    kind="ui_notice",
+                    title="UI Notice",
+                    payload={"ts": _utc_iso(), "msg": "Approved!", "request_id": rid},
+                )
+            else:
+                bus.publish(
+                    "ui.intent.ok", {"ts": time.time(), "screen": SCREENS[ui.screen_index]}
+                )
+                artifacts.put_json(
+                    kind="ui_notice",
+                    title="UI Notice",
+                    payload={"ts": _utc_iso(), "msg": "No pending stage"},
+                )
 
         artifacts.put_json(
             kind="ui_display_state",
@@ -155,12 +217,12 @@ def _tick_render(
 
     worker_ok = bool(artifacts.latest_json("worker_health"))
 
-    stage_metas = artifacts.list(limit=1, kind="ai_stage_request")
-    has_pending_stage = False
-    stage = None
-    if stage_metas:
-        stage = artifacts.get_json(stage_metas[0].id)
+    stage = artifacts.find_latest_stage_request()
+    if stage and artifacts.is_stage_request_pending(stage):
+        has_pending_stage = True
+    else:
         has_pending_stage = bool(stage)
+    stage_count = artifacts.count_kind("ai_stage_request")
 
     screen = SCREENS[ui.screen_index]
 
@@ -169,7 +231,7 @@ def _tick_render(
             f"Smolotchi [{ui.mode}]",
             f"Display: {'OK' if hw_ok else 'OFF'}",
             f"Worker: {'OK' if worker_ok else 'OFF'}",
-            f"Stage: {'PENDING' if has_pending_stage else '-'}",
+            f"Stage: {'PENDING' if has_pending_stage else '-'} ({stage_count})",
             f"Bat: {power_status.percent if power_status.percent is not None else '?'}% ({power_status.source})",
             _utc_iso().split("T")[1][:8],
             "",
@@ -194,7 +256,7 @@ def _tick_render(
                 f"step:{stage.get('step_index', '?')} {str(stage.get('action_id', ''))[:12]}"
             )
             lines.append("")
-            lines.append("BTN3 OK -> intent")
+            lines.append("BTN3 OK -> approve")
         else:
             lines.append("none")
         lines += ["", "BTN1 Next"]
