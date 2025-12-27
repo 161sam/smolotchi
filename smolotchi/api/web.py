@@ -77,11 +77,14 @@ def _atomic_write_text(path: Path, text: str) -> None:
 
 def create_app(config_path: str = "config.toml") -> Flask:
     app = Flask(__name__)
-    bus = SQLiteBus()
+    db_path = os.environ.get("SMOLOTCHI_DB", "/var/lib/smolotchi/events.db")
+    artifact_root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", "/var/lib/smolotchi/artifacts")
+
+    bus = SQLiteBus(db_path=db_path)
     store = ConfigStore(config_path)
     store.load()
-    artifacts = ArtifactStore("/var/lib/smolotchi/artifacts")
-    jobstore = JobStore(bus.db_path)
+    artifacts = ArtifactStore(artifact_root)
+    jobstore = JobStore(db_path)
     pack_path = Path(__file__).resolve().parents[1] / "actions" / "packs" / "bjorn_core.yml"
     registry = load_pack(str(pack_path)) if pack_path.exists() else ActionRegistry()
 

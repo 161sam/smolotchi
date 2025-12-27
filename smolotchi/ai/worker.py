@@ -490,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Smolotchi AI worker")
     parser.add_argument(
         "--config",
-        default="config.toml",
+        default=os.environ.get("SMOLOTCHI_CONFIG", "config.toml"),
         help="Path to config.toml (default: config.toml)",
     )
     parser.add_argument(
