@@ -64,6 +64,12 @@ class WifiEngine:
             {"id": self._session_id, "ssid": ssid, "iface": iface},
         )
 
+    def _truncate_note(self, note: Optional[str]) -> Optional[str]:
+        if note is None:
+            return None
+        note = str(note)
+        return note[-500:]
+
     def _end_session(self, iface: str, reason: str) -> None:
         end_ts = time.time()
         start_ts = self._session_started_ts or end_ts
@@ -196,25 +202,68 @@ class WifiEngine:
         ui_evts = self.bus.tail(limit=20, topic_prefix="ui.wifi.")
         app = next((e for e in ui_evts if e.topic == "ui.wifi.profile.apply"), None)
         if app and app.payload:
-            self._forced_profile_ssid = (app.payload.get("ssid") or "").strip() or None
+            ssid = (app.payload.get("ssid") or "").strip()
+            iface_req = (app.payload.get("iface") or iface).strip()
+            profile_norm = {}
+            prof_hash = None
+            profiles = getattr(w, "profiles", None) or {}
+            if ssid and isinstance(profiles, dict):
+                profile = profiles.get(ssid) or {}
+                if isinstance(profile, dict):
+                    profile_norm, _ = normalize_profile(profile)
+                    prof_hash = profile_hash(profile_norm)
+            self._forced_profile_ssid = ssid or None
+            self.artifacts.put_json(
+                kind="wifi_profile_selection",
+                title=f"wifi profile selection {ssid or 'unknown'}",
+                payload={
+                    "ts": time.time(),
+                    "iface": iface_req,
+                    "ssid": ssid,
+                    "source": "ui",
+                    "wifi_profile_hash": prof_hash,
+                },
+            )
             self.bus.publish(
                 "wifi.profile.selected", {"ssid": self._forced_profile_ssid}
             )
         req = next((e for e in ui_evts if e.topic == "ui.wifi.connect"), None)
-        if req and req.payload and not self._lan_locked:
+        if req and req.payload:
             ssid = (req.payload.get("ssid") or "").strip()
             iface_req = (req.payload.get("iface") or iface).strip()
             creds = w.credentials or {}
             allow = set(w.allow_ssids or [])
-            if ssid and ssid in creds and ((not allow) or ssid in allow):
+            allowed = bool(ssid) and ((not allow) or ssid in allow)
+            has_cred = bool(ssid) and ssid in creds
+            self.artifacts.put_json(
+                kind="wifi_connect_attempt",
+                title=f"wifi connect attempt {ssid or 'unknown'}",
+                payload={
+                    "ts": time.time(),
+                    "iface": iface_req,
+                    "ssid": ssid,
+                    "source": "ui",
+                    "allowed": allowed,
+                    "has_cred": has_cred,
+                    "ok": None,
+                },
+            )
+
+            ok: Optional[bool] = False
+            note = None
+            wifi_prof_hash = None
+            if self._lan_locked:
+                note = "lan_locked"
+            elif ssid and has_cred and allowed:
                 ok, out = connect_wpa_psk(iface_req, ssid, creds[ssid])
+                note = self._truncate_note(out)
                 self.bus.publish(
                     "wifi.connect",
                     {
                         "iface": iface_req,
                         "ssid": ssid,
                         "ok": ok,
-                        "note": out[-500:],
+                        "note": self._truncate_note(out),
                     },
                 )
                 if ok:
@@ -227,13 +276,67 @@ class WifiEngine:
                     apply_on_connect = bool(
                         getattr(w, "apply_profile_on_connect", True)
                     )
-                    self._connected_profile = profile if apply_on_connect else {}
+                    profile_norm = {}
+                    if apply_on_connect:
+                        profile_norm, _ = normalize_profile(profile)
+                        wifi_prof_hash = profile_hash(profile_norm)
+                    self._connected_profile = profile_norm if apply_on_connect else {}
                     self._start_session(iface_req, ssid)
+                    if apply_on_connect:
+                        self.artifacts.put_json(
+                            kind="profile_timeline",
+                            title=f"Profile applied • {ssid}",
+                            payload={
+                                "ssid": ssid,
+                                "profile_hash": wifi_prof_hash,
+                                "profile": profile_norm,
+                                "applied_at": time.time(),
+                                "job_id": None,
+                                "bundle_id": None,
+                                "reason": "wifi_connect",
+                            },
+                        )
                     if self._forced_profile_ssid == ssid:
                         self._forced_profile_ssid = None
+            else:
+                if not ssid:
+                    note = "missing_ssid"
+                elif not allowed:
+                    note = "ssid_not_allowed"
+                elif not has_cred:
+                    note = "missing_credentials"
+
+            self.artifacts.put_json(
+                kind="wifi_connect_result",
+                title=f"wifi connect result {ssid or 'unknown'}",
+                payload={
+                    "ts": time.time(),
+                    "iface": iface_req,
+                    "ssid": ssid,
+                    "source": "ui",
+                    "allowed": allowed,
+                    "has_cred": has_cred,
+                    "ok": ok,
+                    "note": self._truncate_note(note),
+                    "wifi_profile_hash": wifi_prof_hash,
+                },
+            )
 
         dis = next((e for e in ui_evts if e.topic == "ui.wifi.disconnect"), None)
         if dis and dis.payload:
+            iface_req = (dis.payload.get("iface") or iface).strip()
+            self.artifacts.put_json(
+                kind="wifi_disconnect_attempt",
+                title=f"wifi disconnect attempt {self._connected_ssid or 'unknown'}",
+                payload={
+                    "ts": time.time(),
+                    "iface": iface_req,
+                    "ssid": self._connected_ssid,
+                    "source": "ui",
+                    "reason": "lan_locked" if self._lan_locked else "ui_request",
+                    "ok": None,
+                },
+            )
             if self._lan_locked:
                 self.bus.publish(
                     "wifi.disconnect",
@@ -242,6 +345,19 @@ class WifiEngine:
                         "ssid": self._connected_ssid,
                         "ok": False,
                         "reason": "lan_locked",
+                    },
+                )
+                self.artifacts.put_json(
+                    kind="wifi_disconnect_result",
+                    title=f"wifi disconnect result {self._connected_ssid or 'unknown'}",
+                    payload={
+                        "ts": time.time(),
+                        "iface": iface_req,
+                        "ssid": self._connected_ssid,
+                        "source": "ui",
+                        "reason": "lan_locked",
+                        "ok": False,
+                        "note": None,
                     },
                 )
             elif self._connected_ssid:
@@ -256,9 +372,36 @@ class WifiEngine:
                         "note": out,
                     },
                 )
+                self.artifacts.put_json(
+                    kind="wifi_disconnect_result",
+                    title=f"wifi disconnect result {self._connected_ssid or 'unknown'}",
+                    payload={
+                        "ts": time.time(),
+                        "iface": iface_req,
+                        "ssid": self._connected_ssid,
+                        "source": "ui",
+                        "reason": "ui_request",
+                        "ok": ok,
+                        "note": self._truncate_note(out),
+                    },
+                )
                 self._end_session(iface, "ui_request")
                 self._connected_ssid = None
                 self._connected_profile = None
+            else:
+                self.artifacts.put_json(
+                    kind="wifi_disconnect_result",
+                    title="wifi disconnect result not connected",
+                    payload={
+                        "ts": time.time(),
+                        "iface": iface_req,
+                        "ssid": None,
+                        "source": "ui",
+                        "reason": "not_connected",
+                        "ok": False,
+                        "note": None,
+                    },
+                )
 
         if self._connected_ssid and getattr(w, "health_enabled", True):
             interval = int(getattr(w, "health_interval_sec", 20) or 20)
