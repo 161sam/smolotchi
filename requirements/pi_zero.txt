@@ -1,0 +1,4 @@
+-r base.txt
+
+RPi.GPIO>=0.7
+waveshare-epd>=1.2

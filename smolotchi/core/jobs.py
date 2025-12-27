@@ -119,6 +119,13 @@ class JobStore:
                 (time.time(), job_id),
             )
 
+    def update_note(self, job_id: str, note: str) -> None:
+        with self._conn() as con:
+            con.execute(
+                "UPDATE jobs SET note=?, updated_ts=? WHERE id=?",
+                (note, time.time(), job_id),
+            )
+
     def mark_done(self, job_id: str) -> None:
         with self._conn() as con:
             con.execute(

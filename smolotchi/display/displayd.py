@@ -132,7 +132,11 @@ def _poll_buttons(
         elif evt.topic == "ui.btn.mode":
             ui.mode = "ops" if ui.mode != "ops" else "observe"
         elif evt.topic == "ui.btn.ok":
-            req = artifacts.find_latest_stage_request()
+            req = None
+            if hasattr(artifacts, "find_latest_pending_stage_request"):
+                req = artifacts.find_latest_pending_stage_request()
+            if not req:
+                req = artifacts.find_latest_stage_request()
             if req and artifacts.is_stage_request_pending(req):
                 rid = str(req.get("id") or req.get("request_id") or "")
                 job_id = req.get("job_id")
@@ -217,9 +221,15 @@ def _tick_render(
 
     worker_ok = bool(artifacts.latest_json("worker_health"))
 
-    stage = artifacts.find_latest_stage_request()
-    if stage and artifacts.is_stage_request_pending(stage):
-        has_pending_stage = True
+    stage = None
+    if hasattr(artifacts, "find_latest_pending_stage_request"):
+        stage = artifacts.find_latest_pending_stage_request()
+    if not stage:
+        stage = artifacts.find_latest_stage_request()
+
+    has_pending_stage = False
+    if stage and hasattr(artifacts, "is_stage_request_pending"):
+        has_pending_stage = artifacts.is_stage_request_pending(stage)
     else:
         has_pending_stage = bool(stage)
     stage_count = artifacts.count_kind("ai_stage_request")

@@ -65,7 +65,6 @@ class AIWorker:
         self.watchdog_s = float(os.environ.get("SMO_AI_WATCHDOG_S", "300"))
         self._last_progress_by_job: dict[str, float] = {}
         self.log = logging.getLogger("smolotchi.ai.worker")
-        self._resume_re = re.compile(r"\bresume_from:(\d+)\b")
         self._stage_req_re = re.compile(r"\bstage_req:([a-zA-Z0-9_-]+)\b")
 
     def _extract_req_id(self, note: str) -> Optional[str]:
@@ -75,13 +74,22 @@ class AIWorker:
                 return part.split("req:", 1)[1].strip()
         return None
 
-    def _extract_resume_from(self, note: str) -> Optional[int]:
-        if not note:
-            return None
-        match = self._resume_re.search(note)
-        if not match:
-            return None
-        return int(match.group(1))
+    def _parse_resume_from(self, note: str) -> Optional[int]:
+        for line in (note or "").splitlines():
+            if line.strip().startswith("resume_from:"):
+                try:
+                    return int(line.split("resume_from:", 1)[1].strip())
+                except Exception:
+                    return None
+        return None
+
+    def _strip_resume_from(self, note: str) -> str:
+        out = []
+        for line in (note or "").splitlines():
+            if line.strip().startswith("resume_from:"):
+                continue
+            out.append(line)
+        return "\n".join([line for line in out if line.strip()]).strip()
 
     def _extract_stage_req(self, note: str) -> Optional[str]:
         if not note:
@@ -286,7 +294,13 @@ class AIWorker:
             plan_artifact_id = (req.get("plan_artifact_id") or "").strip()
             scope = (req.get("scope") or "").strip()
             note = req.get("note") or ""
-            resume_from = self._extract_resume_from(getattr(job, "note", "") or "")
+            job_note = getattr(job, "note", "") or ""
+            resume_from = self._parse_resume_from(job_note)
+            if resume_from is not None:
+                try:
+                    self.jobstore.update_note(job_id, self._strip_resume_from(job_note))
+                except Exception:
+                    self.log.debug("job %s: update_note failed", job_id)
             start_step_index = resume_from if resume_from is not None else 1
 
             try:
