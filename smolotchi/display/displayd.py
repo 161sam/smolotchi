@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.jobs import JobStore
+from smolotchi.core.paths import resolve_artifact_root, resolve_db_path
 from smolotchi.device.buttons import ButtonConfig, ButtonWatcher
 from smolotchi.device.power import PowerMonitor
 from smolotchi.device.profile import get_device_profile
@@ -66,8 +67,8 @@ def _dryrun_enabled() -> bool:
 def main() -> None:
     profile = get_device_profile(os.environ.get("SMOLOTCHI_DEVICE", "pi_zero"))
 
-    db = os.environ.get("SMOLOTCHI_DB", "/var/lib/smolotchi/events.db")
-    root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", "/var/lib/smolotchi/artifacts")
+    db = resolve_db_path()
+    root = resolve_artifact_root()
 
     bus = SQLiteBus(db_path=db)
     artifacts = ArtifactStore(root=root)

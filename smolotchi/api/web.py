@@ -27,6 +27,7 @@ from smolotchi.core.jobs import JobStore
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.policy import Policy
 from smolotchi.core.presets import PRESETS
+from smolotchi.core.paths import resolve_artifact_root, resolve_db_path
 from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.core.validate import validate_profiles
 from smolotchi.core.toml_patch import (
@@ -77,8 +78,8 @@ def _atomic_write_text(path: Path, text: str) -> None:
 
 def create_app(config_path: str = "config.toml") -> Flask:
     app = Flask(__name__)
-    db_path = os.environ.get("SMOLOTCHI_DB", "/var/lib/smolotchi/events.db")
-    artifact_root = os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", "/var/lib/smolotchi/artifacts")
+    db_path = resolve_db_path()
+    artifact_root = resolve_artifact_root()
 
     bus = SQLiteBus(db_path=db_path)
     store = ConfigStore(config_path)
