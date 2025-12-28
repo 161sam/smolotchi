@@ -1,16 +1,19 @@
 [Unit]
-Description=Smolotchi Core
-After=network.target
+Description=Smolotchi Core Daemon
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-User=pi
-Environment=PYTHONUNBUFFERED=1
-Environment=SMOLOTCHI_PROJECT_DIR=/home/pi/smolotchi
-Environment=SMOLOTCHI_VENV_PYTHON=/home/pi/smolotchi/.venv/bin/python
-EnvironmentFile=-/etc/smolotchi/smolotchi.env
-WorkingDirectory=${SMOLOTCHI_PROJECT_DIR}
-ExecStart=${SMOLOTCHI_VENV_PYTHON} -m smolotchi.cli core --db ${SMOLOTCHI_DB}
-Restart=always
+Type=simple
+User=smolotchi
+Group=smolotchi
+WorkingDirectory=/opt/smolotchi
+EnvironmentFile=/etc/smolotchi/smolotchi.env
+RuntimeDirectory=smolotchi
+RuntimeDirectoryMode=0775
+ExecStartPre=/bin/mkdir -p /run/smolotchi/locks
+ExecStart=/opt/smolotchi/.venv/bin/python -m smolotchi.cli --config /etc/smolotchi/config.toml core
+Restart=on-failure
 RestartSec=2
 
 [Install]

@@ -156,6 +156,44 @@ Artifacts are stored under `/var/lib/smolotchi/artifacts`.
 
 ---
 
+## Pi Zero Setup (Raspberry Pi OS Lite)
+
+Bootstrap a fresh Raspberry Pi OS Lite installation with the provided script.
+
+**Option A: curl | bash (example)**
+
+```bash
+curl -sfL https://raw.githubusercontent.com/<you>/smolotchi/main/scripts/pi_zero/bootstrap.sh | \
+  sudo bash -s -- --repo "https://github.com/<you>/smolotchi.git" --branch main --enable-sudo
+```
+
+**Option B: clone the repo and run locally**
+
+```bash
+git clone https://github.com/<you>/smolotchi.git
+cd smolotchi
+sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/<you>/smolotchi.git" --branch main --enable-sudo
+```
+
+Services are installed to `/etc/systemd/system` and enabled on boot. Check status:
+
+```bash
+sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager
+sudo journalctl -u smolotchi-core -n 50 --no-pager
+```
+
+Start/stop/restart:
+
+```bash
+sudo systemctl start smolotchi-core smolotchi-web smolotchi-ai-worker
+sudo systemctl stop smolotchi-core smolotchi-web smolotchi-ai-worker
+sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai-worker
+```
+
+See `scripts/pi_zero/README.md` for a smoke checklist.
+
+---
+
 ## AI stage approvals (caution-risk actions)
 
 Actions marked with `risk=caution` are gated by a stage approval flow instead of failing:

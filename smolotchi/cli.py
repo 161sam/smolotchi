@@ -21,6 +21,7 @@ from smolotchi.core.paths import (
     resolve_db_path,
     resolve_default_tag,
     resolve_device,
+    resolve_lock_root,
 )
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
@@ -56,8 +57,10 @@ def cmd_web(args) -> int:
     cfg = store.load()
 
     app = create_app(config_path=args.config)
-    host = args.host or cfg.ui.host
-    port = args.port or cfg.ui.port
+    env_host = os.environ.get("SMOLOTCHI_WEB_HOST")
+    env_port = os.environ.get("SMOLOTCHI_WEB_PORT")
+    host = args.host or env_host or cfg.ui.host
+    port = args.port or (int(env_port) if env_port else None) or cfg.ui.port
     app.run(host=host, port=port, debug=False)
     return 0
 
@@ -107,7 +110,7 @@ def cmd_core(args) -> int:
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
     jobs = JobStore(args.db)
-    resources = ResourceManager("/run/smolotchi/locks")
+    resources = ResourceManager(resolve_lock_root())
     renderer = (
         ReportRenderer(ReportConfig(templates_dir=cfg.reports.templates_dir))
         if cfg.reports.enabled
