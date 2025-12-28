@@ -1,11 +1,62 @@
 from __future__ import annotations
 
+import os
+import socket
+import threading
 import time
 from typing import Dict, Optional
 
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.config import ConfigStore
 from smolotchi.core.jobs import JobStore
+
+
+class SystemdWatchdog:
+    def __init__(self) -> None:
+        self.interval = self._calc_interval()
+        self._last_ping = time.time()
+        self._running = False
+
+    def _calc_interval(self) -> float:
+        usec = os.getenv("WATCHDOG_USEC")
+        if not usec:
+            return 0.0
+        try:
+            return int(usec) / 1_000_000 / 2
+        except ValueError:
+            return 0.0
+
+    def start(self) -> None:
+        if self.interval <= 0:
+            return
+        self._running = True
+        self._notify("READY=1")
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def ping(self) -> None:
+        self._last_ping = time.time()
+
+    def _loop(self) -> None:
+        while self._running:
+            if time.time() - self._last_ping <= self.interval * 2:
+                self._notify("WATCHDOG=1")
+            time.sleep(self.interval)
+
+    def _notify(self, payload: str) -> None:
+        addr = "/run/systemd/notify"
+        if not os.path.exists(addr):
+            return
+        try:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            sock.connect(addr)
+            sock.sendall(f"{payload}\n".encode("utf-8"))
+        except Exception:
+            return
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                return
 
 
 class JobWatchdog:
