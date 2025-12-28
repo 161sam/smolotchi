@@ -1,17 +1,23 @@
 [Unit]
 Description=Smolotchi Web UI
-After=network-online.target
-Wants=network-online.target
+After=network.target smolotchi-core.service
+Requires=smolotchi-core.service
 
 [Service]
 Type=simple
 User=smolotchi
 Group=smolotchi
-WorkingDirectory=/opt/smolotchi
-EnvironmentFile=/etc/smolotchi/smolotchi.env
-ExecStart=/opt/smolotchi/.venv/bin/python -m smolotchi.cli --config /etc/smolotchi/config.toml web
-Restart=on-failure
-RestartSec=2
+WorkingDirectory=/home/smolotchi
+EnvironmentFile=/etc/smolotchi/env
+ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.cli web
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/smolotchi
 
 [Install]
 WantedBy=multi-user.target

@@ -92,10 +92,52 @@ class JobStore:
             )
 
     def pop_next(self) -> Optional[JobRow]:
+        return self.pop_next_filtered()
+
+    def pop_next_filtered(
+        self,
+        *,
+        include_prefixes: Optional[List[str]] = None,
+        exclude_prefixes: Optional[List[str]] = None,
+        include_kinds: Optional[List[str]] = None,
+        exclude_kinds: Optional[List[str]] = None,
+    ) -> Optional[JobRow]:
+        include_prefixes = include_prefixes or []
+        exclude_prefixes = exclude_prefixes or []
+        include_kinds = include_kinds or []
+        exclude_kinds = exclude_kinds or []
+
+        query = (
+            "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts "
+            "FROM jobs WHERE status='queued'"
+        )
+        params: List[Any] = []
+
+        allow_clauses: List[str] = []
+        if include_kinds:
+            allow_clauses.append(
+                "kind IN (" + ",".join("?" for _ in include_kinds) + ")"
+            )
+            params.extend(include_kinds)
+        if include_prefixes:
+            allow_clauses.append(
+                " OR ".join("kind LIKE ?" for _ in include_prefixes)
+            )
+            params.extend([f"{prefix}%" for prefix in include_prefixes])
+        if allow_clauses:
+            query += " AND (" + " OR ".join(allow_clauses) + ")"
+
+        if exclude_kinds:
+            query += " AND kind NOT IN (" + ",".join("?" for _ in exclude_kinds) + ")"
+            params.extend(exclude_kinds)
+        if exclude_prefixes:
+            query += " AND " + " AND ".join("kind NOT LIKE ?" for _ in exclude_prefixes)
+            params.extend([f"{prefix}%" for prefix in exclude_prefixes])
+
+        query += " ORDER BY created_ts ASC LIMIT 1"
+
         with self._conn() as con:
-            row = con.execute(
-                "SELECT id, kind, scope, note, meta, status, created_ts, updated_ts FROM jobs WHERE status='queued' ORDER BY created_ts ASC LIMIT 1"
-            ).fetchone()
+            row = con.execute(query, params).fetchone()
             if not row:
                 return None
             job_id = row[0]
