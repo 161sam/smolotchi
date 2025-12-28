@@ -1,0 +1,186 @@
+{% extends "layout.html" %}
+{% block page_title %}LAN Dossier{% endblock %}
+{% block page_sub %}Merged job dossier{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="row between">
+    <h3 class="mb-sm">LAN Dossier</h3>
+    <div class="btn-row">
+      <a class="btn secondary" href="{{ url_for('lan_dossiers') }}">All dossiers</a>
+      <a class="btn secondary" href="{{ url_for('artifact_view', artifact_id=dossier_id) }}">Open JSON</a>
+      <a class="btn secondary" href="{{ url_for('artifact_download', artifact_id=dossier_id) }}">Download</a>
+    </div>
+  </div>
+
+  <div class="row mt-md">
+    <div>
+      <div class="muted">job_id</div>
+      <div><code>{{ job_id or "-" }}</code></div>
+    </div>
+    <div>
+      <div class="muted">scope</div>
+      <div><code>{{ scope or "-" }}</code></div>
+    </div>
+  </div>
+
+  <div class="row mt-md">
+    <div>
+      <div class="muted">WiFi</div>
+      {% if wifi %}
+        <div><code>{{ wifi.get("ssid","-") }}</code> <span class="muted">{{ wifi.get("iface","-") }}</span></div>
+        {% if wifi.get("wifi_profile_hash") %}
+          <div class="muted">profile_hash: <code>{{ wifi.get("wifi_profile_hash") }}</code></div>
+        {% endif %}
+        {% if wifi.get("reason") %}
+          <div class="muted">reason: <code>{{ wifi.get("reason") }}</code></div>
+        {% endif %}
+      {% else %}
+        <div class="muted">-</div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div class="muted">LAN result</div>
+      {% if lan %}
+        <div>ok: <code>{{ lan.get("ok") }}</code></div>
+        <div class="row mt-sm">
+          {% if lan.get("bundle_id") %}
+            <a class="pill" href="{{ url_for('lan_result_details', bundle_id=lan.get('bundle_id')) }}">Bundle</a>
+          {% endif %}
+          {% if lan.get("report_id") %}
+            <a class="pill" href="{{ url_for('report_view', artifact_id=lan.get('report_id')) }}">Report</a>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="muted">-</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3 class="mb-sm">Policy decisions</h3>
+  {% set decisions = policy.get("decisions") if policy and policy.get("decisions") is iterable else [] %}
+  {% if decisions and decisions|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>action</th>
+            <th>decision</th>
+            <th>note</th>
+            <th>topic</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in decisions %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(d.get("ts")) }}</td>
+              <td><code>{{ d.get("action","-") }}</code></td>
+              <td>{{ d.get("decision","-") }}</td>
+              <td class="muted">{{ d.get("note","") }}</td>
+              <td class="muted"><code>{{ d.get("topic","-") }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="mb-sm">Hosts</h3>
+  {% set items = hosts.get("items") if hosts and hosts.get("items") is iterable else [] %}
+  {% if items and items|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ip</th>
+            <th>ports</th>
+            <th>services</th>
+            <th>sources</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in items %}
+            <tr class="table-row">
+              <td><code>{{ h.get("ip") or (h.get("host",{}).get("ip") if h.get("host") is mapping else "-") }}</code></td>
+              <td class="muted">
+                {% set ports = h.get("ports") if h.get("ports") is iterable else [] %}
+                {% if ports and ports|length > 0 %}
+                  {{ ports|length }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td class="muted">
+                {% set services = h.get("services") if h.get("services") is iterable else [] %}
+                {% if services and services|length > 0 %}
+                  {{ services|length }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td class="muted">
+                {% set sources = h.get("sources") if h.get("sources") is iterable else [] %}
+                {% if sources and sources|length > 0 %}
+                  <code>{{ sources|join(",") }}</code>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">No host summaries linked to this job yet.</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3 class="mb-sm">Merged timeline</h3>
+  {% if timeline and timeline|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>type</th>
+            <th>summary</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in timeline %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(e.get("ts")) }}</td>
+              <td><code>{{ e.get("type","-") }}</code></td>
+              <td class="muted">
+                {% if e.get("type") == "wifi.lan.timeline" %}
+                  ssid=<code>{{ e.get("ssid","-") }}</code> iface={{ e.get("iface","-") }} scope=<code>{{ e.get("scope","-") }}</code>
+                {% elif e.get("type") == "lan.result" %}
+                  ok=<code>{{ e.get("ok") }}</code> bundle=<code>{{ e.get("bundle_id","-") }}</code>
+                {% elif e.get("type") == "lan.host" %}
+                  ip=<code>{{ e.get("ip","-") }}</code> ports={{ (e.get("ports") or [])|length }}
+                {% elif e.get("type") == "policy.event" %}
+                  topic=<code>{{ e.get("topic","-") }}</code>
+                {% else %}
+                  <code>{{ e }}</code>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">-</div>
+  {% endif %}
+</section>
+{% endblock %}

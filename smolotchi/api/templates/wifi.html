@@ -353,7 +353,17 @@
                 {% if links and links.get("report") %}
                   <a class="pill" href="{{ links.get('report') }}">Report</a>
                 {% endif %}
-                {% if not links %}
+                {% if links and links.get("dossier") %}
+                  <a class="pill" href="{{ links.get('dossier') }}">Dossier</a>
+                {% elif jid %}
+                  <form method="post" action="/dossier/build" style="display:inline">
+                    <input type="hidden" name="job_id" value="{{ jid }}">
+                    <input type="hidden" name="scope" value="{{ p.get('scope','') }}">
+                    <input type="hidden" name="back" value="{{ url_for('wifi') }}">
+                    <button class="pill" type="submit">Build Dossier</button>
+                  </form>
+                {% endif %}
+                {% if not links and not jid %}
                   <span class="muted">-</span>
                 {% endif %}
               </td>

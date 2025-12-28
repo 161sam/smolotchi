@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block page_title %}LAN Dossiers{% endblock %}
+{% block page_sub %}Merged dossier artifacts{% endblock %}
+
+{% block content %}
+<section class="card">
+  {% include "partials/back_to_lan.html" %}
+</section>
+
+<section class="card">
+  <div class="row between">
+    <h3 class="mb-sm">LAN Dossiers</h3>
+  </div>
+
+  {% if dossiers and dossiers|length > 0 %}
+    <div class="table-scroll">
+      <table class="table-list">
+        <thead>
+          <tr class="muted table-head">
+            <th>ts</th>
+            <th>job_id</th>
+            <th>scope</th>
+            <th>wifi</th>
+            <th>hosts</th>
+            <th>policy</th>
+            <th>links</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in dossiers %}
+            {% set p = row.payload %}
+            {% set wifi = p.get("wifi") if p.get("wifi") is mapping else {} %}
+            {% set hosts = p.get("hosts") if p.get("hosts") is mapping else {} %}
+            {% set policy = p.get("policy") if p.get("policy") is mapping else {} %}
+            {% set decisions = policy.get("decisions") if policy.get("decisions") is iterable else [] %}
+            <tr class="table-row">
+              <td>{{ fmt_ts(p.get("ts")) }}</td>
+              <td><code>{{ p.get("job_id","-") }}</code></td>
+              <td><code>{{ p.get("scope","-") }}</code></td>
+              <td>
+                {% if wifi %}
+                  <div><code>{{ wifi.get("ssid","-") }}</code></div>
+                  <div class="muted">{{ wifi.get("iface","-") }}</div>
+                {% else %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if hosts %}
+                  <code>{{ hosts.get("count", 0) }}</code>
+                {% else %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if decisions and decisions|length > 0 %}
+                  <code>{{ decisions|length }}</code>
+                {% else %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <a class="pill" href="{{ url_for('lan_dossier_view', artifact_id=row.meta.id) }}">Open</a>
+                <a class="pill" href="{{ url_for('artifact_view', artifact_id=row.meta.id) }}">JSON</a>
+                <a class="pill" href="{{ url_for('artifact_download', artifact_id=row.meta.id) }}">Download</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">No dossiers yet.</div>
+  {% endif %}
+</section>
+{% endblock %}
