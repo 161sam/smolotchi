@@ -1,3 +1,25 @@
+---
+
+<div align="center">
+
+# 🚧 ACTIVE DEVELOPMENT 🚧
+
+⚠️ **This project is currently under active development** ⚠️
+
+Expect:
+- breaking changes
+- incomplete features
+- experimental behavior
+- occasional bugs
+
+🧪 **Not production-ready**
+
+💬 Issues, feedback and PRs are very welcome.
+
+</div>
+
+---
+
 ## Smolotchi — Research-Grade Offensive Security Orchestrator
 
 ### Abstract
