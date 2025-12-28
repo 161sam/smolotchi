@@ -89,20 +89,20 @@ install -d -m 0775 -o "$USER_NAME" -g "$USER_NAME" /run/smolotchi
 install -d -m 0775 -o "$USER_NAME" -g "$USER_NAME" /run/smolotchi/locks
 install -d -m 0755 /etc/smolotchi
 
-echo "[5/9] clone/update repo -> /opt/smolotchi"
-if [[ ! -d /opt/smolotchi/.git ]]; then
-  git clone --branch "$BRANCH" "$REPO_URL" /opt/smolotchi
+echo "[5/9] clone/update repo -> /home/$USER_NAME/smolotchi"
+if [[ ! -d /home/$USER_NAME/smolotchi/.git ]]; then
+  git clone --branch "$BRANCH" "$REPO_URL" /home/$USER_NAME/smolotchi
 else
-  cd /opt/smolotchi
+  cd /home/$USER_NAME/smolotchi
   git fetch --all
   git checkout "$BRANCH"
   git pull --ff-only
 fi
-chown -R "$USER_NAME:$USER_NAME" /opt/smolotchi
+chown -R "$USER_NAME:$USER_NAME" /home/$USER_NAME/smolotchi
 
 echo "[6/9] create venv + install editable"
 sudo -u "$USER_NAME" bash -lc "
-  cd /opt/smolotchi
+  cd /home/$USER_NAME/smolotchi
   python3 -m venv .venv
   . .venv/bin/activate
   pip install -U pip
@@ -111,35 +111,39 @@ sudo -u "$USER_NAME" bash -lc "
 
 echo "[7/9] install config + env"
 if [[ ! -f /etc/smolotchi/config.toml ]]; then
-  if [[ -f /opt/smolotchi/contrib/pi_zero/config.toml ]]; then
-    cp /opt/smolotchi/contrib/pi_zero/config.toml /etc/smolotchi/config.toml
+  if [[ -f /home/$USER_NAME/smolotchi/contrib/pi_zero/config.toml ]]; then
+    cp /home/$USER_NAME/smolotchi/contrib/pi_zero/config.toml /etc/smolotchi/config.toml
   else
-    cp /opt/smolotchi/config.toml /etc/smolotchi/config.toml
+    cp /home/$USER_NAME/smolotchi/config.toml /etc/smolotchi/config.toml
   fi
 fi
 
-cat >/etc/smolotchi/smolotchi.env <<'ENV'
+cat >/etc/smolotchi/env <<'ENV'
 SMOLOTCHI_DB=/var/lib/smolotchi/events.db
 SMOLOTCHI_ARTIFACT_ROOT=/var/lib/smolotchi/artifacts
-SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml
+SMOLOTCHI_CONFIG=/home/smolotchi/config.toml
 SMOLOTCHI_DEVICE=pi_zero
 SMOLOTCHI_LOCK_ROOT=/run/smolotchi/locks
+SMOLOTCHI_DEFAULT_TAG=lab-approved
+SMOLOTCHI_DISPLAY_DRYRUN=0
 ENV
 
-chmod 0644 /etc/smolotchi/smolotchi.env
+chmod 0644 /etc/smolotchi/env
 
 install -m 0755 /dev/stdin /usr/local/bin/smolotchi <<'SH'
 #!/usr/bin/env bash
-exec /opt/smolotchi/.venv/bin/python -m smolotchi.cli "$@"
+exec /home/smolotchi/.venv/bin/python -m smolotchi.cli "$@"
 SH
 
 echo "[8/9] install systemd units"
-install -m 0644 /opt/smolotchi/packaging/systemd/smolotchi-core.service /etc/systemd/system/smolotchi-core.service
-install -m 0644 /opt/smolotchi/packaging/systemd/smolotchi-web.service /etc/systemd/system/smolotchi-web.service
-install -m 0644 /opt/smolotchi/packaging/systemd/smolotchi-ai-worker.service /etc/systemd/system/smolotchi-ai-worker.service
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-core.service /etc/systemd/system/smolotchi-core.service
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-web.service /etc/systemd/system/smolotchi-web.service
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-ai.service /etc/systemd/system/smolotchi-ai.service
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-prune.service /etc/systemd/system/smolotchi-prune.service
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-prune.timer /etc/systemd/system/smolotchi-prune.timer
 
 if [[ "$WITH_DISPLAY" -eq 1 ]]; then
-  install -m 0644 /opt/smolotchi/packaging/systemd/smolotchi-display.service /etc/systemd/system/smolotchi-display.service
+  install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-display.service /etc/systemd/system/smolotchi-display.service
 fi
 
 systemctl daemon-reload
@@ -147,7 +151,8 @@ systemctl daemon-reload
 echo "[9/9] enable + start"
 systemctl enable --now smolotchi-core.service
 systemctl enable --now smolotchi-web.service
-systemctl enable --now smolotchi-ai-worker.service
+systemctl enable --now smolotchi-ai.service
+systemctl enable --now smolotchi-prune.timer
 
 if [[ "$WITH_DISPLAY" -eq 1 ]]; then
   systemctl enable --now smolotchi-display.service
@@ -155,5 +160,5 @@ fi
 
 echo "DONE."
 echo "Check:"
-echo "  systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager"
+echo "  systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager"
 echo "  journalctl -u smolotchi-core -f"

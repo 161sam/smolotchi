@@ -1,0 +1,9 @@
+[Unit]
+Description=Smolotchi Artifact Retention
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

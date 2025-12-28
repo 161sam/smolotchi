@@ -225,7 +225,10 @@ class LanEngine:
             return
 
         if self._active is None:
-            self._active = self.jobs.pop_next()
+            self._active = self.jobs.pop_next_filtered(
+                exclude_prefixes=["scan."],
+                exclude_kinds=["ai_plan"],
+            )
             if self._active:
                 meta = self._active.meta if isinstance(self._active.meta, dict) else {}
                 overrides = meta.get("lan_overrides") or {}

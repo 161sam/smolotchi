@@ -5,7 +5,7 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 PROJECT_DIR=${PROJECT_DIR:-"$ROOT_DIR"}
 VENV_DIR=${VENV_DIR:-"$PROJECT_DIR/.venv"}
 ENV_DIR=${ENV_DIR:-"/etc/smolotchi"}
-ENV_FILE=${ENV_FILE:-"$ENV_DIR/smolotchi.env"}
+ENV_FILE=${ENV_FILE:-"$ENV_DIR/env"}
 
 if [[ $EUID -ne 0 ]]; then
   echo "error: run as root (sudo)."
@@ -23,9 +23,11 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-core.service" /etc/systemd/system/smolotchi-core.service
-install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-ai-worker.service" /etc/systemd/system/smolotchi-ai-worker.service
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-ai.service" /etc/systemd/system/smolotchi-ai.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-display.service" /etc/systemd/system/smolotchi-display.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-web.service" /etc/systemd/system/smolotchi-web.service
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.service" /etc/systemd/system/smolotchi-prune.service
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer" /etc/systemd/system/smolotchi-prune.timer
 
 systemctl daemon-reload
 
@@ -33,7 +35,7 @@ cat <<'EOM'
 Done.
 
 Enable UI-only mode:
-  sudo systemctl enable --now smolotchi-core smolotchi-ai-worker smolotchi-display
+  sudo systemctl enable --now smolotchi-core smolotchi-ai smolotchi-display
 
 Optional web UI:
   sudo systemctl enable --now smolotchi-web

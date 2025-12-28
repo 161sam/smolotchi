@@ -88,6 +88,7 @@ def cmd_core(args) -> int:
     from smolotchi.core.resources import ResourceManager
     from smolotchi.core.watchdog import JobWatchdog
     from smolotchi.engines.lan_engine import LanConfig, LanEngine
+    from smolotchi.engines.tools_engine import ToolsEngine
     from smolotchi.engines.wifi_engine import WifiEngine
 
     store = ConfigStore(args.config)
@@ -229,6 +230,9 @@ def cmd_core(args) -> int:
             },
         )
     )
+    tools_engine = ToolsEngine(bus=bus, artifacts=artifacts, jobstore=jobs)
+    tools_engine.start()
+    reg.register(tools_engine)
 
     core = SmolotchiCore(bus=bus, policy=policy, engines=reg, resources=resources)
     core.set_state(cfg.core.default_state, "default from config")
@@ -446,6 +450,24 @@ def cmd_wifi_status(args) -> int:
     cidr = detect_ipv4_cidr(iface)
     scope = detect_scope_for_iface(iface)
     print(f"iface={iface} cidr={cidr or '-'} scope={scope or '-'}")
+    return 0
+
+
+def cmd_jobs_enqueue(args) -> int:
+    from smolotchi.core.jobs import JobStore
+
+    job_id = args.job_id or f"job-{int(time.time())}"
+    js = JobStore(args.db)
+    js.enqueue(
+        {
+            "id": job_id,
+            "kind": args.kind,
+            "scope": args.scope,
+            "note": args.note or "",
+            "meta": {},
+        }
+    )
+    print(job_id)
     return 0
 
 
@@ -1190,6 +1212,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     jobs = sub.add_parser("jobs", help="Job utilities")
     jobs_sub = jobs.add_subparsers(dest="jobs_cmd", required=True)
+
+    s = jobs_sub.add_parser("enqueue", help="Enqueue a job")
+    s.add_argument("--kind", required=True)
+    s.add_argument("--scope", required=True)
+    s.add_argument("--note", default="")
+    s.add_argument("--job-id", default=None)
+    s.set_defaults(fn=cmd_jobs_enqueue)
 
     s = jobs_sub.add_parser("list", help="List jobs")
     s.add_argument("--status", action="append", default=None, help="Filter by status")

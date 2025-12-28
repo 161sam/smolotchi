@@ -1,5 +1,5 @@
 [Unit]
-Description=Smolotchi E-Paper Display
+Description=Smolotchi AI Worker
 After=smolotchi-core.service
 Requires=smolotchi-core.service
 
@@ -9,12 +9,15 @@ User=smolotchi
 Group=smolotchi
 WorkingDirectory=/home/smolotchi
 EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.cli display
+ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.ai.worker --loop --log-level INFO
 Restart=always
-RestartSec=15
+RestartSec=10
 
 NoNewPrivileges=true
 PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/smolotchi
 
 [Install]
 WantedBy=multi-user.target
