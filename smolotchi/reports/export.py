@@ -86,10 +86,11 @@ def build_report_markdown(model: Dict[str, Any]) -> str:
             for finding in findings[:12]:
                 cvss = finding.get("cvss")
                 cvss_str = f" (CVSS {cvss})" if isinstance(cvss, (int, float)) else ""
+                safe_output = finding.get("output", "").replace("\n", " / ")
                 lines.append(
                     f"- `{finding.get('severity','info')}`{cvss_str} "
                     f"`{finding.get('id')}` `{finding.get('scope')}`: "
-                    f"{finding.get('output','').replace('\\n',' / ')[:180]}"
+                    f"{safe_output[:180]}"
                 )
             lines.append("")
         else:
