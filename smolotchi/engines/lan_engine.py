@@ -6,6 +6,8 @@ from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.bus import SQLiteBus
 from smolotchi.core.engines import EngineHealth
 from smolotchi.core.jobs import JobRow, JobStore
+from smolotchi.core.dossier import build_lan_dossier
+from smolotchi.core.lan_resolver import resolve_result_by_job_id
 from smolotchi.core.reports import ReportRenderer
 
 
@@ -61,6 +63,7 @@ class LanEngine:
         self._running = False
         self._active: Optional[JobRow] = None
         self._active_overrides: dict | None = None
+        self._last_dossier_evt_ts = 0.0
 
     def start(self) -> None:
         self._running = True
@@ -69,6 +72,16 @@ class LanEngine:
     def stop(self) -> None:
         self._running = False
         self.bus.publish("lan.engine.stopped", {})
+
+    def _tail_since(self, topic_prefix: str, last_ts: float, limit: int = 80):
+        evts = self.bus.tail(limit=limit, topic_prefix=topic_prefix)
+        out = []
+        for e in evts:
+            ts = getattr(e, "ts", 0.0) or 0.0
+            if ts and ts > last_ts:
+                out.append(e)
+        out.sort(key=lambda e: getattr(e, "ts", 0.0) or 0.0)
+        return out
 
     def enqueue(self, job_dict: dict) -> None:
         self.jobs.enqueue(job_dict)
@@ -223,6 +236,38 @@ class LanEngine:
     def tick(self) -> None:
         if not self._running or not self.cfg.enabled:
             return
+
+        dossier_evts = self._tail_since(
+            "ui.dossier.build", self._last_dossier_evt_ts, limit=20
+        )
+        for evt in dossier_evts:
+            self._last_dossier_evt_ts = max(
+                self._last_dossier_evt_ts, getattr(evt, "ts", 0.0) or 0.0
+            )
+            payload = evt.payload if isinstance(evt.payload, dict) else {}
+            job_id = str(payload.get("job_id") or "").strip()
+            scope = str(payload.get("scope") or "").strip()
+            reason = str(payload.get("reason") or "ui").strip()
+            if not job_id:
+                continue
+            try:
+                dossier_id = build_lan_dossier(
+                    job_id=job_id,
+                    scope=scope,
+                    reason=reason,
+                    artifacts=self.artifacts,
+                    jobstore=self.jobs,
+                    resolve_result_by_job_id=resolve_result_by_job_id,
+                )
+                self.bus.publish(
+                    "lan.dossier.built",
+                    {"ts": time.time(), "job_id": job_id, "dossier_id": dossier_id},
+                )
+            except Exception as exc:
+                self.bus.publish(
+                    "lan.dossier.failed",
+                    {"ts": time.time(), "job_id": job_id, "err": str(exc)},
+                )
 
         if self._active is None:
             self._active = self.jobs.pop_next_filtered(

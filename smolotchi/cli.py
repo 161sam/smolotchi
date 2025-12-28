@@ -892,38 +892,24 @@ def cmd_finding_history(args) -> int:
 
 
 def cmd_dossier_build(args) -> int:
-    from smolotchi.api.web import create_app
-    from smolotchi.merge.timeline import build_dossier
+    from smolotchi.core.dossier import build_lan_dossier
+    from smolotchi.core.jobs import JobStore
+    from smolotchi.core.lan_resolver import resolve_result_by_job_id
 
     os.environ["SMOLOTCHI_DB"] = args.db
     os.environ["SMOLOTCHI_ARTIFACT_ROOT"] = args.artifact_root
 
-    bus = SQLiteBus(db_path=args.db)
     artifacts = ArtifactStore(args.artifact_root)
-
-    app = create_app(config_path=args.config)
-    resolver = getattr(app, "resolve_result_by_job_id", None)
-    if not resolver:
-        print("ERR: resolver not available on app")
-        return 2
-
-    dossier = build_dossier(
+    jobstore = JobStore(args.db)
+    dossier_id = build_lan_dossier(
         job_id=args.job_id,
         scope=args.scope,
-        bus=bus,
+        reason="cli",
         artifacts=artifacts,
-        resolve_result_by_job_id=resolver,
+        jobstore=jobstore,
+        resolve_result_by_job_id=resolve_result_by_job_id,
     )
-    if not dossier:
-        print("No dossier generated.")
-        return 1
-
-    art = artifacts.put_json(
-        kind="lan_dossier",
-        payload=dossier,
-        title=f"lan dossier {args.job_id}",
-    )
-    print(f"OK: stored lan_dossier artifact_id={art.id}")
+    print(f"OK: stored lan_dossier artifact_id={dossier_id}")
     return 0
 
 

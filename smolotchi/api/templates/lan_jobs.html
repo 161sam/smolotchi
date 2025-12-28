@@ -14,6 +14,7 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% set links = job_links(j.id) if job_links else {} %}
 
         <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
@@ -32,6 +33,19 @@
             <a class="btn" href="{{ url_for('ai_run_detail', artifact_id=run_by_job[j.id]) }}">Open run</a>
           </div>
         {% endif %}
+
+        <div class="btn-row mt-sm">
+          {% if links and links.get("dossier") %}
+            <a class="btn" href="{{ links.get('dossier') }}">Dossier</a>
+          {% else %}
+            <form method="post" action="/dossier/build">
+              <input type="hidden" name="job_id" value="{{ j.id }}">
+              <input type="hidden" name="scope" value="{{ j.scope or '' }}">
+              <input type="hidden" name="back" value="{{ url_for('lan_jobs') }}">
+              <button class="btn secondary" type="submit">Build Dossier</button>
+            </form>
+          {% endif %}
+        </div>
 
         <form method="post" action="{{ url_for('lan_job_reset', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Reset to queued</button>
@@ -57,6 +71,7 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% set links = job_links(j.id) if job_links else {} %}
 
         <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
@@ -69,6 +84,19 @@
         {% if j.meta %}
           <pre class="muted mt-sm">meta: {{ j.meta }}</pre>
         {% endif %}
+
+        <div class="btn-row mt-sm">
+          {% if links and links.get("dossier") %}
+            <a class="btn" href="{{ links.get('dossier') }}">Dossier</a>
+          {% else %}
+            <form method="post" action="/dossier/build">
+              <input type="hidden" name="job_id" value="{{ j.id }}">
+              <input type="hidden" name="scope" value="{{ j.scope or '' }}">
+              <input type="hidden" name="back" value="{{ url_for('lan_jobs') }}">
+              <button class="btn secondary" type="submit">Build Dossier</button>
+            </form>
+          {% endif %}
+        </div>
 
         <form method="post" action="{{ url_for('lan_job_cancel', job_id=j.id) }}" class="mt-sm">
           <button class="btn secondary" type="submit">Cancel</button>
@@ -93,6 +121,7 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }}</pre>
+        {% set links = job_links(j.id) if job_links else {} %}
 
         <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
@@ -114,6 +143,16 @@
 
         <div class="btn-row mt-sm">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
+          {% if links and links.get("dossier") %}
+            <a class="btn" href="{{ links.get('dossier') }}">Dossier</a>
+          {% else %}
+            <form method="post" action="/dossier/build">
+              <input type="hidden" name="job_id" value="{{ j.id }}">
+              <input type="hidden" name="scope" value="{{ j.scope or '' }}">
+              <input type="hidden" name="back" value="{{ url_for('lan_jobs') }}">
+              <button class="btn secondary" type="submit">Build Dossier</button>
+            </form>
+          {% endif %}
         </div>
 
         <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" class="mt-sm">
@@ -139,6 +178,7 @@
       <div class="evt">
         <div class="evt-top">{{ j.id }}</div>
         <pre>{{ j.kind }} • {{ j.scope }} • {{ j.note }}</pre>
+        {% set links = job_links(j.id) if job_links else {} %}
 
         <div class="row mt-sm">
           <span class="pill">scope: {{ j.scope }}</span>
@@ -160,6 +200,16 @@
 
         <div class="btn-row mt-sm">
           <a class="btn" href="{{ url_for('lan_result_by_job') }}?job_id={{ j.id }}">Result details</a>
+          {% if links and links.get("dossier") %}
+            <a class="btn" href="{{ links.get('dossier') }}">Dossier</a>
+          {% else %}
+            <form method="post" action="/dossier/build">
+              <input type="hidden" name="job_id" value="{{ j.id }}">
+              <input type="hidden" name="scope" value="{{ j.scope or '' }}">
+              <input type="hidden" name="back" value="{{ url_for('lan_jobs') }}">
+              <button class="btn secondary" type="submit">Build Dossier</button>
+            </form>
+          {% endif %}
         </div>
 
         <form method="post" action="{{ url_for('lan_job_delete', job_id=j.id) }}" class="mt-sm">

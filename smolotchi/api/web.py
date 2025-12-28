@@ -31,6 +31,7 @@ from smolotchi.core.presets import PRESETS
 from smolotchi.core.paths import resolve_artifact_root, resolve_db_path
 from smolotchi.core.normalize import normalize_profile, profile_hash
 from smolotchi.core.validate import validate_profiles
+from smolotchi.core.lan_resolver import resolve_result_by_job_id as resolve_lan_result
 from smolotchi.core.toml_patch import (
     cleanup_baseline_profiles,
     cleanup_baseline_scopes,
@@ -331,6 +332,9 @@ def create_app(config_path: str = "config.toml") -> Flask:
                 links["bundle"] = url_for("lan_result_details", bundle_id=bundle_id)
             if report_id:
                 links["report"] = url_for("report_view", artifact_id=report_id)
+            dossier_id = artifacts.find_dossier_by_job_id(job_id)
+            if dossier_id:
+                links["dossier"] = url_for("lan_dossier_view", artifact_id=dossier_id)
             return links
 
         snap_by_patch_type: dict[str, str] = {}
@@ -789,6 +793,55 @@ def create_app(config_path: str = "config.toml") -> Flask:
         events = bus.tail(limit=80, topic_prefix="lan.")
         return render_template("lan.html", events=events)
 
+    @app.get("/lan/dossiers")
+    def lan_dossiers():
+        dossiers = list_lan_dossiers(limit=80)
+
+        def _key(row: dict) -> float:
+            payload = row.get("payload") or {}
+            ts = payload.get("ts") if isinstance(payload, dict) else None
+            if ts is None:
+                meta = row.get("meta")
+                ts = getattr(meta, "created_ts", 0) if meta else 0
+            try:
+                return float(ts or 0)
+            except Exception:
+                return 0.0
+
+        dossiers_sorted = sorted(dossiers, key=_key, reverse=True)
+        return render_template("lan_dossiers.html", dossiers=dossiers_sorted)
+
+    @app.get("/lan/dossier/<artifact_id>")
+    def lan_dossier_view(artifact_id: str):
+        payload = artifacts.get_json(artifact_id)
+        if not isinstance(payload, dict):
+            abort(404)
+
+        job_id = str(payload.get("job_id") or "")
+        scope = str(payload.get("scope") or "")
+        wifi = payload.get("wifi") if isinstance(payload.get("wifi"), dict) else {}
+        lan = payload.get("lan") if isinstance(payload.get("lan"), dict) else {}
+        policy = (
+            payload.get("policy") if isinstance(payload.get("policy"), dict) else {}
+        )
+        hosts = payload.get("hosts") if isinstance(payload.get("hosts"), dict) else {}
+        timeline = (
+            payload.get("timeline") if isinstance(payload.get("timeline"), list) else []
+        )
+
+        return render_template(
+            "lan_dossier_detail.html",
+            dossier_id=artifact_id,
+            dossier=payload,
+            job_id=job_id,
+            scope=scope,
+            wifi=wifi,
+            lan=lan,
+            policy=policy,
+            hosts=hosts,
+            timeline=timeline,
+        )
+
     def _bundle_finding_state(bundle: dict, fid: str):
         """
         Returns:
@@ -830,6 +883,25 @@ def create_app(config_path: str = "config.toml") -> Flask:
         return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S UTC"
         )
+
+    def list_lan_dossiers(limit: int = 50) -> list[dict]:
+        metas = artifacts.list(limit=limit, kind="lan_dossier")
+        out = []
+        for meta in metas:
+            payload = artifacts.get_json(meta.id) or {}
+            job_id = payload.get("job_id") if isinstance(payload, dict) else None
+            scope = payload.get("scope") if isinstance(payload, dict) else None
+            ts = payload.get("ts") if isinstance(payload, dict) else None
+            out.append(
+                {
+                    "meta": meta,
+                    "payload": payload if isinstance(payload, dict) else {},
+                    "job_id": job_id,
+                    "scope": scope,
+                    "ts": ts,
+                }
+            )
+        return out
 
     def _load_profile_timeline(ssid: str | None, limit: int = 50) -> list[dict]:
         if not ssid:
@@ -1234,104 +1306,10 @@ def create_app(config_path: str = "config.toml") -> Flask:
         )
 
     def resolve_result_by_job_id(job_id: str):
-        """
-        Preferred resolver:
-        1) Try lan_job_result artifacts (stable mapping)
-        Fallback resolver:
-        2) Try lan_bundle by job_id (fast)
-        2) Else: scan artifacts index for lan_result/lan_report and correlate via content.job.id
-        """
-        if not job_id:
-            return {}
-        for artifact in artifacts.list(limit=50, kind="lan_job_result"):
-            payload = artifacts.get_json(artifact.id)
-            if not isinstance(payload, dict):
-                continue
-            if str(payload.get("job_id")) != job_id:
-                continue
-            bundle_id = payload.get("bundle_id")
-            report_id = payload.get("report_id")
-            bundle = artifacts.get_json(bundle_id) if bundle_id else None
-            json_id = None
-            if bundle and isinstance(bundle, dict):
-                json_id = (bundle.get("result_json") or {}).get("artifact_id")
-            return {
-                "bundle_id": bundle_id,
-                "bundle": bundle,
-                "json_id": json_id,
-                "report_id": report_id,
-                "report_md_id": None,
-                "report_json_id": None,
-                "diff_html_id": None,
-                "diff_md_id": None,
-                "diff_json_id": None,
-                "diff_changed_hosts": [],
-                "diff_changed_hosts_count": None,
-                "diff_badges": {},
-                "ok": payload.get("ok"),
-            }
-        bundle_id = artifacts.find_bundle_by_job_id(job_id)
-        if bundle_id:
-            bundle = artifacts.get_json(bundle_id)
-            json_id = (bundle.get("result_json") or {}).get("artifact_id")
-            reports = bundle.get("reports") or {}
-            report_html = reports.get("html") or bundle.get("report_html") or {}
-            report_md = reports.get("md") or {}
-            report_json = reports.get("json") or {}
-            rep_id = report_html.get("artifact_id")
-            diff_report = reports.get("diff") or {}
-            diff_summary = bundle.get("diff_summary") or {}
-            diff_badges = bundle.get("diff_badges") or {}
-            return {
-                "bundle_id": bundle_id,
-                "bundle": bundle,
-                "json_id": json_id,
-                "report_id": rep_id,
-                "report_md_id": report_md.get("artifact_id"),
-                "report_json_id": report_json.get("artifact_id"),
-                "diff_html_id": (diff_report.get("html") or {}).get("artifact_id"),
-                "diff_md_id": (diff_report.get("md") or {}).get("artifact_id"),
-                "diff_json_id": (diff_report.get("json") or {}).get("artifact_id")
-                or diff_summary.get("artifact_id"),
-                "diff_changed_hosts": diff_summary.get("changed_hosts", []),
-                "diff_changed_hosts_count": diff_summary.get("changed_hosts_count"),
-                "diff_badges": diff_badges,
-                "ok": True,
-            }
-
-        idx = artifacts.list(limit=300)
-        json_id = None
-        report_id = None
-
-        for artifact in idx:
-            if artifact.kind == "lan_result":
-                data = artifacts.get_json(artifact.id)
-                if data and str(data.get("job", {}).get("id")) == job_id:
-                    json_id = artifact.id
-                    break
-
-        for artifact in idx:
-            if artifact.kind == "lan_report" and job_id in artifact.title:
-                report_id = artifact.id
-                break
-
-        return {
-            "bundle_id": None,
-            "bundle": None,
-            "json_id": json_id,
-            "report_id": report_id,
-            "report_md_id": None,
-            "report_json_id": None,
-            "diff_html_id": None,
-            "diff_md_id": None,
-            "diff_json_id": None,
-            "diff_changed_hosts": [],
-            "diff_changed_hosts_count": None,
-            "diff_badges": {},
-            "ok": None,
-        }
+        return resolve_lan_result(job_id, artifacts)
 
     app.resolve_result_by_job_id = resolve_result_by_job_id
+    app.list_lan_dossiers = list_lan_dossiers
 
     @app.get("/lan/result/<bundle_id>")
     def lan_result_details(bundle_id: str):
@@ -1693,6 +1671,7 @@ def create_app(config_path: str = "config.toml") -> Flask:
             done=done,
             failed=failed,
             run_by_job=run_by_job,
+            job_links=_job_links,
         )
 
     @app.post("/lan/job/<job_id>/cancel")
@@ -1914,6 +1893,29 @@ def create_app(config_path: str = "config.toml") -> Flask:
             },
         )
         return redirect(url_for("lan"))
+
+    @app.post("/dossier/build")
+    def dossier_build():
+        job_id = (request.form.get("job_id") or "").strip()
+        scope = (request.form.get("scope") or "").strip()
+        back = (request.form.get("back") or "").strip()
+
+        if not job_id:
+            abort(400)
+
+        bus.publish(
+            "ui.dossier.build",
+            {
+                "ts": time.time(),
+                "job_id": job_id,
+                "scope": scope,
+                "reason": "ui",
+            },
+        )
+
+        if back:
+            return redirect(back)
+        return redirect(url_for("lan_dossiers"))
 
     @app.get("/ai/plans")
     def ai_plans():
