@@ -1,0 +1,37 @@
+{
+  "host": {
+    "ip": "192.168.0.10",
+    "mac": "AA:BB:CC:DD:EE:FF",
+    "vendor": "Apple",
+    "hostname": "iphone.local"
+  },
+  "network": {
+    "scope": "192.168.0.0/24",
+    "iface": "wlan0",
+    "ssid": "MyWiFi"
+  },
+  "ports": [
+    {
+      "port": 22,
+      "proto": "tcp",
+      "state": "open",
+      "service": "ssh",
+      "version": "OpenSSH 8.9"
+    }
+  ],
+  "services": ["ssh", "http"],
+  "os": {
+    "guess": "Linux",
+    "confidence": 0.82
+  },
+  "risks": [
+    {
+      "id": "SSH_OPEN",
+      "severity": "medium",
+      "evidence": "port 22 open"
+    }
+  ],
+  "sources": ["nmap", "masscan"],
+  "first_seen": 1766850000,
+  "last_seen": 1766850300
+}

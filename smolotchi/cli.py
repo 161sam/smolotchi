@@ -891,6 +891,42 @@ def cmd_finding_history(args) -> int:
     return 0
 
 
+def cmd_dossier_build(args) -> int:
+    from smolotchi.api.web import create_app
+    from smolotchi.merge.timeline import build_dossier
+
+    os.environ["SMOLOTCHI_DB"] = args.db
+    os.environ["SMOLOTCHI_ARTIFACT_ROOT"] = args.artifact_root
+
+    bus = SQLiteBus(db_path=args.db)
+    artifacts = ArtifactStore(args.artifact_root)
+
+    app = create_app(config_path=args.config)
+    resolver = getattr(app, "resolve_result_by_job_id", None)
+    if not resolver:
+        print("ERR: resolver not available on app")
+        return 2
+
+    dossier = build_dossier(
+        job_id=args.job_id,
+        scope=args.scope,
+        bus=bus,
+        artifacts=artifacts,
+        resolve_result_by_job_id=resolver,
+    )
+    if not dossier:
+        print("No dossier generated.")
+        return 1
+
+    art = artifacts.put_json(
+        kind="lan_dossier",
+        payload=dossier,
+        title=f"lan dossier {args.job_id}",
+    )
+    print(f"OK: stored lan_dossier artifact_id={art.id}")
+    return 0
+
+
 def _write_text(out_path: str | None, text: str) -> None:
     if out_path:
         Path(out_path).write_text(text, encoding="utf-8")
@@ -1298,6 +1334,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("ssid")
     s.add_argument("--limit", type=int, default=50)
     s.set_defaults(fn=cmd_profile_timeline)
+
+    dossier = sub.add_parser("dossier", help="Dossier utilities (timeline merge)")
+    dossier_sub = dossier.add_subparsers(dest="dossier_cmd", required=True)
+    s = dossier_sub.add_parser("build", help="Build merged dossier for a LAN job_id")
+    s.add_argument("--job-id", required=True)
+    s.add_argument("--scope", default="")
+    s.set_defaults(fn=cmd_dossier_build)
 
     baseline = sub.add_parser("baseline", help="Baseline utilities")
     baseline_sub = baseline.add_subparsers(dest="baseline_cmd", required=True)
