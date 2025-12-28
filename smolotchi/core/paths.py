@@ -5,6 +5,7 @@ import os
 
 DEFAULT_DB_PATH = "/var/lib/smolotchi/events.db"
 DEFAULT_ARTIFACT_ROOT = "/var/lib/smolotchi/artifacts"
+DEFAULT_LOCK_ROOT = "/run/smolotchi/locks"
 DEFAULT_CONFIG_PATH = "config.toml"
 DEFAULT_TAG = "lab-approved"
 DEFAULT_DEVICE = "pi_zero"
@@ -17,6 +18,10 @@ def resolve_db_path() -> str:
 
 def resolve_artifact_root() -> str:
     return os.environ.get("SMOLOTCHI_ARTIFACT_ROOT", DEFAULT_ARTIFACT_ROOT)
+
+
+def resolve_lock_root() -> str:
+    return os.environ.get("SMOLOTCHI_LOCK_ROOT", DEFAULT_LOCK_ROOT)
 
 
 def resolve_config_path() -> str:
