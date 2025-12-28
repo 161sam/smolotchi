@@ -4,7 +4,7 @@ After=network.target
 Wants=network.target
 
 [Service]
-Type=simple
+Type=notify
 User=smolotchi
 Group=smolotchi
 WorkingDirectory=/home/smolotchi
@@ -12,6 +12,8 @@ EnvironmentFile=/etc/smolotchi/env
 ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.cli core
 Restart=always
 RestartSec=5
+WatchdogSec=30
+NotifyAccess=main
 
 AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
@@ -25,8 +27,8 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 
-MemoryMax=200M
-CPUQuota=60%
+MemoryMax=350M
+CPUQuota=70%
 
 StandardOutput=journal
 StandardError=journal

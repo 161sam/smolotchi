@@ -6,6 +6,8 @@ from .bus import SQLiteBus
 from .engines import EngineRegistry
 from .policy import Policy
 from .resources import ResourceManager
+from .self_heal import SelfHealer
+from .watchdog import SystemdWatchdog
 
 State = Literal["WIFI_OBSERVE", "HANDOFF_PREPARE", "LAN_OPS", "IDLE"]
 
@@ -31,6 +33,9 @@ class SmolotchiCore:
         self.resources = resources
         self.status = CoreStatus(state="WIFI_OBSERVE", since=time.time(), note="boot")
         self._last_prune = 0.0
+        self._self_healer = SelfHealer()
+        self._watchdog = SystemdWatchdog()
+        self._watchdog.start()
 
         self._apply_state_engines()
 
@@ -158,10 +163,19 @@ class SmolotchiCore:
                     {"engine": getattr(eng, "name", "?"), "op": "tick", "err": str(ex)},
                 )
 
+        health = self.engines.health_all()
         self.bus.publish(
-            "core.health", {"engines": [h.__dict__ for h in self.engines.health_all()]}
+            "core.health", {"engines": [h.__dict__ for h in health]}
         )
         self.bus.publish("core.resources", {"leases": self.resources.snapshot()})
+
+        for eng in health:
+            if eng.ok:
+                self._self_healer.clear(eng.name)
+                continue
+            self._self_healer.report(eng.name)
+            if self._self_healer.should_restart(eng.name):
+                self._restart_engine(eng.name)
 
         now = time.time()
         if now - self._last_prune > 60.0:
@@ -170,3 +184,23 @@ class SmolotchiCore:
                 self.bus.publish("core.retention.tick", {"ts": now})
             except Exception as ex:
                 self.bus.publish("core.retention.error", {"err": str(ex)})
+
+        self._watchdog.ping()
+
+    def _restart_engine(self, name: str) -> None:
+        eng = self.engines.get(name)
+        if not eng:
+            return
+        try:
+            eng.stop()
+            time.sleep(1)
+            eng.start()
+            self.bus.publish(
+                "core.self_heal",
+                {"engine": name, "action": "restart", "ts": time.time()},
+            )
+        except Exception as ex:
+            self.bus.publish(
+                "core.self_heal.failed",
+                {"engine": name, "error": str(ex), "ts": time.time()},
+            )
