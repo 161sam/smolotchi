@@ -318,7 +318,7 @@ def patch_wifi_allow_remove(toml_text: str, ssid: str) -> str:
         return toml_text[:start] + block2 + toml_text[end:]
 
     items = sorted(set(items))
-    joined = ", ".join([f"\"{x.replace('\"', '\\\"')}\"" for x in items])
+    joined = ", ".join(['"%s"' % x.replace('"', '\\"') for x in items])
     line = f"allow_ssids = [{joined}]"
     block2 = rx.sub(line, block, count=1)
     return toml_text[:start] + block2 + toml_text[end:]
