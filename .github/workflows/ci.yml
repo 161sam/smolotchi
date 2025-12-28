@@ -11,6 +11,35 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install -U pip
-      - run: pip install -e ".[dev]" || pip install -e .
-      - run: pytest -q
+          cache: "pip"
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -U pip
+          if [[ -f poetry.lock ]]; then
+            python -m pip install poetry
+            poetry install --no-interaction --with dev || poetry install --no-interaction
+          elif [[ -f uv.lock ]]; then
+            python -m pip install uv
+            uv sync --dev
+          elif [[ -f requirements-dev.txt ]]; then
+            python -m pip install -r requirements-dev.txt
+          elif [[ -f requirements.txt ]]; then
+            python -m pip install -r requirements.txt
+            python -m pip install pytest
+          elif [[ -f pyproject.toml ]]; then
+            python -m pip install -e ".[test]" || python -m pip install -e ".[dev]" || python -m pip install -e .
+          else
+            python -m pip install pytest
+          fi
+      - name: Debug versions
+        run: |
+          python -V
+          python -m pip -V
+          python -m pytest --version
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Debug pip list on failure
+        if: failure()
+        run: python -m pip list
