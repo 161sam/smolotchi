@@ -19,27 +19,52 @@ jobs:
           python -m pip install -U pip
           if [[ -f poetry.lock ]]; then
             python -m pip install poetry
-            poetry install --no-interaction --with dev || poetry install --no-interaction
+            poetry install --no-interaction --with dev,test || poetry install --no-interaction --with dev || poetry install --no-interaction
+            echo "PYRUN=poetry run python" >> "$GITHUB_ENV"
           elif [[ -f uv.lock ]]; then
             python -m pip install uv
             uv sync --dev
+            echo "PYRUN=uv run python" >> "$GITHUB_ENV"
           elif [[ -f requirements-dev.txt ]]; then
             python -m pip install -r requirements-dev.txt
+            echo "PYRUN=python" >> "$GITHUB_ENV"
           elif [[ -f requirements.txt ]]; then
             python -m pip install -r requirements.txt
             python -m pip install pytest
+            echo "PYRUN=python" >> "$GITHUB_ENV"
           elif [[ -f pyproject.toml ]]; then
-            python -m pip install -e ".[test]" || python -m pip install -e ".[dev]" || python -m pip install -e .
+            if python - <<'PY'
+import tomllib
+data = tomllib.load(open("pyproject.toml", "rb"))
+extras = data.get("project", {}).get("optional-dependencies", {})
+print("test" in extras or "dev" in extras)
+PY
+            then
+              python -m pip install -e ".[test]" || python -m pip install -e ".[dev]"
+            else
+              python -m pip install -e .
+              python -m pip install pytest
+            fi
+            echo "PYRUN=python" >> "$GITHUB_ENV"
           else
             python -m pip install pytest
+            echo "PYRUN=python" >> "$GITHUB_ENV"
           fi
       - name: Debug versions
+        shell: bash
         run: |
-          python -V
-          python -m pip -V
-          python -m pytest --version
+          set -euo pipefail
+          "${PYRUN:-python}" -V
+          "${PYRUN:-python}" -m pip -V
+          "${PYRUN:-python}" -m pytest --version
       - name: Run tests
-        run: python -m pytest -q
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${PYRUN:-python}" -m pytest -q
       - name: Debug pip list on failure
         if: failure()
-        run: python -m pip list
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${PYRUN:-python}" -m pip list
