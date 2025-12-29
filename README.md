@@ -185,16 +185,16 @@ Bootstrap a fresh Raspberry Pi OS Lite installation with the provided script.
 **Option A: curl | bash (example)**
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/<you>/smolotchi/main/scripts/pi_zero/bootstrap.sh | \
-  sudo bash -s -- --repo "https://github.com/<you>/smolotchi.git" --branch main --enable-sudo
+curl -sfL https://raw.githubusercontent.com/161sam/smolotchi/main/scripts/pi_zero/bootstrap.sh | \
+  sudo bash -s -- --repo "https://github.com/161sam/smolotchi.git" --branch main --enable-sudo
 ```
 
 **Option B: clone the repo and run locally**
 
 ```bash
-git clone https://github.com/<you>/smolotchi.git
+git clone https://github.com/161sam/smolotchi.git
 cd smolotchi
-sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/<you>/smolotchi.git" --branch main --enable-sudo
+sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/161sam/smolotchi.git" --branch main --enable-sudo
 ```
 
 Services are installed to `/etc/systemd/system` and enabled on boot. Check status:
