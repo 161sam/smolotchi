@@ -33,6 +33,7 @@ class PolicyCfg:
         default_factory=lambda: ["10.0.0.0/8", "192.168.0.0/16"]
     )
     allowed_tools: List[str] = field(default_factory=lambda: ["nmap", "ip", "arp", "ping"])
+    enable_masscan: bool = False
     block_categories: List[str] = field(
         default_factory=lambda: ["system_attack", "file_steal"]
     )
@@ -322,6 +323,7 @@ class ConfigStore:
                 allowed_tools=list(
                     policy.get("allowed_tools", ["nmap", "ip", "arp", "ping"])
                 ),
+                enable_masscan=bool(policy.get("enable_masscan", False)),
                 block_categories=list(
                     policy.get("block_categories", ["system_attack", "file_steal"])
                 ),
