@@ -20,9 +20,10 @@ const config: Config = {
       "classic",
       {
         docs: {
-          sidebarPath: "./sidebars.ts",
+          sidebarPath: "./sidebars.js",
           editUrl: "https://github.com/161sam/smolotchi/tree/main/docs-site/",
           routeBasePath: "/",
+          exclude: ["**/*.test.{js,ts,jsx,tsx}", "**/__tests__/**"],
         },
         theme: {
           customCss: "./src/css/custom.css",

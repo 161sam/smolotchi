@@ -7,7 +7,8 @@
     "start": "docusaurus start",
     "build": "docusaurus build",
     "serve": "docusaurus serve",
-    "clear": "docusaurus clear"
+    "clear": "docusaurus clear",
+    "validate:sidebars": "node scripts/validate-sidebars.mjs"
   },
   "dependencies": {
     "@docusaurus/core": "3.6.1",
