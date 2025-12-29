@@ -1,30 +1,20 @@
-import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
-
-const sidebars: SidebarsConfig = {
+/** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
+const sidebars = {
   docsSidebar: [
     {
       type: "category",
       label: "Getting Started",
-      items: [
-        "getting-started/installation",
-        "getting-started/quickstart",
-      ],
+      items: ["getting-started/installation", "getting-started/quickstart"],
     },
     {
       type: "category",
       label: "User Guide",
-      items: [
-        "user-guide/web-ui",
-        "user-guide/stage-gates",
-      ],
+      items: ["user-guide/web-ui", "user-guide/stage-gates"],
     },
     {
       type: "category",
       label: "Architecture",
-      items: [
-        "architecture/overview",
-        "architecture/pipelines",
-      ],
+      items: ["architecture/overview", "architecture/pipelines"],
     },
     {
       type: "category",
@@ -61,4 +51,4 @@ const sidebars: SidebarsConfig = {
   ],
 };
 
-export default sidebars;
+module.exports = sidebars;
