@@ -1,0 +1,33 @@
+name: docs
+
+on:
+  push:
+    paths:
+      - "docs-site/**"
+      - "scripts/docs_extract/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs-site/**"
+      - "scripts/docs_extract/**"
+      - ".github/workflows/docs.yml"
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs-site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "pnpm"
+          cache-dependency-path: docs-site/pnpm-lock.yaml
+      - name: Install pnpm
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build docs
+        run: pnpm build

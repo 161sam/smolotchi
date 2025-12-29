@@ -1,0 +1,16 @@
+:root {
+  --ifm-font-family-base: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --ifm-color-primary: #2f5bd3;
+  --ifm-color-primary-dark: #2548a9;
+  --ifm-color-primary-light: #4e73da;
+  --ifm-code-font-size: 95%;
+}
+
+.markdown h2 {
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  padding-bottom: 0.25rem;
+}
+
+.markdown code {
+  background: rgba(47, 91, 211, 0.08);
+}

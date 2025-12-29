@@ -146,6 +146,19 @@ Artifacts are stored under `/var/lib/smolotchi/artifacts`.
 
 ---
 
+## Documentation (Docusaurus)
+
+The documentation site lives in `docs-site/` and is built with pnpm.
+
+```bash
+cd docs-site
+pnpm install
+pnpm build
+pnpm start
+```
+
+---
+
 ## Systemd units (web + AI worker)
 
 Sample units live in `packaging/systemd/`:
