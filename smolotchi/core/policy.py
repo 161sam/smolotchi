@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 import ipaddress
 
 
@@ -47,3 +47,77 @@ class Policy:
 
     def autonomous_allowed(self, category: str) -> bool:
         return category in self.autonomous_categories and self.category_allowed(category)
+
+
+@dataclass
+class PolicyDecision:
+    ok: bool
+    requires_approval: bool = False
+    reason: str = ""
+    level: int = 1
+    tags: List[str] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+
+def evaluate_tool_action(
+    *,
+    tool: str,
+    job_kind: str,
+    scope: str,
+    cfg_policy: Optional[Dict[str, Any]] = None,
+) -> PolicyDecision:
+    """
+    Pi-Zero friendly: simple, deterministic gate for tool execution.
+    """
+    cfg_policy = cfg_policy or {}
+    allowed_tools = set(cfg_policy.get("allowed_tools") or ["nmap", "ip", "arp", "ping"])
+
+    if tool not in allowed_tools:
+        return PolicyDecision(
+            ok=False,
+            requires_approval=False,
+            reason=f"tool not allowed by config: {tool}",
+            level=2,
+            tags=["policy", "tool", "deny"],
+        )
+
+    if job_kind == "scan.nmap":
+        return PolicyDecision(
+            ok=False,
+            requires_approval=True,
+            reason="approval required for scan.nmap",
+            level=2,
+            tags=["policy", "nmap", "approval"],
+            meta={"scope": scope},
+        )
+
+    if job_kind == "scan.bettercap":
+        return PolicyDecision(
+            ok=False,
+            requires_approval=True,
+            reason="approval required for scan.bettercap",
+            level=2,
+            tags=["policy", "bettercap", "approval"],
+            meta={"scope": scope},
+        )
+
+    if job_kind == "scan.masscan":
+        enabled = bool(cfg_policy.get("enable_masscan", False))
+        if not enabled:
+            return PolicyDecision(
+                ok=False,
+                requires_approval=False,
+                reason="masscan disabled by config (policy.enable_masscan=0)",
+                level=2,
+                tags=["policy", "masscan", "deny"],
+            )
+        return PolicyDecision(
+            ok=False,
+            requires_approval=True,
+            reason="approval required for scan.masscan",
+            level=2,
+            tags=["policy", "masscan", "approval"],
+            meta={"scope": scope},
+        )
+
+    return PolicyDecision(ok=True, reason="ok", level=1, tags=["policy", "allow"])

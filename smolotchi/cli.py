@@ -230,7 +230,7 @@ def cmd_core(args) -> int:
             },
         )
     )
-    tools_engine = ToolsEngine(bus=bus, artifacts=artifacts, jobstore=jobs)
+    tools_engine = ToolsEngine(bus=bus, artifacts=artifacts, jobstore=jobs, config=store)
     tools_engine.start()
     reg.register(tools_engine)
 
