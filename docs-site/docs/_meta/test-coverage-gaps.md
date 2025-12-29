@@ -1,0 +1,96 @@
+# Test Coverage Gaps (Static)
+
+Tests are detected by file naming (test_*.py, *_test.py) and imports from smolotchi.* modules.
+
+## Tests Discovered
+
+- smolotchi/actions/test_plan_runner.py
+- smolotchi/ai/test_worker.py
+- smolotchi/api/test_templates_smoke.py
+- smolotchi/api/test_web_wifi_smoke.py
+- smolotchi/core/test_artifact_sanity.py
+- smolotchi/core/test_artifacts_stage_helpers.py
+- smolotchi/core/test_dossier_builder.py
+- smolotchi/core/test_policy_tools.py
+- smolotchi/display/test_display_render.py
+- smolotchi/engines/test_wifi_artifacts.py
+
+## Untested Modules (No direct import from tests found)
+
+- smolotchi.__init__
+- smolotchi.__main__
+- smolotchi.actions.__init__
+- smolotchi.actions.cache
+- smolotchi.actions.execution
+- smolotchi.actions.fingerprint
+- smolotchi.actions.parse
+- smolotchi.actions.parse_services
+- smolotchi.actions.planners.__init__
+- smolotchi.actions.planners.ai_planner
+- smolotchi.actions.summary
+- smolotchi.actions.throttle
+- smolotchi.ai.__init__
+- smolotchi.ai.errors
+- smolotchi.ai.replay
+- smolotchi.cli
+- smolotchi.cli_artifacts
+- smolotchi.cli_profiles
+- smolotchi.core.__init__
+- smolotchi.core.app_state
+- smolotchi.core.artifacts_gc
+- smolotchi.core.engines
+- smolotchi.core.lan_state
+- smolotchi.core.normalize
+- smolotchi.core.paths
+- smolotchi.core.presets
+- smolotchi.core.reports
+- smolotchi.core.resources
+- smolotchi.core.self_heal
+- smolotchi.core.state
+- smolotchi.core.toml_patch
+- smolotchi.core.validate
+- smolotchi.core.watchdog
+- smolotchi.device.__init__
+- smolotchi.device.buttons
+- smolotchi.device.power
+- smolotchi.device.profile
+- smolotchi.display.__init__
+- smolotchi.display.render
+- smolotchi.display.waveshare_driver
+- smolotchi.engines.__init__
+- smolotchi.engines.lan_engine
+- smolotchi.engines.net_detect
+- smolotchi.engines.net_health
+- smolotchi.engines.tools_engine
+- smolotchi.engines.wifi_connect
+- smolotchi.engines.wifi_scan
+- smolotchi.engines.wifi_targets
+- smolotchi.merge.__init__
+- smolotchi.merge.sources
+- smolotchi.merge.timeline
+- smolotchi.parsers.__init__
+- smolotchi.parsers.base
+- smolotchi.parsers.bettercap
+- smolotchi.parsers.masscan
+- smolotchi.parsers.merge
+- smolotchi.parsers.nmap
+- smolotchi.parsers.registry
+- smolotchi.reports.__init__
+- smolotchi.reports.aggregate
+- smolotchi.reports.badges
+- smolotchi.reports.baseline
+- smolotchi.reports.baseline_diff
+- smolotchi.reports.diff
+- smolotchi.reports.diff_export
+- smolotchi.reports.diff_links
+- smolotchi.reports.exec_summary
+- smolotchi.reports.export
+- smolotchi.reports.filtering
+- smolotchi.reports.findings_aggregate
+- smolotchi.reports.host_diff
+- smolotchi.reports.nmap_classify
+- smolotchi.reports.nmap_findings
+- smolotchi.reports.normalize
+- smolotchi.reports.severity
+- smolotchi.reports.top_findings
+- smolotchi.reports.wifi_session_report
