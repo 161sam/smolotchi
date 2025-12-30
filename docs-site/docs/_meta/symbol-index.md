@@ -3,11 +3,11 @@
 ## smolotchi/actions/cache.py
 - function: `find_fresh_discovery`
   - Docstring: Find newest action_run for net.host_discovery within ttl.
-Returns dict {artifact_id, hosts, ts}.
+Returns dict &#123;artifact_id, hosts, ts&#125;.
   - Code: smolotchi/actions/cache.py:find_fresh_discovery
 - function: `find_fresh_portscan_for_host`
   - Docstring: Find newest action_run for net.port_scan with payload.target==host within ttl.
-Returns {artifact_id, services, ts}.
+Returns &#123;artifact_id, services, ts&#125;.
   - Code: smolotchi/actions/cache.py:find_fresh_portscan_for_host
 - function: `find_fresh_vuln_for_host_action`
   - Docstring: Find newest action_run for vuln_* action with payload.target==host within ttl.
@@ -40,13 +40,13 @@ Only includes services that match each key.
 
 ## smolotchi/actions/parse.py
 - function: `parse_nmap_xml_up_hosts`
-  - Docstring: Extract IPv4 addresses of hosts with <status state="up"> from Nmap XML.
+  - Docstring: Extract IPv4 addresses of hosts with &lt;status state="up"&gt; from Nmap XML.
   - Code: smolotchi/actions/parse.py:parse_nmap_xml_up_hosts
 
 ## smolotchi/actions/parse_services.py
 - function: `parse_nmap_xml_services`
   - Docstring: Returns:
-  { "1.2.3.4": [ {port:22, proto:"tcp", name:"ssh", product:"OpenSSH", version:"9.3", tunnel:"", state:"open"} ] }
+  &#123; "1.2.3.4": [ &#123;port:22, proto:"tcp", name:"ssh", product:"OpenSSH", version:"9.3", tunnel:"", state:"open"&#125; ] &#125;
   - Code: smolotchi/actions/parse_services.py:parse_nmap_xml_services
 - function: `summarize_service_keys`
   - Docstring: Produces coarse service keys for planning (ssh/http/smb/rdp/etc).
@@ -621,7 +621,7 @@ One per line. Ignores comments (#) and blanks.
   [SSID]
   key=value
 Supported value types:
-  true/false -> bool
+  true/false -&gt; bool
   int/float
   otherwise string
   - Code: smolotchi/core/toml_patch.py:parse_wifi_profiles_text
@@ -665,7 +665,7 @@ Leaves other SSID blocks intact (but normalizes this SSID).
 - function: `_parse_baseline_scopes_block`
   - Docstring: Parse lines like:
   "10.0.10.0/24" = ["a", "b"]
-Returns dict scope -> list(ids)
+Returns dict scope -&gt; list(ids)
   - Code: smolotchi/core/toml_patch.py:_parse_baseline_scopes_block
 - function: `_render_baseline_scopes_block`
   - Docstring: Renders a normalized block for [baseline.scopes] with sorted keys and values.
@@ -780,10 +780,10 @@ If the section becomes empty, it will keep just the header (no entries).
   - Code: smolotchi/engines/net_detect.py:_run
 - function: `detect_ipv4_cidr`
   - Docstring: Returns e.g. '10.0.10.23/24' or None.
-Uses: ip -4 addr show dev <iface>
+Uses: ip -4 addr show dev &lt;iface&gt;
   - Code: smolotchi/engines/net_detect.py:detect_ipv4_cidr
 - function: `cidr_to_network_scope`
-  - Docstring: '10.0.10.23/24' -> '10.0.10.0/24'
+  - Docstring: '10.0.10.23/24' -&gt; '10.0.10.0/24'
 No external libs; pure integer math.
   - Code: smolotchi/engines/net_detect.py:cidr_to_network_scope
 - function: `detect_scope_for_iface`
@@ -837,7 +837,7 @@ Uses wpa_supplicant + dhclient.
   - Docstring: Not present
   - Code: smolotchi/engines/wifi_scan.py:_run
 - function: `scan_iw`
-  - Docstring: Uses: iw dev <iface> scan
+  - Docstring: Uses: iw dev &lt;iface&gt; scan
 Parses minimal fields: SSID, BSSID, freq, signal.
   - Code: smolotchi/engines/wifi_scan.py:scan_iw
 
@@ -1004,7 +1004,7 @@ Fallback: scan newest host_summary and accept those within same time window (han
 
 ## smolotchi/reports/diff_links.py
 - function: `index_host_actions`
-  - Docstring: Returns: host -> action_id -> [artifact_id, ...]
+  - Docstring: Returns: host -&gt; action_id -&gt; [artifact_id, ...]
 Uses host_summary["artifacts"] list and action_run payload.target.
   - Code: smolotchi/reports/diff_links.py:index_host_actions
 
@@ -1050,7 +1050,7 @@ Policy sources:
   - Docstring: Not present
   - Code: smolotchi/reports/findings_aggregate.py:extract_findings_for_host_from_action_run
 - function: `build_host_findings`
-  - Docstring: Returns: { host: { ports:[...], scripts:[...], sources:[{action_id,artifact_id}] } }
+  - Docstring: Returns: &#123; host: &#123; ports:[...], scripts:[...], sources:[&#123;action_id,artifact_id&#125;] &#125; &#125;
   - Code: smolotchi/reports/findings_aggregate.py:build_host_findings
 - function: `summarize_findings`
   - Docstring: Returns per-host finding entries with minimal fields for timelines/baseline.
@@ -1081,7 +1081,7 @@ Policy sources:
   - open_ports with service product/version
   - script outputs (id, output snippet)
 Returns:
-  { hosts: {ip: { ports:[...], scripts:[...] } } }
+  &#123; hosts: &#123;ip: &#123; ports:[...], scripts:[...] &#125; &#125; &#125;
   - Code: smolotchi/reports/nmap_findings.py:parse_nmap_xml_findings
 
 ## smolotchi/reports/normalize.py
@@ -1098,7 +1098,7 @@ Returns:
 ## smolotchi/reports/top_findings.py
 - function: `aggregate_top_findings`
   - Docstring: Returns:
-  { id, title, severity, hosts, count, suppressed_count, suppressed_hosts }
+  &#123; id, title, severity, hosts, count, suppressed_count, suppressed_hosts &#125;
   - Code: smolotchi/reports/top_findings.py:aggregate_top_findings
 
 ## smolotchi/reports/wifi_session_report.py

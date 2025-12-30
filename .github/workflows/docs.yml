@@ -35,5 +35,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Validate sidebars
         run: pnpm validate:sidebars
+      - name: Validate meta docs
+        run: pnpm validate:meta
       - name: Build docs
         run: pnpm build

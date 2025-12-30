@@ -14,7 +14,7 @@ Checks are structural only. Docstring content is not evaluated. Sections are det
 
 | File | Symbol | Type | Multiline | Params | Returns | Raises | Missing Sections |
 |------|--------|------|-----------|--------|---------|--------|------------------|
-| smolotchi/actions/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/actions/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/actions/cache.py | find_fresh_discovery | function | yes | no | no | no | params, returns |
 | smolotchi/actions/cache.py | find_fresh_portscan_for_host | function | yes | no | no | no | params, returns |
 | smolotchi/actions/cache.py | find_fresh_vuln_for_host_action | function | yes | no | no | no | params, returns |
@@ -27,9 +27,9 @@ Checks are structural only. Docstring content is not evaluated. Sections are det
 | smolotchi/actions/plan_runner.py | PlanRunner._extract_links | method | yes | no | no | no | none |
 | smolotchi/actions/plan_runner.py | PlanRunner._summarize_result | method | no | no | no | no | none |
 | smolotchi/actions/plan_runner.py | PlanRunner.run | method | yes | no | no | no | params |
-| smolotchi/actions/planners/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/actions/planners/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/actions/planners/ai_planner.py | AIPlanner | class | yes | no | no | no | none |
-| smolotchi/ai/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/ai/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/ai/errors.py | StageRequired | class | no | no | no | no | none |
 | smolotchi/ai/worker.py | AIWorker | class | yes | no | no | no | none |
 | smolotchi/api/web.py | _bundle_finding_state | function | yes | no | yes | no | none |
@@ -64,20 +64,20 @@ Checks are structural only. Docstring content is not evaluated. Sections are det
 | smolotchi/core/toml_patch.py | patch_wifi_credentials | function | yes | no | no | no | none |
 | smolotchi/core/toml_patch.py | patch_wifi_profile_upsert | function | yes | no | no | no | none |
 | smolotchi/core/toml_patch.py | patch_wifi_profiles_set | function | yes | no | no | no | none |
-| smolotchi/device/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/device/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/display/waveshare_driver.py | EPDDriver | class | no | no | no | no | none |
-| smolotchi/engines/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/engines/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/engines/net_detect.py | cidr_to_network_scope | function | yes | no | no | no | none |
 | smolotchi/engines/net_detect.py | detect_ipv4_cidr | function | yes | no | no | no | none |
 | smolotchi/engines/wifi_connect.py | connect_wpa_psk | function | yes | no | no | no | params, returns |
 | smolotchi/engines/wifi_scan.py | scan_iw | function | yes | no | no | no | none |
-| smolotchi/merge/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/merge/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/merge/sources.py | find_wifi_context_for_job | function | no | no | no | no | params, returns |
 | smolotchi/merge/sources.py | list_host_summaries_for_job | function | yes | no | no | no | params, returns |
 | smolotchi/merge/sources.py | list_policy_events_for_job | function | yes | no | no | no | none |
-| smolotchi/parsers/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/parsers/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/parsers/base.py | BaseParser.parse | method | no | no | no | no | none |
-| smolotchi/reports/__init__.py | <module> | module | no | no | no | no | none |
+| smolotchi/reports/__init__.py | &lt;module&gt; | module | no | no | no | no | none |
 | smolotchi/reports/diff_links.py | index_host_actions | function | yes | no | yes | no | params |
 | smolotchi/reports/filtering.py | apply_policy_suppression | function | yes | no | no | no | params, returns |
 | smolotchi/reports/findings_aggregate.py | build_host_findings | function | no | no | yes | no | params |

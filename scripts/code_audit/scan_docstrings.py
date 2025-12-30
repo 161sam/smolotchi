@@ -93,6 +93,15 @@ def coverage_stats(symbols: List[SymbolDoc]) -> tuple[int, int, float]:
     return present, total, coverage
 
 
+def mdx_escape(text: str) -> str:
+    return (
+        text.replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("{", "&#123;")
+        .replace("}", "&#125;")
+    )
+
+
 def write_coverage_report(files: List[FileDocInfo]) -> None:
     lines: List[str] = []
     lines.append("# Docstring Coverage\n")
@@ -127,7 +136,9 @@ def write_coverage_report(files: List[FileDocInfo]) -> None:
         for symbol in info.symbols:
             doc_present = "✅" if symbol.docstring else "❌"
             status = "present" if symbol.docstring else "missing"
-            lines.append(f"| {symbol.name} | {symbol.kind} | {doc_present} | {status} |")
+            lines.append(
+                f"| {mdx_escape(symbol.name)} | {symbol.kind} | {doc_present} | {status} |"
+            )
         lines.append("")
 
     OUTPUT_COVERAGE.write_text("\n".join(lines), encoding="utf-8")
@@ -239,7 +250,7 @@ def write_quality_report(files: List[FileDocInfo]) -> None:
     )
     for row in sorted(quality_rows, key=lambda r: (r["file"], r["symbol"])):
         lines.append(
-            f"| {row['file']} | {row['symbol']} | {row['kind']} | {row['multiline']} | {row['params']} | {row['returns']} | {row['raises']} | {row['missing_sections']} |"
+            f"| {row['file']} | {mdx_escape(row['symbol'])} | {row['kind']} | {row['multiline']} | {row['params']} | {row['returns']} | {row['raises']} | {row['missing_sections']} |"
         )
 
     OUTPUT_QUALITY.write_text("\n".join(lines), encoding="utf-8")

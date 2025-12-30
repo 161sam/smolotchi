@@ -8,7 +8,8 @@
     "build": "docusaurus build",
     "serve": "docusaurus serve",
     "clear": "docusaurus clear",
-    "validate:sidebars": "node scripts/validate-sidebars.mjs"
+    "validate:sidebars": "node scripts/validate-sidebars.mjs",
+    "validate:meta": "node scripts/check_mdx_safety.mjs"
   },
   "dependencies": {
     "@docusaurus/core": "3.6.1",
