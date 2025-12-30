@@ -4,8 +4,8 @@ import type { Config } from "@docusaurus/types";
 const config: Config = {
   title: "Smolotchi Docs",
   tagline: "Code-accurate wiki documentation",
-  url: "https://github.com",
-  baseUrl: "/161sam/smolotchi/",
+  url: "https://161sam.github.io",
+  baseUrl: "/smolotchi/",
   favicon: "img/favicon.ico",
   organizationName: "161sam",
   projectName: "smolotchi",

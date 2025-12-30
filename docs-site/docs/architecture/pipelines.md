@@ -6,18 +6,13 @@ The worker loop (`AIWorker`) reads jobs, builds or loads plans, and executes ste
 
 Code: smolotchi/ai/worker.py:AIWorker._tick, smolotchi/ai/worker.py:AIWorker._process_job, smolotchi/actions/plan_runner.py:PlanRunner.run, smolotchi/actions/runner.py:ActionRunner.execute
 
-```mermaid
-sequenceDiagram
-  participant Worker as AIWorker
-  participant Planner as AIPlanner
-  participant PlanRunner as PlanRunner
-  participant ActionRunner as ActionRunner
-  Worker->>Planner: generate(plan inputs)
-  Planner-->>Worker: ActionPlan
-  Worker->>PlanRunner: run(plan)
-  PlanRunner->>ActionRunner: execute(step action)
-  ActionRunner-->>PlanRunner: ActionResult
-  PlanRunner-->>Worker: plan result
+```
+AIWorker -> AIPlanner: generate(plan inputs)
+AIPlanner -> AIWorker: ActionPlan
+AIWorker -> PlanRunner: run(plan)
+PlanRunner -> ActionRunner: execute(step action)
+ActionRunner -> PlanRunner: ActionResult
+PlanRunner -> AIWorker: plan result
 ```
 
 Code: smolotchi/ai/worker.py:AIWorker._run_plan_object, smolotchi/actions/planners/ai_planner.py:AIPlanner.generate, smolotchi/actions/plan_runner.py:PlanRunner.run, smolotchi/actions/runner.py:ActionRunner.execute
