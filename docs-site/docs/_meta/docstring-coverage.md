@@ -130,25 +130,25 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 
 ## smolotchi/__main__.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 
 ## smolotchi/actions/__init__.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/actions/cache.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | find_fresh_discovery | function | ✅ | present |
 | find_fresh_portscan_for_host | function | ✅ | present |
 | find_fresh_vuln_for_host_action | function | ✅ | present |
@@ -160,7 +160,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ActionResult | class | ❌ | missing |
 | run_action_spec | function | ❌ | missing |
 
@@ -168,7 +168,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | service_fingerprint | function | ✅ | present |
 | service_fingerprint_by_key | function | ✅ | present |
 | _filter | function | ❌ | missing |
@@ -177,14 +177,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | parse_nmap_xml_up_hosts | function | ✅ | present |
 
 ## smolotchi/actions/parse_services.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | parse_nmap_xml_services | function | ✅ | present |
 | summarize_service_keys | function | ✅ | present |
 
@@ -192,7 +192,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | PlanRunner | class | ✅ | present |
 | PlanRunner.__init__ | method | ❌ | missing |
 | PlanRunner.run | method | ✅ | present |
@@ -227,13 +227,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/actions/planners/ai_planner.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | PlanCandidate | class | ❌ | missing |
 | PlanStep | class | ❌ | missing |
 | ActionPlan | class | ❌ | missing |
@@ -249,7 +249,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | UnknownAction | class | ❌ | missing |
 | ActionImpl | class | ❌ | missing |
 | ActionRegistry | class | ❌ | missing |
@@ -272,7 +272,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ActionRunner | class | ❌ | missing |
 | ActionRunner.__init__ | method | ❌ | missing |
 | ActionRunner.execute | method | ❌ | missing |
@@ -281,21 +281,21 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ActionSpec | class | ❌ | missing |
 
 ## smolotchi/actions/summary.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | build_host_summary | function | ❌ | missing |
 
 ## smolotchi/actions/test_plan_runner.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | PlanRunnerPolicyGateTest | class | ❌ | missing |
 | PlanRunnerPolicyGateTest.test_policy_block_creates_stage_request | method | ❌ | missing |
 | _Step | class | ❌ | missing |
@@ -305,7 +305,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ThrottleDecision | class | ❌ | missing |
 | read_loadavg_1m | function | ❌ | missing |
 | read_cpu_temp_c | function | ❌ | missing |
@@ -315,20 +315,20 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/ai/errors.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | StageRequired | class | ✅ | present |
 
 ## smolotchi/ai/replay.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ReplayMetrics | class | ❌ | missing |
 | _collect_links | function | ❌ | missing |
 | baseline_delta_from_bundles | function | ❌ | missing |
@@ -339,7 +339,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | WorkerResumeTest | class | ❌ | missing |
 | WorkerResumeTest.test_stage_resume_executes_blocked_step_once | method | ❌ | missing |
 | WorkerResumeTest._run_action | method | ❌ | missing |
@@ -348,7 +348,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | WorkerState | class | ❌ | missing |
 | AIWorker | class | ✅ | present |
 | AIWorker.__init__ | method | ❌ | missing |
@@ -376,20 +376,20 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 
 ## smolotchi/api/conftest.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | client | function | ❌ | missing |
 
 ## smolotchi/api/health.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | core_health_ok | function | ❌ | missing |
 | worker_health_ok | function | ❌ | missing |
 
@@ -397,14 +397,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_templates_smoke | function | ❌ | missing |
 
 ## smolotchi/api/test_web_wifi_smoke.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_wifi_page_renders | function | ❌ | missing |
 | test_wifi_lan_timeline_shows_done_when_jobstore_done | function | ❌ | missing |
 | test_resolve_result_by_job_id_prefers_lan_job_result | function | ❌ | missing |
@@ -413,7 +413,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | load_theme_tokens | function | ❌ | missing |
 | tokens_to_css_vars | function | ❌ | missing |
 
@@ -421,14 +421,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | effective_lan_overrides | function | ❌ | missing |
 
 ## smolotchi/api/web.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | pretty | function | ❌ | missing |
 | _atomic_write_text | function | ❌ | missing |
 | create_app | function | ❌ | missing |
@@ -534,7 +534,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _format_ts | function | ❌ | missing |
 | _print_json | function | ❌ | missing |
 | _print_table | function | ❌ | missing |
@@ -582,7 +582,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _format_ts | function | ❌ | missing |
 | _print_json | function | ❌ | missing |
 | _print_table | function | ❌ | missing |
@@ -595,7 +595,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | add_profiles_subcommands | function | ❌ | missing |
 | _load_profiles | function | ❌ | missing |
 | _run_list | function | ❌ | missing |
@@ -606,13 +606,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 
 ## smolotchi/core/app_state.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | AppState | class | ❌ | missing |
 | state_path_for_artifacts | function | ❌ | missing |
 | load_state | function | ❌ | missing |
@@ -622,7 +622,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ArtifactMeta | class | ❌ | missing |
 | ArtifactStore | class | ❌ | missing |
 | ArtifactStore.__init__ | method | ❌ | missing |
@@ -655,7 +655,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | GCPlan | class | ❌ | missing |
 | _extract_ref_ids_from_bundle | function | ✅ | present |
 | add | function | ❌ | missing |
@@ -667,7 +667,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | Event | class | ❌ | missing |
 | SQLiteBus | class | ✅ | present |
 | SQLiteBus.__init__ | method | ❌ | missing |
@@ -682,7 +682,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _load_toml | function | ❌ | missing |
 | CoreCfg | class | ❌ | missing |
 | PolicyCfg | class | ❌ | missing |
@@ -714,14 +714,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | build_lan_dossier | function | ✅ | present |
 
 ## smolotchi/core/engines.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | EngineHealth | class | ❌ | missing |
 | Engine | class | ❌ | missing |
 | Engine.start | method | ❌ | missing |
@@ -739,7 +739,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | JobRow | class | ❌ | missing |
 | JobStore | class | ❌ | missing |
 | JobStore.__init__ | method | ❌ | missing |
@@ -772,21 +772,21 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | resolve_result_by_job_id | function | ✅ | present |
 
 ## smolotchi/core/lan_state.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | lan_is_busy | function | ❌ | missing |
 
 ## smolotchi/core/normalize.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | normalize_profile | function | ✅ | present |
 | profile_hash | function | ❌ | missing |
 
@@ -794,7 +794,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | resolve_db_path | function | ❌ | missing |
 | resolve_artifact_root | function | ❌ | missing |
 | resolve_lock_root | function | ❌ | missing |
@@ -807,7 +807,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | Policy | class | ✅ | present |
 | Policy.allow_handoff | method | ❌ | missing |
 | Policy.scope_allowed | method | ❌ | missing |
@@ -820,13 +820,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 
 ## smolotchi/core/reports.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ReportConfig | class | ❌ | missing |
 | ReportRenderer | class | ❌ | missing |
 | ReportRenderer.__init__ | method | ❌ | missing |
@@ -836,7 +836,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | Lease | class | ❌ | missing |
 | Lease.expires_at | method | ❌ | missing |
 | Lease.to_dict | method | ❌ | missing |
@@ -853,7 +853,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | SelfHealer | class | ❌ | missing |
 | SelfHealer.report | method | ❌ | missing |
 | SelfHealer.clear | method | ❌ | missing |
@@ -863,7 +863,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | CoreStatus | class | ❌ | missing |
 | SmolotchiCore | class | ❌ | missing |
 | SmolotchiCore.__init__ | method | ❌ | missing |
@@ -879,14 +879,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_stage_request_min_fields | function | ❌ | missing |
 
 ## smolotchi/core/test_artifacts_stage_helpers.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_stage_pending_helpers | function | ❌ | missing |
 | test_pending_stage_request_id_injected | function | ❌ | missing |
 
@@ -894,14 +894,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_build_lan_dossier_creates_artifact | function | ❌ | missing |
 
 ## smolotchi/core/test_policy_tools.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_nmap_requires_approval | function | ❌ | missing |
 | test_masscan_disabled_by_default | function | ❌ | missing |
 | test_tool_not_in_allowlist_denies | function | ❌ | missing |
@@ -910,7 +910,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _ensure_wifi_section | function | ❌ | missing |
 | patch_wifi_credentials | function | ✅ | present |
 | parse_wifi_credentials_text | function | ✅ | present |
@@ -947,14 +947,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | validate_profiles | function | ❌ | missing |
 
 ## smolotchi/core/watchdog.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | SystemdWatchdog | class | ❌ | missing |
 | SystemdWatchdog.__init__ | method | ❌ | missing |
 | SystemdWatchdog._calc_interval | method | ❌ | missing |
@@ -971,13 +971,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/device/buttons.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ButtonConfig | class | ❌ | missing |
 | ButtonWatcher | class | ❌ | missing |
 | ButtonWatcher.__init__ | method | ❌ | missing |
@@ -992,7 +992,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | PowerStatus | class | ❌ | missing |
 | _read_first_capacity_sysfs | function | ❌ | missing |
 | PowerMonitor | class | ❌ | missing |
@@ -1003,7 +1003,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | DeviceProfile | class | ❌ | missing |
 | get_device_profile | function | ❌ | missing |
 
@@ -1011,13 +1011,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 
 ## smolotchi/display/displayd.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | UIState | class | ❌ | missing |
 | _utc_iso | function | ❌ | missing |
 | _safe_font | function | ❌ | missing |
@@ -1032,21 +1032,21 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | render_state | function | ❌ | missing |
 
 ## smolotchi/display/test_display_render.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | test_render_text_screen_smoke | function | ❌ | missing |
 
 ## smolotchi/display/waveshare_driver.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | EPDDriver | class | ✅ | present |
 | EPDDriver.__init__ | method | ❌ | missing |
 | EPDDriver.init | method | ❌ | missing |
@@ -1058,13 +1058,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/engines/lan_engine.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | LanConfig | class | ❌ | missing |
 | LanEngine | class | ❌ | missing |
 | LanEngine.__init__ | method | ❌ | missing |
@@ -1081,7 +1081,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _run | function | ❌ | missing |
 | detect_ipv4_cidr | function | ✅ | present |
 | cidr_to_network_scope | function | ✅ | present |
@@ -1091,7 +1091,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _run | function | ❌ | missing |
 | default_gateway | function | ❌ | missing |
 | has_default_route | function | ❌ | missing |
@@ -1102,7 +1102,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _write_config | function | ❌ | missing |
 | _make_engine | function | ❌ | missing |
 | test_wifi_profile_selection_artifact | function | ❌ | missing |
@@ -1114,7 +1114,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ToolsEngine | class | ❌ | missing |
 | ToolsEngine.__init__ | method | ❌ | missing |
 | ToolsEngine.start | method | ❌ | missing |
@@ -1135,7 +1135,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _run | function | ❌ | missing |
 | connect_wpa_psk | function | ✅ | present |
 | disconnect_wpa | function | ❌ | missing |
@@ -1144,7 +1144,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | WifiEngine | class | ❌ | missing |
 | WifiEngine.__init__ | method | ❌ | missing |
 | WifiEngine.start | method | ❌ | missing |
@@ -1160,7 +1160,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | WifiAP | class | ❌ | missing |
 | _run | function | ❌ | missing |
 | scan_iw | function | ✅ | present |
@@ -1169,20 +1169,20 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | update_targets_state | function | ❌ | missing |
 
 ## smolotchi/merge/__init__.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/merge/sources.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _safe_dict | function | ❌ | missing |
 | find_wifi_context_for_job | function | ✅ | present |
 | list_policy_events_for_job | function | ✅ | present |
@@ -1193,7 +1193,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _safe_dict | function | ❌ | missing |
 | _ts | function | ❌ | missing |
 | build_dossier | function | ❌ | missing |
@@ -1202,13 +1202,13 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/parsers/base.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | ParserResult | class | ❌ | missing |
 | BaseParser | class | ❌ | missing |
 | BaseParser.parse | method | ✅ | present |
@@ -1217,7 +1217,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | BettercapParser | class | ❌ | missing |
 | BettercapParser.parse | method | ❌ | missing |
 
@@ -1225,7 +1225,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | MasscanParser | class | ❌ | missing |
 | MasscanParser.parse | method | ❌ | missing |
 
@@ -1233,14 +1233,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | merge_hosts | function | ❌ | missing |
 
 ## smolotchi/parsers/nmap.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | NmapParser | class | ❌ | missing |
 | NmapParser.parse | method | ❌ | missing |
 
@@ -1248,20 +1248,20 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | parse | function | ❌ | missing |
 
 ## smolotchi/reports/__init__.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ✅ | present |
+| &lt;module&gt; | module | ✅ | present |
 
 ## smolotchi/reports/aggregate.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _ts_human | function | ❌ | missing |
 | _extract_host_from_action_run | function | ❌ | missing |
 | _action_summary | function | ❌ | missing |
@@ -1272,7 +1272,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _rank | function | ❌ | missing |
 | summarize_host_findings | function | ❌ | missing |
 | key | function | ❌ | missing |
@@ -1281,7 +1281,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | expected_findings_for_scope | function | ❌ | missing |
 | profile_key_for_job_meta | function | ❌ | missing |
 | expected_findings_for_profile | function | ❌ | missing |
@@ -1294,7 +1294,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | BaselineDiff | class | ❌ | missing |
 | _bundle_findings | function | ❌ | missing |
 | collect_seen_findings | function | ❌ | missing |
@@ -1304,7 +1304,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | find_previous_host_summary | function | ❌ | missing |
 | resolve_baseline_host_summary | function | ❌ | missing |
 | _ports_union | function | ❌ | missing |
@@ -1316,7 +1316,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _ts | function | ❌ | missing |
 | diff_markdown | function | ❌ | missing |
 | diff_html | function | ❌ | missing |
@@ -1326,14 +1326,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | index_host_actions | function | ✅ | present |
 
 ## smolotchi/reports/exec_summary.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _now_utc | function | ❌ | missing |
 | build_exec_summary | function | ❌ | missing |
 | render_exec_summary_md | function | ❌ | missing |
@@ -1343,7 +1343,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _ts_human | function | ❌ | missing |
 | build_report_json | function | ❌ | missing |
 | build_report_markdown | function | ❌ | missing |
@@ -1352,7 +1352,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | apply_policy_suppression | function | ✅ | present |
 | filter_findings_scripts | function | ❌ | missing |
 
@@ -1360,7 +1360,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | extract_findings_for_host_from_action_run | function | ❌ | missing |
 | build_host_findings | function | ✅ | present |
 | summarize_findings | function | ✅ | present |
@@ -1369,7 +1369,7 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _ts | function | ❌ | missing |
 | host_diff_markdown | function | ❌ | missing |
 | host_diff_html | function | ❌ | missing |
@@ -1387,14 +1387,14 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | classify_scripts | function | ❌ | missing |
 
 ## smolotchi/reports/nmap_findings.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | _summarize_output | function | ✅ | present |
 | parse_nmap_xml_findings | function | ✅ | present |
 
@@ -1402,27 +1402,27 @@
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | apply_normalization | function | ❌ | missing |
 
 ## smolotchi/reports/severity.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | infer_severity | function | ✅ | present |
 
 ## smolotchi/reports/top_findings.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | aggregate_top_findings | function | ✅ | present |
 
 ## smolotchi/reports/wifi_session_report.py
 
 | Symbol | Typ | Docstring | Status |
 |------|-----|-----------|--------|
-| <module> | module | ❌ | missing |
+| &lt;module&gt; | module | ❌ | missing |
 | wifi_session_html | function | ❌ | missing |
 | row | function | ❌ | missing |

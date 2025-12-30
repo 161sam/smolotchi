@@ -35,6 +35,15 @@ def _docstring(node: ast.AST) -> str:
     return doc.strip() if doc else "Not present"
 
 
+def mdx_escape(text: str) -> str:
+    return (
+        text.replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("{", "&#123;")
+        .replace("}", "&#125;")
+    )
+
+
 def _parse_symbols(path: Path) -> list[Symbol]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     out: List[Symbol] = []
@@ -91,7 +100,7 @@ def build_markdown() -> str:
         lines.append(f"## {rel}")
         for symbol in symbols:
             lines.append(f"- {symbol.kind}: `{symbol.name}`")
-            lines.append(f"  - Docstring: {symbol.doc}")
+            lines.append(f"  - Docstring: {mdx_escape(symbol.doc)}")
             lines.append(f"  - Code: {rel}:{symbol.name}")
         lines.append("")
 
