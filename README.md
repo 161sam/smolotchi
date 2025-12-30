@@ -149,6 +149,8 @@ Artifacts are stored under `/var/lib/smolotchi/artifacts`.
 ## Documentation (Docusaurus)
 
 The documentation site lives in `docs-site/` and is built with pnpm.
+Docs live at: https://161sam.github.io/smolotchi/
+Deployment via GitHub Actions workflow docs-pages.yml.
 
 ```bash
 cd docs-site
