@@ -17,38 +17,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.12.3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-          cache: "pnpm"
-          cache-dependency-path: docs-site/pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm -C docs-site install --frozen-lockfile
-      - name: Build docs
-        run: pnpm -C docs-site build
-
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: build
+  pages:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+          cache-dependency-path: docs-site/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm -C docs-site install --frozen-lockfile
+
+      - name: Build docs
+        run: pnpm -C docs-site build
+
       - uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs-site/build
+
       - name: Deploy to GitHub Pages
         id: deployment
+        if: github.ref == 'refs/heads/main'
         uses: actions/deploy-pages@v4
