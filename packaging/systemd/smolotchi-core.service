@@ -7,10 +7,14 @@ Wants=network-online.target
 Type=simple
 User=smolotchi
 Group=smolotchi
-
 EnvironmentFile=/etc/smolotchi/env
 
-# Stable entrypoint (installed by bootstrap.sh)
+# Ensure runtime/state dirs exist BEFORE mount namespacing
+RuntimeDirectory=smolotchi smolotchi/locks
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+
 ExecStart=/usr/local/bin/smolotchi core
 
 Restart=always
@@ -23,7 +27,10 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=false
+
+# allow state + runtime
 ReadWritePaths=/var/lib/smolotchi /run/smolotchi
+
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

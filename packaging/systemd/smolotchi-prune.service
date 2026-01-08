@@ -6,13 +6,18 @@ Type=oneshot
 User=smolotchi
 Group=smolotchi
 EnvironmentFile=/etc/smolotchi/env
+
+RuntimeDirectory=smolotchi smolotchi/locks
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+
 ExecStart=/usr/local/bin/smolotchi prune
 
-# Optional hardening
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/var/lib/smolotchi
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi
 
-[Install]
-WantedBy=multi-user.target
+StandardOutput=journal
+StandardError=journal

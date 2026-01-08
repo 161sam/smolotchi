@@ -10,6 +10,12 @@ User=smolotchi
 Group=smolotchi
 EnvironmentFile=/etc/smolotchi/env
 
+# Ensure runtime/state dirs exist BEFORE mount namespacing
+RuntimeDirectory=smolotchi smolotchi/locks
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+
 # run worker directly (avoid CLI subcommand mismatch)
 ExecStart=/home/smolotchi/smolotchi/.venv/bin/python -m smolotchi.ai.worker --loop --log-level INFO
 

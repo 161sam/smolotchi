@@ -8,8 +8,12 @@ Requires=smolotchi-core.service
 Type=simple
 User=smolotchi
 Group=smolotchi
-
 EnvironmentFile=/etc/smolotchi/env
+
+RuntimeDirectory=smolotchi smolotchi/locks
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
 
 ExecStart=/usr/local/bin/smolotchi web
 
@@ -20,7 +24,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/var/lib/smolotchi
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi
 
 StandardOutput=journal
 StandardError=journal
