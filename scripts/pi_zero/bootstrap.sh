@@ -130,13 +130,11 @@ ENV
 
 chmod 0644 /etc/smolotchi/env
 
-install -m 0755 /dev/stdin /usr/local/bin/smolotchi <<SH
-#!/usr/bin/env bash
-exec /home/$USER_NAME/smolotchi/.venv/bin/python -m smolotchi.cli "$@"
-SH
+install -m 0755 /home/$USER_NAME/smolotchi/packaging/bin/smolotchi /usr/local/bin/smolotchi
 
 echo "[8/9] install systemd units"
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-core.service /etc/systemd/system/smolotchi-core.service
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-core-net.service /etc/systemd/system/smolotchi-core-net.service
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-web.service /etc/systemd/system/smolotchi-web.service
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-ai.service /etc/systemd/system/smolotchi-ai.service
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-prune.service /etc/systemd/system/smolotchi-prune.service
@@ -153,6 +151,14 @@ systemctl enable --now smolotchi-core.service
 systemctl enable --now smolotchi-web.service
 systemctl enable --now smolotchi-ai.service
 systemctl enable --now smolotchi-prune.timer
+
+if [[ "${ENABLE_CORE_NET_ADMIN:-0}" == "1" ]]; then
+  systemctl disable --now smolotchi-core || true
+  systemctl enable --now smolotchi-core-net
+  echo "[+] core-net enabled (CAP_NET_ADMIN)"
+else
+  echo "[i] core-net not enabled (set ENABLE_CORE_NET_ADMIN=1)"
+fi
 
 if [[ "$WITH_DISPLAY" -eq 1 ]]; then
   systemctl enable --now smolotchi-display.service
