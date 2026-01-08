@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Smolotchi Pi Zero Bootstrap
 # Usage:
-#   sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/<you>/smolotchi.git" --branch main
+#   sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/161sam/smolotchi.git" --branch main
 # Optional:
 #   --user smolotchi
 #   --with-display
