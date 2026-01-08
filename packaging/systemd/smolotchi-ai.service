@@ -8,10 +8,10 @@ Requires=smolotchi-core.service
 Type=simple
 User=smolotchi
 Group=smolotchi
-
 EnvironmentFile=/etc/smolotchi/env
 
-ExecStart=/usr/local/bin/smolotchi ai --loop --log-level INFO
+# run worker directly (avoid CLI subcommand mismatch)
+ExecStart=/home/smolotchi/smolotchi/.venv/bin/python -m smolotchi.ai.worker --loop --log-level INFO
 
 Restart=always
 RestartSec=10
@@ -20,7 +20,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/var/lib/smolotchi
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi
 
 StandardOutput=journal
 StandardError=journal
