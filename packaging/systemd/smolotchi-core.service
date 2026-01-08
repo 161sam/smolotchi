@@ -8,7 +8,7 @@ Type=simple
 User=smolotchi
 Group=smolotchi
 
-WorkingDirectory=%h/smolotchi
+WorkingDirectory=%h/smolotchi/smolotchi
 EnvironmentFile=/etc/smolotchi/env
 
 # Stable entrypoint (installed by bootstrap.sh)
