@@ -118,10 +118,10 @@ if [[ ! -f /etc/smolotchi/config.toml ]]; then
   fi
 fi
 
-cat >/etc/smolotchi/env <<'ENV'
+cat >/etc/smolotchi/env <<ENV
 SMOLOTCHI_DB=/var/lib/smolotchi/events.db
 SMOLOTCHI_ARTIFACT_ROOT=/var/lib/smolotchi/artifacts
-SMOLOTCHI_CONFIG=/home/smolotchi/config.toml
+SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml
 SMOLOTCHI_DEVICE=pi_zero
 SMOLOTCHI_LOCK_ROOT=/run/smolotchi/locks
 SMOLOTCHI_DEFAULT_TAG=lab-approved
@@ -130,9 +130,9 @@ ENV
 
 chmod 0644 /etc/smolotchi/env
 
-install -m 0755 /dev/stdin /usr/local/bin/smolotchi <<'SH'
+install -m 0755 /dev/stdin /usr/local/bin/smolotchi <<SH
 #!/usr/bin/env bash
-exec /home/smolotchi/.venv/bin/python -m smolotchi.cli "$@"
+exec /home/$USER_NAME/smolotchi/.venv/bin/python -m smolotchi.cli "$@"
 SH
 
 echo "[8/9] install systemd units"

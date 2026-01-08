@@ -7,16 +7,16 @@ Requires=smolotchi-core.service
 Type=simple
 User=smolotchi
 Group=smolotchi
-WorkingDirectory=/home/smolotchi
+WorkingDirectory=/home/%u/smolotchi
 EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.ai.worker --loop --log-level INFO
+ExecStart=/home/%u/smolotchi/.venv/bin/python -m smolotchi.ai.worker --loop --log-level INFO
 Restart=always
 RestartSec=10
 
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=false
 ReadWritePaths=/var/lib/smolotchi
 
 [Install]
