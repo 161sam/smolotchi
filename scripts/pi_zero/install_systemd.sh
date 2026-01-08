@@ -24,11 +24,23 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer"     /etc/
 
 systemctl daemon-reload
 
-# enable + start (start even if already enabled)
+# core/web/ai/prune always on
 systemctl enable --now smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
-# optional display: enable only if you actually use it
-systemctl enable --now smolotchi-display || true
+
+# display: DO NOT enable; only start if installed + opt-in
+# Opt-in via: START_DISPLAY=1 sudo ./install_systemd.sh
+if [[ "${START_DISPLAY:-0}" == "1" ]]; then
+  if systemctl list-unit-files | awk '{print $1}' | grep -qx 'smolotchi-display.service'; then
+    systemctl start smolotchi-display.service || true
+    echo "[+] display started (not enabled)"
+  else
+    echo "warn: smolotchi-display.service not installed"
+  fi
+else
+  echo "[i] display not started (set START_DISPLAY=1 to start once)"
+fi
 
 echo "[+] systemd services started"
 echo "Check:"
-echo "  systemctl status smolotchi-core smolotchi-web smolotchi-ai smolotchi-display --no-pager"
+echo "  systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager"
+echo "  systemctl status smolotchi-display --no-pager   # if you started it"

@@ -7,19 +7,33 @@ if [[ -f /etc/smolotchi/env ]]; then
   . /etc/smolotchi/env
 fi
 
-# Defaults (can be overridden by env or flags)
+# Defaults (can be overridden by env)
 DB="${SMOLOTCHI_DB:-/var/lib/smolotchi/events.db}"
 AR="${SMOLOTCHI_ARTIFACT_ROOT:-/var/lib/smolotchi/artifacts}"
-CFG="${SMOLOTCHI_CONFIG:-config.toml}"
+CFG="${SMOLOTCHI_CONFIG:-/etc/smolotchi/config.toml}"
 
-# If this wrapper lives inside the repo, prefer repo venv when present
-# Fallback to python3 if no venv exists (useful for dev)
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VENV_PY="$REPO_DIR/.venv/bin/python"
-if [[ -x "$VENV_PY" ]]; then
-  PY="$VENV_PY"
-else
+# Prefer explicit python path if given
+PY="${SMOLOTCHI_PY:-}"
+
+# Else derive python from repo
+if [[ -z "${PY}" ]]; then
+  REPO="${SMOLOTCHI_REPO:-/home/smolotchi/smolotchi}"
+  if [[ -x "$REPO/.venv/bin/python" ]]; then
+    PY="$REPO/.venv/bin/python"
+  fi
+fi
+
+# Final fallback (dev/emergency)
+if [[ -z "${PY}" ]]; then
   PY="python3"
+fi
+
+# If config path doesn't exist, fallback to repo-local config.toml if present
+if [[ ! -f "$CFG" ]]; then
+  REPO_FALLBACK="${SMOLOTCHI_REPO:-/home/smolotchi/smolotchi}"
+  if [[ -f "$REPO_FALLBACK/config.toml" ]]; then
+    CFG="$REPO_FALLBACK/config.toml"
+  fi
 fi
 
 exec "$PY" -m smolotchi.cli --db "$DB" --artifact-root "$AR" --config "$CFG" "$@"
