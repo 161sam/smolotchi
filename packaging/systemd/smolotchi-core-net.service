@@ -1,0 +1,33 @@
+[Unit]
+Description=Smolotchi Core (WiFi / LAN / Tools Engine) [NET_ADMIN]
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smolotchi
+Group=smolotchi
+WorkingDirectory=/var/lib/smolotchi
+EnvironmentFile=-/etc/smolotchi/env
+
+RuntimeDirectory=smolotchi smolotchi/locks
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+
+ExecStart=/usr/local/bin/smolotchi core
+
+Restart=always
+RestartSec=5
+
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+MemoryMax=350M
+CPUQuota=70%
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -130,6 +130,15 @@ pip install -U pip
 pip install -e .
 ```
 
+### CLI (recommended)
+
+```bash
+smolotchi --help
+smo --help
+smolotchi web
+smolotchi core
+```
+
 Terminal A (web):
 
 ```bash
@@ -166,21 +175,37 @@ pnpm start
 Sample units live in `packaging/systemd/`:
 
 * `smolotchi-web.service`
-* `smolotchi-ai-worker.service`
+* `smolotchi-ai.service`
 
-Optional overrides can be placed in `/etc/smolotchi/smolotchi.env`:
+Optional overrides can be placed in `/etc/smolotchi/env`:
 
 ```bash
-SMOLOTCHI_PROJECT_DIR=/opt/smolotchi
-SMOLOTCHI_VENV_PYTHON=/opt/smolotchi/.venv/bin/python
-SMO_AI_WATCHDOG_S=300
+SMOLOTCHI_DB=/var/lib/smolotchi/events.db
+SMOLOTCHI_ARTIFACT_ROOT=/var/lib/smolotchi/artifacts
+SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml
+SMOLOTCHI_PY=/var/lib/smolotchi/venv/bin/python
+SMOLOTCHI_REPO=/home/smolotchi/smolotchi
 ```
 
 Enable services:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now smolotchi-web smolotchi-ai-worker
+sudo systemctl enable --now smolotchi-web smolotchi-ai
+```
+
+Install wrapper + units:
+
+```bash
+sudo ./scripts/pi_zero/install_systemd.sh
+sudo systemctl restart smolotchi-core smolotchi-ai smolotchi-web
+sudo systemctl --no-pager --full status smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
+```
+
+Display is opt-in:
+
+```bash
+ENABLE_DISPLAY=1 sudo ./scripts/pi_zero/install_systemd.sh
 ```
 
 Smoke-test:
@@ -215,16 +240,16 @@ sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/161sam/smolotchi.
 Services are installed to `/etc/systemd/system` and enabled on boot. Check status:
 
 ```bash
-sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager
+sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
 sudo journalctl -u smolotchi-core -n 50 --no-pager
 ```
 
 Start/stop/restart:
 
 ```bash
-sudo systemctl start smolotchi-core smolotchi-web smolotchi-ai-worker
-sudo systemctl stop smolotchi-core smolotchi-web smolotchi-ai-worker
-sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai-worker
+sudo systemctl start smolotchi-core smolotchi-web smolotchi-ai
+sudo systemctl stop smolotchi-core smolotchi-web smolotchi-ai
+sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai
 ```
 
 See `scripts/pi_zero/README.md` for a smoke checklist.

@@ -8,8 +8,8 @@ Type=simple
 User=smolotchi
 Group=smolotchi
 WorkingDirectory=/home/smolotchi
-EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.cli display
+EnvironmentFile=-/etc/smolotchi/env
+ExecStart=/usr/local/bin/smolotchi display
 Restart=always
 RestartSec=15
 

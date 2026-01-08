@@ -7,17 +7,11 @@ Requires=smolotchi-core.service
 Type=simple
 User=smolotchi
 Group=smolotchi
-WorkingDirectory=/home/%u/smolotchi
-EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/%u/smolotchi/.venv/bin/python -m smolotchi.cli web
+WorkingDirectory=/var/lib/smolotchi
+EnvironmentFile=-/etc/smolotchi/env
+ExecStart=/usr/local/bin/smolotchi web
 Restart=always
 RestartSec=5
-
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=false
-ReadWritePaths=/var/lib/smolotchi
 
 [Install]
 WantedBy=multi-user.target
