@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Load env file if present (systemd EnvironmentFile uses the same)
+if [[ -f /etc/smolotchi/env ]]; then
+  # shellcheck disable=SC1091
+  . /etc/smolotchi/env
+fi
+
+# Defaults (can be overridden by env or flags)
+DB="${SMOLOTCHI_DB:-/var/lib/smolotchi/events.db}"
+AR="${SMOLOTCHI_ARTIFACT_ROOT:-/var/lib/smolotchi/artifacts}"
+CFG="${SMOLOTCHI_CONFIG:-config.toml}"
+
+# If this wrapper lives inside the repo, prefer repo venv when present
+# Fallback to python3 if no venv exists (useful for dev)
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+VENV_PY="$REPO_DIR/.venv/bin/python"
+if [[ -x "$VENV_PY" ]]; then
+  PY="$VENV_PY"
+else
+  PY="python3"
+fi
+
+exec "$PY" -m smolotchi.cli --db "$DB" --artifact-root "$AR" --config "$CFG" "$@"
