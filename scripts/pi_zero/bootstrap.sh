@@ -6,8 +6,9 @@ set -euo pipefail
 # - installs wrapper + systemd units
 # - enables + starts services
 #
-# Env overrides (optional):
+# Env overrides:
 #   REPO_URL, BRANCH, USER_NAME
+#   START_DISPLAY=1   # start display once (not enabled)
 
 if [[ $EUID -ne 0 ]]; then
   echo "error: run as root (sudo)."
@@ -20,12 +21,12 @@ echo "[+] Smolotchi bootstrap starting"
 echo "    REPO_URL=${REPO_URL:-https://github.com/161sam/smolotchi.git}"
 echo "    BRANCH=${BRANCH:-main}"
 echo "    USER_NAME=${USER_NAME:-smolotchi}"
+echo "    START_DISPLAY=${START_DISPLAY:-0}"
 echo
 
 # 1) Install/update smolotchi repo + venv + env/config/dirs + wrapper
-"$SCRIPT_DIR/install_smolotchi.sh"
+bash "$SCRIPT_DIR/install_smolotchi.sh"
 
-# 2) Now we can run install_systemd from the cloned repo path (reliable)
 USER_NAME="${USER_NAME:-smolotchi}"
 SMOLO_REPO="/home/$USER_NAME/smolotchi"
 
@@ -36,7 +37,7 @@ fi
 
 echo
 echo "[+] Installing/Updating systemd units"
-bash "$SMOLO_REPO/scripts/pi_zero/install_systemd.sh"
+START_DISPLAY="${START_DISPLAY:-0}" bash "$SMOLO_REPO/scripts/pi_zero/install_systemd.sh"
 
 echo
 echo "[+] Quick status"
@@ -44,13 +45,12 @@ systemctl --no-pager --full status smolotchi-core smolotchi-web smolotchi-ai smo
 systemctl --no-pager --full status smolotchi-display || true
 
 echo
-echo "[+] Quick health"
-sudo -u "$USER_NAME" /usr/local/bin/smolotchi status || true
-sudo -u "$USER_NAME" /usr/local/bin/smolotchi health || true
+echo "[+] Recent logs"
+journalctl -u smolotchi-core -n 30 --no-pager || true
+journalctl -u smolotchi-web  -n 30 --no-pager || true
+journalctl -u smolotchi-ai   -n 30 --no-pager || true
+journalctl -u smolotchi-display -n 30 --no-pager || true
 
 echo
-echo "[+] Done."
-echo "Logs:"
-echo "  journalctl -u smolotchi-core -n 80 --no-pager"
-echo "  journalctl -u smolotchi-web  -n 80 --no-pager"
-echo "  journalctl -u smolotchi-ai   -n 80 --no-pager"
+echo "[+] Done. Open Web UI (if running):"
+echo "    http://<pi-ip>:<port>"
