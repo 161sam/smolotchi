@@ -82,47 +82,72 @@ def main() -> None:
     ui = UIState()
 
     def on_btn(evt: str) -> None:
-        bus.publish(evt, {"ts": time.time()})
+        # Button events are just bus events; display must never crash from this.
+        try:
+            bus.publish(evt, {"ts": time.time()})
+        except Exception:
+            pass
 
     buttons = ButtonWatcher(
         ButtonConfig(
-            next_pin=profile.btn_next_pin,
-            mode_pin=profile.btn_mode_pin,
-            ok_pin=profile.btn_ok_pin,
+            next_pin=getattr(profile, "btn_next_pin", None),
+            mode_pin=getattr(profile, "btn_mode_pin", None),
+            ok_pin=getattr(profile, "btn_ok_pin", None),
         ),
         on_event=on_btn,
     )
-    buttons.start()
+
+    # Start buttons safely (optional)
+    try:
+        buttons.start()
+    except Exception:
+        # Never let GPIO break the display
+        pass
 
     driver = EPDDriver()
     hw_ok = False
+
+    # Init HW (optional)
     if not _dryrun_enabled():
-        hw_ok = driver.init()
-        if hw_ok:
-            driver.clear()
+        try:
+            hw_ok = bool(driver.init())
+            if hw_ok:
+                try:
+                    driver.clear()
+                except Exception:
+                    # If clear fails, keep hw_ok but continue
+                    pass
+        except Exception:
+            hw_ok = False
 
     last_prune = 0.0
 
-    while True:
-        _poll_buttons(bus, ui, artifacts, jobs)
-        _tick_render(driver, hw_ok, artifacts, jobs, power, ui, profile)
+    try:
+        while True:
+            _poll_buttons(bus, ui, artifacts, jobs)
+            _tick_render(driver, hw_ok, artifacts, jobs, power, ui, profile)
 
-        now = time.time()
-        if now - last_prune > 300.0:
-            last_prune = now
-            try:
-                artifacts.prune(
-                    keep_last=profile.artifacts_keep_max,
-                    older_than_days=profile.artifacts_keep_days,
-                )
-            except Exception:
-                pass
-            try:
-                bus.prune(keep_last=5000, older_than_days=30, vacuum=False)
-            except Exception:
-                pass
+            now = time.time()
+            if now - last_prune > 300.0:
+                last_prune = now
+                try:
+                    artifacts.prune(
+                        keep_last=profile.artifacts_keep_max,
+                        older_than_days=profile.artifacts_keep_days,
+                    )
+                except Exception:
+                    pass
+                try:
+                    bus.prune(keep_last=5000, older_than_days=30, vacuum=False)
+                except Exception:
+                    pass
 
-        time.sleep(0.2)
+            time.sleep(0.2)
+    finally:
+        try:
+            buttons.stop()
+        except Exception:
+            pass
 
 
 def _poll_buttons(
@@ -152,10 +177,12 @@ def _poll_buttons(
                 req = artifacts.find_latest_pending_stage_request()
             if not req:
                 req = artifacts.find_latest_stage_request()
-            if req and artifacts.is_stage_request_pending(req):
+
+            if req and hasattr(artifacts, "is_stage_request_pending") and artifacts.is_stage_request_pending(req):
                 rid = str(req.get("id") or req.get("request_id") or "")
                 job_id = req.get("job_id")
                 step_index = req.get("step_index")
+
                 artifacts.put_json(
                     kind="ai_stage_approval",
                     title="Stage approved (device)",
@@ -175,24 +202,33 @@ def _poll_buttons(
                         jobs.mark_queued(str(job_id), note=note)
                     except Exception:
                         pass
-                bus.publish(
-                    "ai.stage.approved",
-                    {
-                        "request_id": rid,
-                        "job_id": job_id,
-                        "step_index": step_index,
-                        "ts": time.time(),
-                    },
-                )
+
+                try:
+                    bus.publish(
+                        "ai.stage.approved",
+                        {
+                            "request_id": rid,
+                            "job_id": job_id,
+                            "step_index": step_index,
+                            "ts": time.time(),
+                        },
+                    )
+                except Exception:
+                    pass
+
                 artifacts.put_json(
                     kind="ui_notice",
                     title="UI Notice",
                     payload={"ts": _utc_iso(), "msg": "Approved!", "request_id": rid},
                 )
             else:
-                bus.publish(
-                    "ui.intent.ok", {"ts": time.time(), "screen": SCREENS[ui.screen_index]}
-                )
+                try:
+                    bus.publish(
+                        "ui.intent.ok",
+                        {"ts": time.time(), "screen": SCREENS[ui.screen_index]},
+                    )
+                except Exception:
+                    pass
                 artifacts.put_json(
                     kind="ui_notice",
                     title="UI Notice",
@@ -263,6 +299,7 @@ def _tick_render(
         has_pending_stage = artifacts.is_stage_request_pending(stage)
     else:
         has_pending_stage = bool(stage)
+
     stage_total = artifacts.count_kind("ai_stage_request")
     stage_pending = (
         artifacts.count_pending_stage_requests()
@@ -281,8 +318,8 @@ def _tick_render(
             f"Bat: {power_status.percent if power_status.percent is not None else '?'}% ({power_status.source})",
             _utc_iso().split("T")[1][:8],
             "",
-            "BTN1 Next | BTN2 Mode",
-            "BTN3 OK approve (if pending)",
+            "Buttons: optional",
+            "Set SMOLOTCHI_BUTTONS=1 later",
         ]
         image = _render_text_screen(width, height, lines)
     elif screen == "JOBS":
@@ -302,10 +339,9 @@ def _tick_render(
                 f"step:{stage.get('step_index', '?')} {str(stage.get('action_id', ''))[:12]}"
             )
             lines.append("")
-            lines.append("BTN3 OK -> approve")
+            lines.append("OK approves (when buttons exist)")
         else:
             lines.append("none")
-        lines += ["", "BTN1 Next"]
         image = _render_text_screen(width, height, lines)
     else:
         lines = [

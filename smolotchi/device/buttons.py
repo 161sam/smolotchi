@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import os
 import threading
 import time
 from dataclasses import dataclass
@@ -16,34 +17,91 @@ class ButtonConfig:
     debounce_ms: int = 180
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    raw = raw.strip().lower()
+    if raw in ("1", "true", "yes", "y", "on"):
+        return True
+    if raw in ("0", "false", "no", "n", "off"):
+        return False
+    return default
+
+
 class ButtonWatcher:
+    """
+    Optional GPIO button watcher.
+
+    Design goals:
+    - Must never crash the display daemon if GPIO/buttons are missing.
+    - Can be disabled globally via SMOLOTCHI_BUTTONS=0.
+    - If pins are not configured (all None), it disables itself automatically.
+    """
+
     def __init__(self, cfg: ButtonConfig, on_event: Callable[[str], None]):
         self.cfg = cfg
         self.on_event = on_event
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._enabled = False
 
+        self._enabled = False
         self.GPIO = None
-        spec = importlib.util.find_spec("RPi.GPIO")
-        if spec is not None:
+
+        # Global toggle; default: OFF (since your device currently has no buttons)
+        if not _env_bool("SMOLOTCHI_BUTTONS", False):
+            return
+
+        # Auto-disable if no pins configured
+        if cfg.next_pin is None and cfg.mode_pin is None and cfg.ok_pin is None:
+            return
+
+        # Try importing RPi.GPIO safely
+        try:
+            spec = importlib.util.find_spec("RPi.GPIO")
+        except ModuleNotFoundError:
+            spec = None
+
+        if spec is None:
+            return
+
+        try:
             self.GPIO = importlib.import_module("RPi.GPIO")
-            self._enabled = True
+        except Exception:
+            self.GPIO = None
+            return
+
+        self._enabled = True
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
 
     def start(self) -> None:
         if not self._enabled:
             return
 
         GPIO = self.GPIO
-        assert GPIO is not None
+        if GPIO is None:
+            self._enabled = False
+            return
 
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
+        try:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+        except Exception:
+            self._enabled = False
+            return
 
         def setup(pin: Optional[int]) -> None:
             if pin is None:
                 return
-            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            try:
+                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            except Exception:
+                # If a pin can't be set up (not present / permissions / already used),
+                # keep the daemon alive by just skipping it.
+                pass
 
         setup(self.cfg.next_pin)
         setup(self.cfg.mode_pin)
@@ -55,12 +113,24 @@ class ButtonWatcher:
 
             def cb(_channel: int) -> None:
                 time.sleep(self.cfg.debounce_ms / 1000.0)
-                if GPIO.input(pin) == 0:
-                    self.on_event(name)
+                try:
+                    if GPIO.input(pin) == 0:
+                        self.on_event(name)
+                except Exception:
+                    # Never crash from callback
+                    return
 
-            GPIO.add_event_detect(
-                pin, GPIO.FALLING, callback=cb, bouncetime=self.cfg.debounce_ms
-            )
+            try:
+                GPIO.add_event_detect(
+                    pin,
+                    GPIO.FALLING,
+                    callback=cb,
+                    bouncetime=self.cfg.debounce_ms,
+                )
+            except Exception:
+                # Edge detection may fail if kernel/gpio subsystem doesn't support it
+                # or pin isn't valid. Skip silently.
+                pass
 
         register(self.cfg.next_pin, "ui.btn.next")
         register(self.cfg.mode_pin, "ui.btn.mode")
@@ -75,5 +145,10 @@ class ButtonWatcher:
 
     def stop(self) -> None:
         self._stop.set()
-        if self.GPIO is not None:
-            self.GPIO.cleanup()
+        GPIO = self.GPIO
+        if GPIO is None:
+            return
+        try:
+            GPIO.cleanup()
+        except Exception:
+            pass

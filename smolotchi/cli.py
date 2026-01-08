@@ -25,6 +25,7 @@ from smolotchi.core.paths import (
 )
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
+from smolotchi.display.selftest import run_display_test
 
 
 def _format_ts(ts: float | None) -> str:
@@ -74,6 +75,17 @@ def cmd_display(args) -> int:
     main()
     return 0
 
+def cmd_display_test(args) -> int:
+    # Minimal test without db/bus/jobs/artifacts
+    return int(
+        run_display_test(
+            text=str(args.text),
+            invert=bool(args.invert),
+            clear=not bool(args.no_clear),
+            sleep_s=float(args.sleep),
+            dryrun=bool(args.dryrun),
+        )
+    )
 
 def cmd_core(args) -> int:
     """
@@ -1194,6 +1206,17 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--artifact-root", default=default_artifact_root)
     s.set_defaults(fn=cmd_display)
 
+    s = sub.add_parser(
+        "display-test",
+        help="Minimal e-paper hardware selftest (no db/bus/jobs/artifacts)",
+    )
+    s.add_argument("--text", default="HELLO", help="Text to render (default: HELLO)")
+    s.add_argument("--invert", action="store_true", help="Invert colors (black background)")
+    s.add_argument("--no-clear", action="store_true", help="Do not clear before drawing")
+    s.add_argument("--sleep", type=float, default=2.0, help="Seconds to wait after drawing (default: 2.0)")
+    s.add_argument("--dryrun", action="store_true", help="Render image but do not touch hardware")
+    s.set_defaults(fn=cmd_display_test)
+
     s = sub.add_parser("core", help="Run core state-machine daemon")
     s.add_argument("--interval", type=float, default=None)
     s.add_argument(
@@ -1363,7 +1386,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     return int(args.fn(args))
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
