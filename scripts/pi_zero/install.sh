@@ -12,7 +12,6 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# Ensure stable wd
 cd /
 
 python3 -m venv "$VENV_DIR"
@@ -25,7 +24,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
   cp "$PROJECT_DIR/.env.example" "$ENV_FILE"
 fi
 
-# Stable entrypoint for systemd
 install -m 0755 /dev/stdin /usr/local/bin/smolotchi <<SH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -39,20 +37,19 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-display.service" /etc/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.service" /etc/systemd/system/smolotchi-prune.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer"   /etc/systemd/system/smolotchi-prune.timer
 
+systemctl daemon-reexec
 systemctl daemon-reload
 
 cat <<'EOM'
 Done.
 
-Enable core:
-  sudo systemctl enable --now smolotchi-core smolotchi-ai
+Enable autostart:
+  sudo systemctl enable smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
 
-Optional web UI:
-  sudo systemctl enable --now smolotchi-web
+Start now:
+  sudo systemctl start smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
 
-Optional display:
-  sudo systemctl enable --now smolotchi-display
-
-Retention timer:
-  sudo systemctl enable --now smolotchi-prune.timer
+Optional display (enable/start):
+  sudo systemctl enable smolotchi-display
+  sudo systemctl start smolotchi-display
 EOM

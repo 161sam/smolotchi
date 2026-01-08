@@ -6,6 +6,7 @@ echo "[+] Installing Smolotchi (pi_zero bootstrap)"
 REPO_URL="${REPO_URL:-https://github.com/161sam/smolotchi.git}"
 BRANCH="${BRANCH:-main}"
 USER_NAME="${USER_NAME:-smolotchi}"
+INSTALL_WAVESHARE="${INSTALL_WAVESHARE:-1}"
 
 if [[ $EUID -ne 0 ]]; then
   echo "error: run as root (sudo)."
@@ -14,7 +15,9 @@ fi
 
 apt-get update
 apt-get install -y --no-install-recommends \
-  git python3 python3-venv python3-pip ca-certificates curl
+  git ca-certificates curl \
+  python3 python3-venv python3-pip \
+  build-essential python3-dev
 
 id "$USER_NAME" >/dev/null 2>&1 || useradd -m -s /bin/bash "$USER_NAME"
 
@@ -33,13 +36,24 @@ fi
 
 chown -R "$USER_NAME:$USER_NAME" "$SMOLO_REPO"
 
-# venv + editable install
+# venv + editable install + display deps
 sudo -u "$USER_NAME" bash -lc "
+  set -euo pipefail
   cd '$SMOLO_REPO'
   python3 -m venv .venv
   . .venv/bin/activate
-  pip install -U pip wheel
+  pip install -U pip wheel setuptools
   pip install -e .
+
+  # Display deps (Pi Zero + Waveshare ePaper)
+  pip install -U pillow spidev RPi.GPIO gpiozero
+
+  if [[ '${INSTALL_WAVESHARE}' == '1' ]]; then
+    # waveshare_epd is NOT on PyPI; install from Waveshare Git repo (subdirectory)
+    pip install -U \"git+https://github.com/waveshareteam/e-Paper.git#egg=waveshare_epd&subdirectory=RaspberryPi_JetsonNano/python\"
+  else
+    echo '[!] INSTALL_WAVESHARE=0 -> skipping waveshare_epd install'
+  fi
 "
 
 # install wrapper (for CLI + systemd ExecStart=/usr/local/bin/smolotchi)
