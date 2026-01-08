@@ -1,20 +1,27 @@
 [Unit]
 Description=Smolotchi E-Paper Display
-After=smolotchi-core.service
+After=network-online.target smolotchi-core.service
+Wants=network-online.target
 Requires=smolotchi-core.service
 
 [Service]
 Type=simple
 User=smolotchi
 Group=smolotchi
-WorkingDirectory=/home/smolotchi
+
+WorkingDirectory=%h/smolotchi
 EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.cli display
+
+ExecStart=/usr/local/bin/smolotchi display
+
 Restart=always
 RestartSec=15
 
 NoNewPrivileges=true
 PrivateTmp=true
+
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

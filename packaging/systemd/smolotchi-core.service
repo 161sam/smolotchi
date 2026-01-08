@@ -1,19 +1,21 @@
 [Unit]
 Description=Smolotchi Core (WiFi / LAN / Tools Engine)
-After=network.target
-Wants=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 User=smolotchi
 Group=smolotchi
-WorkingDirectory=/home/%u/smolotchi
+
+WorkingDirectory=%h/smolotchi
 EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/%u/smolotchi/.venv/bin/python -m smolotchi.cli core
+
+# Stable entrypoint (installed by bootstrap.sh)
+ExecStart=/usr/local/bin/smolotchi core
+
 Restart=always
 RestartSec=5
-WatchdogSec=30
-NotifyAccess=main
 
 AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN

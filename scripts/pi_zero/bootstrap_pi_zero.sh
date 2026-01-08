@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[+] Smolotchi Pi Zero Bootstrap"
+cd /
+
+echo "[+] Smolotchi Pi Zero Bootstrap (base)"
 
 apt update
 apt install -y \
@@ -15,13 +17,9 @@ apt install -y \
 
 apt install -y bettercap || echo "[!] bettercap not available via apt"
 
-systemctl enable ssh
-systemctl start ssh
+systemctl enable --now ssh
 
 id smolotchi >/dev/null 2>&1 || useradd -m -s /bin/bash smolotchi
-
-mkdir -p /home/smolotchi
-chown -R smolotchi:smolotchi /home/smolotchi
 
 mkdir -p /var/lib/smolotchi/{artifacts,logs}
 mkdir -p /run/smolotchi/locks

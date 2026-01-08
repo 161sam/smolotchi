@@ -1,3 +1,18 @@
+[Unit]
+Description=Smolotchi Artifact Retention Prune
+
 [Service]
 Type=oneshot
-ExecStart=/home/smolotchi/.venv/bin/python -m smolotchi.cli prune
+User=smolotchi
+Group=smolotchi
+EnvironmentFile=/etc/smolotchi/env
+ExecStart=/usr/local/bin/smolotchi prune
+
+# Optional hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/var/lib/smolotchi
+
+[Install]
+WantedBy=multi-user.target

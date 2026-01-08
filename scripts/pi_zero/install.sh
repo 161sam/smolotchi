@@ -12,6 +12,9 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# Ensure stable wd
+cd /
+
 python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install -U pip
 "$VENV_DIR/bin/pip" install -r "$PROJECT_DIR/requirements/base.txt" -r "$PROJECT_DIR/requirements/pi_zero.txt"
@@ -22,21 +25,34 @@ if [[ ! -f "$ENV_FILE" ]]; then
   cp "$PROJECT_DIR/.env.example" "$ENV_FILE"
 fi
 
+# Stable entrypoint for systemd
+install -m 0755 /dev/stdin /usr/local/bin/smolotchi <<SH
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$VENV_DIR/bin/python" -m smolotchi.cli "\$@"
+SH
+
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-core.service" /etc/systemd/system/smolotchi-core.service
-install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-ai.service" /etc/systemd/system/smolotchi-ai.service
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-ai.service"   /etc/systemd/system/smolotchi-ai.service
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-web.service"  /etc/systemd/system/smolotchi-web.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-display.service" /etc/systemd/system/smolotchi-display.service
-install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-web.service" /etc/systemd/system/smolotchi-web.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.service" /etc/systemd/system/smolotchi-prune.service
-install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer" /etc/systemd/system/smolotchi-prune.timer
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer"   /etc/systemd/system/smolotchi-prune.timer
 
 systemctl daemon-reload
 
 cat <<'EOM'
 Done.
 
-Enable UI-only mode:
-  sudo systemctl enable --now smolotchi-core smolotchi-ai smolotchi-display
+Enable core:
+  sudo systemctl enable --now smolotchi-core smolotchi-ai
 
 Optional web UI:
   sudo systemctl enable --now smolotchi-web
+
+Optional display:
+  sudo systemctl enable --now smolotchi-display
+
+Retention timer:
+  sudo systemctl enable --now smolotchi-prune.timer
 EOM
