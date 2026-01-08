@@ -1,23 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 echo "[+] Installing systemd units"
 
-cp packaging/systemd/*.service /etc/systemd/system/
-cp packaging/systemd/*.timer /etc/systemd/system/ || true
-install -m 0755 packaging/bin/smolotchi /usr/local/bin/smolotchi
+cp "$PROJECT_DIR"/packaging/systemd/*.service /etc/systemd/system/
+cp "$PROJECT_DIR"/packaging/systemd/*.timer /etc/systemd/system/ || true
+install -m 0755 "$PROJECT_DIR"/packaging/bin/smolotchi /usr/local/bin/smolotchi
 
-install -d /etc/systemd/system/smolotchi-core.service.d
-install -d /etc/systemd/system/smolotchi-core-net.service.d
-install -d /etc/systemd/system/smolotchi-web.service.d
-install -d /etc/systemd/system/smolotchi-ai.service.d
-install -d /etc/systemd/system/smolotchi-prune.service.d
+install_dropin() {
+  local unit="$1"
+  local src="$2"
+  local dst_dir="/etc/systemd/system/${unit}.d"
 
-install -m 0644 packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-core.service.d/10-hardening.conf
-install -m 0644 packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-core-net.service.d/10-hardening.conf
-install -m 0644 packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-web.service.d/10-hardening.conf
-install -m 0644 packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
-install -m 0644 packaging/systemd/dropins/10-hardening-prune.conf /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+  install -d -m 0755 "$dst_dir"
+  install -m 0644 "$PROJECT_DIR"/packaging/systemd/dropins/"$src" "$dst_dir/$src"
+}
+
+install_dropin smolotchi-core.service 10-hardening.conf
+install_dropin smolotchi-core-net.service 10-hardening.conf
+install_dropin smolotchi-web.service 10-hardening.conf
+install_dropin smolotchi-ai.service 10-hardening.conf
+install_dropin smolotchi-display.service 10-hardening.conf
+install_dropin smolotchi-prune.service 10-hardening-prune.conf
+
+# optional:
+# install_dropin smolotchi-core.service 20-homedir-readonly.conf
 
 systemctl daemon-reexec
 systemctl daemon-reload
