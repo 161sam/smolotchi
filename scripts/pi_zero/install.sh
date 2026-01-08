@@ -31,6 +31,18 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.service" /etc/sy
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer" /etc/systemd/system/smolotchi-prune.timer
 install -m 0755 "$PROJECT_DIR/packaging/bin/smolotchi" /usr/local/bin/smolotchi
 
+install -d /etc/systemd/system/smolotchi-core.service.d
+install -d /etc/systemd/system/smolotchi-core-net.service.d
+install -d /etc/systemd/system/smolotchi-web.service.d
+install -d /etc/systemd/system/smolotchi-ai.service.d
+install -d /etc/systemd/system/smolotchi-prune.service.d
+
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-core.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-core-net.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-web.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening-prune.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+
 systemctl daemon-reload
 
 cat <<'EOM'

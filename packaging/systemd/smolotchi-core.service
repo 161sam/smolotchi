@@ -17,6 +17,7 @@ NotifyAccess=main
 
 AmbientCapabilities=CAP_NET_RAW
 CapabilityBoundingSet=CAP_NET_RAW
+
 NoNewPrivileges=true
 
 PrivateTmp=true

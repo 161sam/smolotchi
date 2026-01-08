@@ -130,6 +130,15 @@ pip install -U pip
 pip install -e .
 ```
 
+### CLI (recommended)
+
+```bash
+smolotchi --help
+smo --help
+smolotchi web
+smolotchi core
+```
+
 Terminal A (web):
 
 ```bash
@@ -183,6 +192,20 @@ Enable services:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now smolotchi-web smolotchi-ai
+```
+
+Install wrapper + units:
+
+```bash
+sudo ./scripts/pi_zero/install_systemd.sh
+sudo systemctl restart smolotchi-core smolotchi-ai smolotchi-web
+sudo systemctl --no-pager --full status smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
+```
+
+Display is opt-in:
+
+```bash
+ENABLE_DISPLAY=1 sudo ./scripts/pi_zero/install_systemd.sh
 ```
 
 Smoke-test:

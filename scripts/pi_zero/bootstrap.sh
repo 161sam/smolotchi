@@ -144,6 +144,18 @@ if [[ "$WITH_DISPLAY" -eq 1 ]]; then
   install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/smolotchi-display.service /etc/systemd/system/smolotchi-display.service
 fi
 
+install -d /etc/systemd/system/smolotchi-core.service.d
+install -d /etc/systemd/system/smolotchi-core-net.service.d
+install -d /etc/systemd/system/smolotchi-web.service.d
+install -d /etc/systemd/system/smolotchi-ai.service.d
+install -d /etc/systemd/system/smolotchi-prune.service.d
+
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-core.service.d/10-hardening.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-core-net.service.d/10-hardening.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-web.service.d/10-hardening.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening-prune.conf /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+
 systemctl daemon-reload
 
 echo "[9/9] enable + start"
