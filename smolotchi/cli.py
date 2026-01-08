@@ -25,8 +25,6 @@ from smolotchi.core.paths import (
 )
 from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
-from smolotchi.display.selftest import run_display_test
-
 
 def _format_ts(ts: float | None) -> str:
     if not ts:
@@ -76,6 +74,7 @@ def cmd_display(args) -> int:
     return 0
 
 def cmd_display_test(args) -> int:
+    from smolotchi.display.selftest import run_display_test
     # Minimal test without db/bus/jobs/artifacts
     return int(
         run_display_test(
