@@ -276,6 +276,75 @@ You can track blocked jobs in **/ai/jobs** (look for “Blocked (approval requir
 
 ---
 
+## 🔐 systemd Hardening Model
+
+Smolotchi nutzt ein **zentrales, minimales Hardening-Baseline-Modell** auf Basis von **systemd Drop-ins**, um Sicherheitsoptionen konsistent anzuwenden, ohne Unit-Files zu duplizieren.
+
+### Drop-ins
+
+Hardening wird über Drop-in-Dateien (`*.service.d/*.conf`) umgesetzt:
+
+* gemeinsames Baseline-Hardening (`10-hardening.conf`)
+* spezialisierte Varianten (z. B. `10-hardening-prune.conf`)
+* gezielte Overrides (z. B. Runtime-Pfad oder ExecStart)
+
+Dadurch bleiben die eigentlichen Unit-Files schlank, stabil und wartbar.
+
+### RuntimeDirectory
+
+Alle Services verwenden explizite Laufzeit- und State-Verzeichnisse:
+
+* `/run/smolotchi` (Runtime, Locks)
+* `/var/lib/smolotchi` (State, DB, Artifacts)
+
+Diese Pfade werden **vor** Mount-Namespacing angelegt (`ExecStartPre`) und optional von systemd verwaltet (`RuntimeDirectory=`), um Namespace-Fehler zu vermeiden.
+
+### ProtectHome – Rationale
+
+`ProtectHome=true` wird dort eingesetzt, wo kein Zugriff auf Benutzerverzeichnisse notwendig ist (z. B. Web, AI, Prune).
+
+Services, die bewusst mit Entwicklungs- oder Geräte-Ressourcen arbeiten, können dies gezielt aufheben.
+So bleibt der Default **restriktiv**, aber **nicht funktional brechend**.
+
+### CAP_NET_ADMIN (Opt-in)
+
+Netzwerk-relevante Privilegien sind **nicht standardmäßig aktiv**.
+
+* Standard: keine erweiterten Netzwerk-Capabilities
+* Opt-in über separate Units oder Flags (z. B. `smolotchi-core-net.service`)
+
+Das macht privilegierte Operationen **explizit sichtbar und auditierbar**.
+
+---
+
+## 🧠 Wrapper vs. systemd
+
+Smolotchi unterscheidet bewusst zwischen **Operator-CLI** und **systemd-Services**.
+
+### Wann `smolotchi`
+
+Der systemweite Wrapper (`/usr/local/bin/smolotchi`) ist gedacht für:
+
+* interaktive Nutzung
+* Debugging
+* manuelle Wartung
+* Operator-Workflows
+
+Er wählt automatisch ein geeignetes Python (System, venv, Repo).
+
+### Wann `.venv/bin/python -m smolotchi.cli`
+
+systemd-Services verwenden **explizite Python-Pfade**:
+
+* deterministisches Verhalten
+* keine Abhängigkeit von `$HOME`
+* kompatibel mit `ProtectHome` und Mount-Namespacing
+
+➡️ **Faustregel:**
+*Menschen nutzen den Wrapper – systemd nutzt explizite Pfade.*
+
+---
+
 # 2️⃣ Threat Model (Research-Tool-konform)
 
 ## Threat Model: Smolotchi
