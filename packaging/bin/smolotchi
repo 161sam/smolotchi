@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PY="${SMOLOTCHI_PY:-}"
+
+# Prefer system/installed venv first (stable across repo moves)
+if [[ -z "${PY}" ]]; then
+  if [[ -x "/var/lib/smolotchi/venv/bin/python" ]]; then
+    PY="/var/lib/smolotchi/venv/bin/python"
+  fi
+fi
+
+if [[ -z "${PY}" ]]; then
+  REPO="${SMOLOTCHI_REPO:-/home/smolotchi/smolotchi}"
+  if [[ -x "${REPO}/.venv/bin/python" ]]; then
+    PY="${REPO}/.venv/bin/python"
+  fi
+fi
+
+if [[ -z "${PY}" ]]; then
+  PY="python3"
+fi
+
+DB="${SMOLOTCHI_DB:-/var/lib/smolotchi/events.db}"
+AR="${SMOLOTCHI_ARTIFACT_ROOT:-/var/lib/smolotchi/artifacts}"
+CFG="${SMOLOTCHI_CONFIG:-/etc/smolotchi/config.toml}"
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  ai)
+    exec "$PY" -m smolotchi.ai.worker --loop --log-level "${SMOLOTCHI_AI_LOG_LEVEL:-INFO}"
+    ;;
+  *)
+    exec "$PY" -m smolotchi.cli --db "$DB" --artifact-root "$AR" --config "$CFG" "$cmd" "$@"
+    ;;
+esac

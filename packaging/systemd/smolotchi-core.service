@@ -7,25 +7,28 @@ Wants=network.target
 Type=notify
 User=smolotchi
 Group=smolotchi
-WorkingDirectory=/home/%u/smolotchi
-EnvironmentFile=/etc/smolotchi/env
-ExecStart=/home/%u/smolotchi/.venv/bin/python -m smolotchi.cli core
+WorkingDirectory=/var/lib/smolotchi
+EnvironmentFile=-/etc/smolotchi/env
+ExecStart=/usr/local/bin/smolotchi core
 Restart=always
 RestartSec=5
 WatchdogSec=30
 NotifyAccess=main
 
-AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
-CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
 NoNewPrivileges=true
 
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=false
+ProtectHome=true
 ReadWritePaths=/var/lib/smolotchi /run/smolotchi
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
 
 MemoryMax=350M
 CPUQuota=70%

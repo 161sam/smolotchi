@@ -23,11 +23,13 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-core.service" /etc/systemd/system/smolotchi-core.service
+install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-core-net.service" /etc/systemd/system/smolotchi-core-net.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-ai.service" /etc/systemd/system/smolotchi-ai.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-display.service" /etc/systemd/system/smolotchi-display.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-web.service" /etc/systemd/system/smolotchi-web.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.service" /etc/systemd/system/smolotchi-prune.service
 install -m 0644 "$PROJECT_DIR/packaging/systemd/smolotchi-prune.timer" /etc/systemd/system/smolotchi-prune.timer
+install -m 0755 "$PROJECT_DIR/packaging/bin/smolotchi" /usr/local/bin/smolotchi
 
 systemctl daemon-reload
 
