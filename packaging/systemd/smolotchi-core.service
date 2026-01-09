@@ -2,6 +2,7 @@
 Description=Smolotchi Core (WiFi / LAN / Tools Engine)
 After=network.target
 Wants=network.target
+Conflicts=smolotchi-core-net.service
 
 [Service]
 Type=notify

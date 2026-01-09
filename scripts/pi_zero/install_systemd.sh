@@ -45,6 +45,7 @@ install_dropin_dir smolotchi-core.service
 install_dropin_dir smolotchi-core-net.service
 install_dropin_dir smolotchi-web.service
 install_dropin_dir smolotchi-ai.service
+install_dropin_dir smolotchi-display.service
 install_dropin_dir smolotchi-prune.service
 
 # optional:
@@ -63,6 +64,7 @@ if [[ "${ENABLE_CORE_NET_ADMIN:-0}" == "1" ]]; then
   systemctl enable --now smolotchi-core-net
   echo "[+] core-net enabled (CAP_NET_ADMIN)"
 else
+  systemctl disable --now smolotchi-core-net || true
   echo "[i] core-net not enabled (set ENABLE_CORE_NET_ADMIN=1)"
 fi
 
