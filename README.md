@@ -285,8 +285,10 @@ Smolotchi nutzt ein **zentrales, minimales Hardening-Baseline-Modell** auf Basis
 Hardening wird über Drop-in-Dateien (`*.service.d/*.conf`) umgesetzt:
 
 * gemeinsames Baseline-Hardening (`10-hardening.conf`)
-* spezialisierte Varianten (z. B. `10-hardening-prune.conf`)
-* gezielte Overrides (z. B. Runtime-Pfad oder ExecStart)
+* service-spezifische Overrides (`dropins/smolotchi-*.service.d/*.conf`)
+  * `ProtectHome` + `ReadWritePaths` pro Service
+  * `PrivateNetwork` für prune
+  * Capability-Gates für core/core-net
 
 Dadurch bleiben die eigentlichen Unit-Files schlank, stabil und wartbar.
 

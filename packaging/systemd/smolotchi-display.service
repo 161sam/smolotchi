@@ -13,8 +13,5 @@ ExecStart=/usr/local/bin/smolotchi display
 Restart=always
 RestartSec=15
 
-NoNewPrivileges=true
-PrivateTmp=true
-
 [Install]
 WantedBy=multi-user.target

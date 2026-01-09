@@ -41,7 +41,13 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-core-net.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-web.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
-install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening-prune.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-core.service.d/"*.conf /etc/systemd/system/smolotchi-core.service.d/
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-core-net.service.d/"*.conf /etc/systemd/system/smolotchi-core-net.service.d/
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-web.service.d/"*.conf /etc/systemd/system/smolotchi-web.service.d/
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-ai.service.d/"*.conf /etc/systemd/system/smolotchi-ai.service.d/
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-prune.service.d/"*.conf /etc/systemd/system/smolotchi-prune.service.d/
 
 systemctl daemon-reload
 
