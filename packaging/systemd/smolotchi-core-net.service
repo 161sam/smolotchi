@@ -19,7 +19,6 @@ StateDirectoryMode=0775
 ExecStart=/usr/local/bin/smolotchi core
 
 Restart=always
-RestartSec=5
 
 MemoryMax=350M
 CPUQuota=70%

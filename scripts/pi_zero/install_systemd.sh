@@ -41,6 +41,11 @@ install_dropin smolotchi-web.service 10-hardening.conf
 install_dropin smolotchi-ai.service 10-hardening.conf
 install_dropin smolotchi-display.service 10-hardening.conf
 install_dropin smolotchi-prune.service 10-hardening.conf
+install_dropin smolotchi-core.service 12-restart-protection.conf
+install_dropin smolotchi-core-net.service 12-restart-protection.conf
+install_dropin smolotchi-web.service 12-restart-protection.conf
+install_dropin smolotchi-ai.service 12-restart-protection.conf
+install_dropin smolotchi-display.service 12-restart-protection.conf
 install_dropin smolotchi-core.service 15-runtime-dirs.conf
 install_dropin smolotchi-core-net.service 15-runtime-dirs.conf
 install_dropin smolotchi-web.service 15-runtime-dirs.conf
