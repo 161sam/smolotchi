@@ -301,10 +301,11 @@ Diese Pfade werden **vor** Mount-Namespacing angelegt (`ExecStartPre`) und optio
 
 ### ProtectHome – Rationale
 
-`ProtectHome=true` wird dort eingesetzt, wo kein Zugriff auf Benutzerverzeichnisse notwendig ist (z. B. Web, AI, Prune).
+`ProtectHome` ist **nicht Teil** der gemeinsamen Baseline, sondern wird pro Service gesetzt.
+Für Services ohne Bedarf an `/home` (z. B. Core, Web, AI, Prune) gilt `ProtectHome=true` oder `ProtectHome=read-only`.
 
-Services, die bewusst mit Entwicklungs- oder Geräte-Ressourcen arbeiten, können dies gezielt aufheben.
-So bleibt der Default **restriktiv**, aber **nicht funktional brechend**.
+Services, die bewusst mit `/home` arbeiten (z. B. Display), bleiben davon ausgenommen oder setzen explizite Overrides.
+So bleibt Hardening **gezielt**, aber **nicht funktional brechend**.
 
 ### CAP_NET_ADMIN (Opt-in)
 
