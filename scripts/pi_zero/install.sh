@@ -44,6 +44,7 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-display.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening-prune.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening-prune.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-core.service.d/12-restart-protection.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-core-net.service.d/12-restart-protection.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-web.service.d/12-restart-protection.conf
@@ -55,6 +56,11 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /e
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-ai.service.d/15-runtime-dirs.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-display.service.d/15-runtime-dirs.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-prune.service.d/15-runtime-dirs.conf
+
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/20-cap-defaults.conf" /etc/systemd/system/smolotchi-web.service.d/20-cap-defaults.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/20-cap-defaults.conf" /etc/systemd/system/smolotchi-ai.service.d/20-cap-defaults.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/20-cap-defaults.conf" /etc/systemd/system/smolotchi-display.service.d/20-cap-defaults.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/20-cap-defaults.conf" /etc/systemd/system/smolotchi-prune.service.d/20-cap-defaults.conf
 
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-core.service.d/"*.conf /etc/systemd/system/smolotchi-core.service.d/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-core-net.service.d/"*.conf /etc/systemd/system/smolotchi-core-net.service.d/

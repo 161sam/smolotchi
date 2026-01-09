@@ -158,6 +158,7 @@ install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardenin
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-web.service.d/10-hardening.conf
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening-prune.conf /etc/systemd/system/smolotchi-prune.service.d/10-hardening-prune.conf
 if [[ "$WITH_DISPLAY" -eq 1 ]]; then
   install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/10-hardening.conf /etc/systemd/system/smolotchi-display.service.d/10-hardening.conf
 fi
@@ -175,6 +176,13 @@ install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/15-runtime-
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/15-runtime-dirs.conf /etc/systemd/system/smolotchi-prune.service.d/15-runtime-dirs.conf
 if [[ "$WITH_DISPLAY" -eq 1 ]]; then
   install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/15-runtime-dirs.conf /etc/systemd/system/smolotchi-display.service.d/15-runtime-dirs.conf
+fi
+
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/20-cap-defaults.conf /etc/systemd/system/smolotchi-web.service.d/20-cap-defaults.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/20-cap-defaults.conf /etc/systemd/system/smolotchi-ai.service.d/20-cap-defaults.conf
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/20-cap-defaults.conf /etc/systemd/system/smolotchi-prune.service.d/20-cap-defaults.conf
+if [[ "$WITH_DISPLAY" -eq 1 ]]; then
+  install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/20-cap-defaults.conf /etc/systemd/system/smolotchi-display.service.d/20-cap-defaults.conf
 fi
 
 install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/smolotchi-core.service.d/*.conf /etc/systemd/system/smolotchi-core.service.d/

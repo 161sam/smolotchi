@@ -11,11 +11,6 @@ Group=smolotchi
 WorkingDirectory=/var/lib/smolotchi
 EnvironmentFile=-/etc/smolotchi/env
 
-RuntimeDirectory=smolotchi smolotchi/locks
-RuntimeDirectoryMode=0775
-StateDirectory=smolotchi
-StateDirectoryMode=0775
-
 ExecStart=/usr/local/bin/smolotchi core
 
 Restart=always

@@ -285,6 +285,8 @@ Smolotchi nutzt ein **zentrales, minimales Hardening-Baseline-Modell** auf Basis
 Hardening wird über Drop-in-Dateien (`*.service.d/*.conf`) umgesetzt:
 
 * gemeinsames Baseline-Hardening (`10-hardening.conf`)
+* prune-spezifisches Hardening (`10-hardening-prune.conf`)
+* Capability-Defaults für nicht privilegierte Services (`20-cap-defaults.conf`)
 * service-spezifische Overrides (`dropins/smolotchi-*.service.d/*.conf`)
   * `ProtectHome` + `PrivateNetwork` + `ReadWritePaths` pro Service
   * `PrivateNetwork=true` exklusiv für prune (alle anderen explizit `false`)
@@ -299,7 +301,7 @@ Alle Services verwenden explizite Laufzeit- und State-Verzeichnisse:
 * `/run/smolotchi` (Runtime, Locks)
 * `/var/lib/smolotchi` (State, DB, Artifacts)
 
-Diese Pfade werden **vor** Mount-Namespacing angelegt (`ExecStartPre`) und optional von systemd verwaltet (`RuntimeDirectory=`), um Namespace-Fehler zu vermeiden.
+Diese Pfade werden von systemd verwaltet (`RuntimeDirectory=`/`StateDirectory=`), um Namespace-Fehler zu vermeiden.
 
 ### ProtectHome – Rationale
 
@@ -312,7 +314,7 @@ So bleibt Hardening **gezielt**, aber **nicht funktional brechend**.
 ### PrivateNetwork – Rationale
 
 `PrivateNetwork` wird pro Service explizit gesetzt, damit Netzwerkzugriff bewusst dokumentiert bleibt.
-Prune läuft mit `PrivateNetwork=true`, alle anderen Services setzen `PrivateNetwork=false`, um Netzwerkzugriff nicht versehentlich zu verlieren.
+Prune läuft mit `PrivateNetwork=true` (über `10-hardening-prune.conf`), alle anderen Services setzen `PrivateNetwork=false`, um Netzwerkzugriff nicht versehentlich zu verlieren.
 
 ### CAP_NET_ADMIN (Opt-in)
 
@@ -327,7 +329,7 @@ Das macht privilegierte Operationen **explizit sichtbar und auditierbar**.
 
 ### Capability-Defaults (alle anderen Services)
 
-Web, AI, Prune und Display laufen mit **leeren Capability-Sets** (`AmbientCapabilities=` und `CapabilityBoundingSet=`).
+Web, AI, Prune und Display laufen mit **leeren Capability-Sets** (`AmbientCapabilities=` und `CapabilityBoundingSet=`) via `20-cap-defaults.conf`.
 So bleibt jede Erweiterung eine **bewusste, dokumentierte Ausnahme**.
 
 ---
@@ -349,14 +351,10 @@ Er wählt automatisch ein geeignetes Python (System, venv, Repo).
 
 ### Wann `.venv/bin/python -m smolotchi.cli`
 
-systemd-Services verwenden **explizite Python-Pfade**:
+Direktaufrufe (`.venv/bin/python -m smolotchi.cli`) sind für **Development/Manuell** gedacht.
+systemd startet Smolotchi über `ExecStart=/usr/local/bin/smolotchi` (oder einen expliziten Exec-Override).
 
-* deterministisches Verhalten
-* keine Abhängigkeit von `$HOME`
-* kompatibel mit `ProtectHome` und Mount-Namespacing
-
-➡️ **Faustregel:**
-*Menschen nutzen den Wrapper – systemd nutzt explizite Pfade.*
+➡️ **Faustregel:** Menschen nutzen die venv/manuellen Aufrufe – systemd nutzt den Wrapper.
 
 ---
 
