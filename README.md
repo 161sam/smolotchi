@@ -286,8 +286,8 @@ Hardening wird über Drop-in-Dateien (`*.service.d/*.conf`) umgesetzt:
 
 * gemeinsames Baseline-Hardening (`10-hardening.conf`)
 * service-spezifische Overrides (`dropins/smolotchi-*.service.d/*.conf`)
-  * `ProtectHome` + `ReadWritePaths` pro Service
-  * `PrivateNetwork` für prune
+  * `ProtectHome` + `PrivateNetwork` + `ReadWritePaths` pro Service
+  * `PrivateNetwork=true` exklusiv für prune (alle anderen explizit `false`)
   * Capability-Gates für core/core-net
 
 Dadurch bleiben die eigentlichen Unit-Files schlank, stabil und wartbar.
@@ -306,8 +306,13 @@ Diese Pfade werden **vor** Mount-Namespacing angelegt (`ExecStartPre`) und optio
 `ProtectHome` ist **nicht Teil** der gemeinsamen Baseline, sondern wird pro Service gesetzt.
 Für Services ohne Bedarf an `/home` (z. B. Core, Web, AI, Prune) gilt `ProtectHome=true` oder `ProtectHome=read-only`.
 
-Services, die bewusst mit `/home` arbeiten (z. B. Display), bleiben davon ausgenommen oder setzen explizite Overrides.
+Services, die bewusst mit `/home` arbeiten (z. B. Display), setzen `ProtectHome=false` als explizites Override.
 So bleibt Hardening **gezielt**, aber **nicht funktional brechend**.
+
+### PrivateNetwork – Rationale
+
+`PrivateNetwork` wird pro Service explizit gesetzt, damit Netzwerkzugriff bewusst dokumentiert bleibt.
+Prune läuft mit `PrivateNetwork=true`, alle anderen Services setzen `PrivateNetwork=false`, um Netzwerkzugriff nicht versehentlich zu verlieren.
 
 ### CAP_NET_ADMIN (Opt-in)
 
