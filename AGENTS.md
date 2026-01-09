@@ -1,70 +1,46 @@
-# Codex Agent Instructions – Smolotchi
+# AGENTS.md — Smolotchi Codex Agent Instructions
 
-Dieses Repository wird **sequenziell und strikt roadmap-getrieben** entwickelt.
+You are Codex working inside the Smolotchi repository.
 
-## Autorität
+## North Star
+Implement the roadmap in `ROADMAP.md` sequentially. Do not jump phases.
 
-Die Datei `ROADMAP.md` ist **verbindlich**.
-Kein Feature, keine Refactor-Maßnahme und keine Optimierung darf außerhalb der aktuellen Phase erfolgen.
+## What to do first
+1) Read `ROADMAP.md`
+2) Identify the **ACTIVE phase** and its **next unblocked task**
+3) Execute **only that task**, end-to-end, with tests + docs updates relevant to the task.
 
----
+## Scope rules
+- Work strictly within the currently active phase of `ROADMAP.md`.
+- Never implement Phase 2/3 items while Phase 1 is incomplete.
+- If a task depends on another task, do the dependency first.
 
-## Arbeitsmodus
+## Change rules
+- Prefer small, atomic commits.
+- Avoid duplicated configuration: if hardening is in drop-ins, remove it from unit files (single source of truth).
+- Never introduce implicit privileges.
+- CAP_NET_ADMIN must remain **opt-in** only (separate unit, disabled by default).
 
-Der Agent arbeitet **single-threaded, sequenziell und deterministisch**.
+## Output expectations for each task
+When you respond, always include:
+1) **What you changed** (files + summary)
+2) **Why** (ties back to ROADMAP.md)
+3) **How to validate** (exact commands)
+4) **Risks / Rollback** steps
+5) **Suggested commit message**
 
-Für jeden Schritt gilt:
-1. ROADMAP.md lesen
-2. Aktuelle Phase bestimmen
-3. Kleinste sinnvolle Arbeitseinheit wählen
-4. Änderungen umsetzen
-5. Commit erstellen
-6. Fortschritt dokumentieren
+## Implementation constraints
+- Keep runtime paths consistent: `/run/smolotchi` and `/var/lib/smolotchi`
+- Use systemd drop-ins for hardening; keep units minimal.
+- Do not break offline-first operation.
 
----
+## If uncertain
+If there is ambiguity:
+- Make the safest assumption aligned with `ROADMAP.md`
+- Document the assumption in the PR/commit message and in docs
 
-## Harte Regeln
-
-❌ Keine neuen Features ohne Roadmap-Eintrag  
-❌ Keine Privilegien ohne explizite Freigabe  
-❌ Keine systemd-Hardening-Duplikate  
-❌ Keine stillen Verhaltensänderungen  
-
-✅ Kleine, überprüfbare Commits  
-✅ Explizite Sicherheit vor Funktion  
-✅ Kommentare bei Security-relevanten Stellen  
-
----
-
-## Commit-Regeln
-
-- Präfixe: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `security:`
-- Ein Commit = ein Thema
-- Keine Misch-Commits
-
----
-
-## Dokumentation
-
-- Jede strukturelle Änderung → Docs anpassen
-- systemd-Änderungen immer erklären
-- Security-Entscheidungen begründen
-
----
-
-## Abbruchkriterien
-
-Der Agent **stoppt und meldet zurück**, wenn:
-- ein Schritt unklar ist
-- Security-Implikationen nicht eindeutig sind
-- Roadmap-Konflikte auftreten
-
----
-
-## Ziel
-
-Am Ende von `v0.1.0` ist Smolotchi:
-- boot-stabil
-- sicher gehärtet
-- reproduzierbar installierbar
-- operator-kontrolliert
+## Start instruction
+Always start your work by printing:
+- Active phase
+- The exact task you are executing (copy the task title from ROADMAP.md)
+- The validation commands you will run at the end
