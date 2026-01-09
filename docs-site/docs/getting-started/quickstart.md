@@ -33,3 +33,22 @@ Code: smolotchi/ai/worker.py:main
 The CLI entry point is `smolotchi.cli.main` and is invoked via `python -m smolotchi`.
 
 Code: smolotchi/cli.py:main, smolotchi/__main__.py
+
+## systemd quickstart (Pi Zero)
+
+Install systemd units and use a non-editable install for systemd:
+
+```bash
+sudo ./scripts/pi_zero/install_systemd.sh
+sudo python3 -m pip install . --break-system-packages
+sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai
+```
+
+Check status and logs:
+
+```bash
+sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
+sudo journalctl -u smolotchi-core -n 100 --no-pager
+```
+
+See the installation guide for the full non-editable / venv recommendations.
