@@ -44,6 +44,11 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-display.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-core.service.d/12-restart-protection.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-core-net.service.d/12-restart-protection.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-web.service.d/12-restart-protection.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-ai.service.d/12-restart-protection.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/12-restart-protection.conf" /etc/systemd/system/smolotchi-display.service.d/12-restart-protection.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-core.service.d/15-runtime-dirs.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-core-net.service.d/15-runtime-dirs.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-web.service.d/15-runtime-dirs.conf
