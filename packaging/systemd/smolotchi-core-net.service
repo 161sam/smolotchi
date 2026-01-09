@@ -2,6 +2,7 @@
 Description=Smolotchi Core (WiFi / LAN / Tools Engine) [NET_ADMIN]
 After=network-online.target
 Wants=network-online.target
+Conflicts=smolotchi-core.service
 
 [Service]
 Type=simple

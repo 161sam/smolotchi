@@ -313,10 +313,17 @@ So bleibt Hardening **gezielt**, aber **nicht funktional brechend**.
 
 Netzwerk-relevante Privilegien sind **nicht standardmäßig aktiv**.
 
-* Standard: keine erweiterten Netzwerk-Capabilities
-* Opt-in über separate Units oder Flags (z. B. `smolotchi-core-net.service`)
+* Standard: `smolotchi-core.service` läuft ohne `CAP_NET_ADMIN` und nutzt nur `CAP_NET_RAW`.
+* `CAP_NET_ADMIN` ist **exklusiv** für `smolotchi-core-net.service` reserviert.
+* Der NET_ADMIN-Service ist **standardmäßig deaktiviert** und muss explizit vom Operator aktiviert werden.
+* Opt-in über separate Units oder Flags (z. B. `smolotchi-core-net.service`).
 
 Das macht privilegierte Operationen **explizit sichtbar und auditierbar**.
+
+### Capability-Defaults (alle anderen Services)
+
+Web, AI, Prune und Display laufen mit **leeren Capability-Sets** (`AmbientCapabilities=` und `CapabilityBoundingSet=`).
+So bleibt jede Erweiterung eine **bewusste, dokumentierte Ausnahme**.
 
 ---
 
