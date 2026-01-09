@@ -44,6 +44,12 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-ai.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-display.service.d/10-hardening.conf
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/10-hardening.conf" /etc/systemd/system/smolotchi-prune.service.d/10-hardening.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-core.service.d/15-runtime-dirs.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-core-net.service.d/15-runtime-dirs.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-web.service.d/15-runtime-dirs.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-ai.service.d/15-runtime-dirs.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-display.service.d/15-runtime-dirs.conf
+install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/15-runtime-dirs.conf" /etc/systemd/system/smolotchi-prune.service.d/15-runtime-dirs.conf
 
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-core.service.d/"*.conf /etc/systemd/system/smolotchi-core.service.d/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-core-net.service.d/"*.conf /etc/systemd/system/smolotchi-core-net.service.d/
