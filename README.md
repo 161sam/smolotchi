@@ -202,6 +202,33 @@ sudo systemctl restart smolotchi-core smolotchi-ai smolotchi-web
 sudo systemctl --no-pager --full status smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
 ```
 
+### Wichtig: systemd ≠ editable install
+
+Für systemd/Produktivbetrieb auf dem Pi Zero **kein** `pip install -e .` verwenden. Editable installs nutzen einen Finder, der Repo-Pfade unter `/home/...` referenziert. Mit Hardening (z. B. `ProtectHome`) kann das zu `ModuleNotFoundError` oder `PermissionError` führen.
+
+**Empfohlen (non-editable):**
+
+```bash
+sudo python3 -m pip uninstall -y smolotchi --break-system-packages || true
+sudo python3 -m pip install . --break-system-packages
+sudo systemctl daemon-reload
+sudo systemctl reset-failed smolotchi-core || true
+sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai || true
+```
+
+**Mini-Checkliste:**
+
+```bash
+sudo -u smolotchi -H python3 -c "import smolotchi; print(smolotchi.__file__)"
+systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
+```
+
+Erwartung: `smolotchi.__file__` zeigt auf `/usr/local/lib/python3.11/dist-packages/...` (oder eine definierte venv).
+
+**Troubleshooting:** Wenn `journalctl` Einträge wie `__editable__..._finder.py` oder `PermissionError` zeigen, entferne den editable install und installiere non-editable (Befehle oben).
+
+**Dev-Hinweis:** Lokal für Entwicklung ist `python3 -m venv .venv && pip install -e .` weiterhin ok. Für systemd auf dem Gerät **nicht**.
+
 Display is opt-in:
 
 ```bash
