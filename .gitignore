@@ -9,3 +9,6 @@ __pycache__/
 # local
 requirements.txt
 node_modules/
+
+# build artifacts
+/build/

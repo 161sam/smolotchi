@@ -19,4 +19,8 @@ smolotchi = "smolotchi.cli:main"
 smo = "smolotchi.cli:main"
 
 [tool.setuptools]
-packages = { find = { include = ["smolotchi*"] } }
+packages = { find = { include = ["smolotchi*"], exclude = ["contrib*", "schemas*", "packaging*", "docs-site*"] } }
+include-package-data = true
+
+[tool.setuptools.package-data]
+smolotchi = ["api/templates/*.html", "api/static/**/*", "reports/templates/**/*"]
