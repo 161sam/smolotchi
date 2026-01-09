@@ -4,6 +4,11 @@ Systemd unit files are stored in `packaging/systemd/` and are installed by the C
 
 Code: packaging/systemd/smolotchi-core.service, packaging/systemd/smolotchi-web.service, smolotchi/cli.py:cmd_install_systemd
 
+## Runtime and state paths
+
+All services create `/run/smolotchi` via `RuntimeDirectory=smolotchi` and `/var/lib/smolotchi` via
+`StateDirectory=smolotchi`. These are the only writable runtime/state paths when hardening is enabled.
+
 ## Units
 
 - `smolotchi-core.service` – core state machine daemon
