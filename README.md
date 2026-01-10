@@ -175,7 +175,7 @@ pnpm start
 Sample units live in `packaging/systemd/`:
 
 * `smolotchi-web.service`
-* `smolotchi-ai.service`
+* `smolotchi-ai-worker.service`
 
 Optional overrides can be placed in `/etc/smolotchi/env`:
 
@@ -191,15 +191,15 @@ Enable services:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now smolotchi-web smolotchi-ai
+sudo systemctl enable --now smolotchi-web smolotchi-ai-worker
 ```
 
 Install wrapper + units:
 
 ```bash
 sudo ./scripts/pi_zero/install_systemd.sh
-sudo systemctl restart smolotchi-core smolotchi-ai smolotchi-web
-sudo systemctl --no-pager --full status smolotchi-core smolotchi-ai smolotchi-web smolotchi-prune.timer
+sudo systemctl restart smolotchi-core smolotchi-ai-worker smolotchi-web
+sudo systemctl --no-pager --full status smolotchi-core smolotchi-ai-worker smolotchi-web smolotchi-prune.timer
 ```
 
 ### Wichtig: systemd ≠ editable install
@@ -213,14 +213,14 @@ sudo python3 -m pip uninstall -y smolotchi --break-system-packages || true
 sudo python3 -m pip install . --break-system-packages
 sudo systemctl daemon-reload
 sudo systemctl reset-failed smolotchi-core || true
-sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai || true
+sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai-worker || true
 ```
 
 **Mini-Checkliste:**
 
 ```bash
 sudo -u smolotchi -H python3 -c "import smolotchi; print(smolotchi.__file__)"
-systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
+systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager
 ```
 
 Erwartung: `smolotchi.__file__` zeigt auf `/usr/local/lib/python3.11/dist-packages/...` (oder eine definierte venv).
@@ -267,16 +267,16 @@ sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/161sam/smolotchi.
 Services are installed to `/etc/systemd/system` and enabled on boot. Check status:
 
 ```bash
-sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
+sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager
 sudo journalctl -u smolotchi-core -n 50 --no-pager
 ```
 
 Start/stop/restart:
 
 ```bash
-sudo systemctl start smolotchi-core smolotchi-web smolotchi-ai
-sudo systemctl stop smolotchi-core smolotchi-web smolotchi-ai
-sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai
+sudo systemctl start smolotchi-core smolotchi-web smolotchi-ai-worker
+sudo systemctl stop smolotchi-core smolotchi-web smolotchi-ai-worker
+sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai-worker
 ```
 
 See `scripts/pi_zero/README.md` for a smoke checklist.
