@@ -1077,6 +1077,22 @@ def _write_unit(dst: Path, content: str) -> None:
     dst.write_text(content, encoding="utf-8")
 
 
+LEGACY_AI_UNIT_PATHS = (
+    Path("/etc/systemd/system/smolotchi-ai.service"),
+    Path("/lib/systemd/system/smolotchi-ai.service"),
+)
+
+
+def _sync_project_tree(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        src,
+        dst,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache", ".mypy_cache"),
+    )
+
+
 def cmd_install_systemd(args) -> int:
     """
     Installiert systemd units nach /etc/systemd/system.
@@ -1086,7 +1102,14 @@ def cmd_install_systemd(args) -> int:
         return 2
 
     proj = Path(args.project_dir).resolve()
-    venv_python = proj / ".venv" / "bin" / "python"
+    layout = args.layout
+    install_root = Path(args.install_dir).resolve() if layout == "prod" else proj
+    if layout == "prod" and install_root != proj:
+        print(f"info: syncing project to {install_root}")
+        _sync_project_tree(proj, install_root)
+    unit_project = install_root
+
+    venv_python = unit_project / ".venv" / "bin" / "python"
     python_path = None
     if venv_python.exists() and os.access(venv_python, os.X_OK):
         python_path = venv_python
@@ -1107,16 +1130,29 @@ def cmd_install_systemd(args) -> int:
     user = args.user
     db = args.db
 
+    working_dir = Path("/var/lib/smolotchi")
+    unit_pythonpath = unit_project
+    read_only_paths = (
+        f"ReadOnlyPaths={unit_project}" if layout == "prod" else ""
+    )
+    read_only_block = f"\n{read_only_paths}" if read_only_paths else ""
+
     core_unit = f"""[Unit]
 Description=Smolotchi Core
 After=network.target
 
 [Service]
 User={user}
-WorkingDirectory={proj}
+WorkingDirectory={working_dir}
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH={unit_pythonpath}
 Environment=SMOLOTCHI_DB={db}
 ExecStart={python_path} -m smolotchi.cli core --db {db} --allowed-tag lab-approved
+RuntimeDirectory=smolotchi
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi{read_only_block}
 Restart=always
 RestartSec=2
 
@@ -1130,10 +1166,16 @@ After=network.target smolotchi-core.service
 
 [Service]
 User={user}
-WorkingDirectory={proj}
+WorkingDirectory={working_dir}
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH={unit_pythonpath}
 Environment=SMOLOTCHI_DB={db}
 ExecStart={python_path} -m smolotchi.cli web --host 127.0.0.1 --port 8080
+RuntimeDirectory=smolotchi
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi{read_only_block}
 Restart=always
 RestartSec=2
 
@@ -1147,10 +1189,16 @@ After=network.target smolotchi-core.service
 
 [Service]
 User={user}
-WorkingDirectory={proj}
+WorkingDirectory={working_dir}
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH={unit_pythonpath}
 Environment=SMOLOTCHI_DB={db}
 ExecStart={python_path} -m smolotchi.ai.worker --loop --log-level INFO
+RuntimeDirectory=smolotchi
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi{read_only_block}
 Restart=always
 RestartSec=2
 
@@ -1164,10 +1212,16 @@ After=network.target smolotchi-core.service
 
 [Service]
 User={user}
-WorkingDirectory={proj}
+WorkingDirectory={working_dir}
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH={unit_pythonpath}
 Environment=SMOLOTCHI_DB={db}
 ExecStart={python_path} -m smolotchi.cli display
+RuntimeDirectory=smolotchi
+RuntimeDirectoryMode=0775
+StateDirectory=smolotchi
+StateDirectoryMode=0775
+ReadWritePaths=/var/lib/smolotchi /run/smolotchi{read_only_block}
 Restart=always
 RestartSec=2
 
@@ -1180,7 +1234,7 @@ WantedBy=multi-user.target
     _write_unit(Path("/etc/systemd/system/smolotchi-ai-worker.service"), ai_worker_unit)
     _write_unit(Path("/etc/systemd/system/smolotchi-display.service"), disp_unit)
 
-    tmpfiles_src = proj / "packaging" / "systemd" / "tmpfiles.d" / "smolotchi.conf"
+    tmpfiles_src = unit_project / "packaging" / "systemd" / "tmpfiles.d" / "smolotchi.conf"
     if not tmpfiles_src.exists():
         print(f"error: {tmpfiles_src} not found.")
         return 2
@@ -1190,6 +1244,10 @@ WantedBy=multi-user.target
     subprocess.check_call(["systemd-tmpfiles", "--create", str(tmpfiles_dst)])
     print("info: if runtime dirs are missing, run:")
     print("  systemd-tmpfiles --create --prefix=/run/smolotchi")
+
+    if any(path.exists() for path in LEGACY_AI_UNIT_PATHS):
+        subprocess.check_call(["systemctl", "disable", "--now", "smolotchi-ai.service"])
+        print("info: disabled legacy smolotchi-ai.service")
 
     subprocess.check_call(["systemctl", "daemon-reload"])
     print("ok: installed units. Enable/start with:")
@@ -1416,6 +1474,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("install-systemd", help="Install systemd units (needs sudo)")
     s.add_argument("--project-dir", default=".", help="Path to smolotchi project root")
+    s.add_argument(
+        "--layout",
+        choices=["prod", "project"],
+        default="prod",
+        help="Install layout to use (default: prod)",
+    )
+    s.add_argument(
+        "--install-dir",
+        default="/opt/smolotchi/current",
+        help="Target install dir for prod layout (default: /opt/smolotchi/current)",
+    )
     s.add_argument("--user", default=os.environ.get("SUDO_USER", "pi"))
     s.add_argument("--db", default=default_db)
     s.set_defaults(fn=cmd_install_systemd)
