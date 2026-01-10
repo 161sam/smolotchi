@@ -1093,6 +1093,59 @@ def _sync_project_tree(src: Path, dst: Path) -> None:
     )
 
 
+def _python_can_import(python_path: Path, module: str) -> bool:
+    result = subprocess.run(
+        [str(python_path), "-c", f"import {module}"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def _resolve_gunicorn_path(unit_project: Path) -> Path | None:
+    venv_bin = unit_project / ".venv" / "bin"
+    if not venv_bin.exists():
+        return None
+    candidate = venv_bin / "gunicorn"
+    if candidate.exists() and os.access(candidate, os.X_OK):
+        return candidate
+    found = shutil.which("gunicorn", path=str(venv_bin))
+    return Path(found) if found else None
+
+
+def _decide_web_server(
+    requested: str,
+    gunicorn_path: Path | None,
+    gunicorn_importable: bool,
+) -> tuple[str, list[str], bool]:
+    messages: list[str] = []
+    gunicorn_available = bool(gunicorn_path) or gunicorn_importable
+    if requested == "auto":
+        if gunicorn_path:
+            return "gunicorn", messages, False
+        if gunicorn_importable:
+            messages.append(
+                "info: gunicorn importable but no .venv/bin/gunicorn found; using Flask dev server."
+            )
+        else:
+            messages.append(
+                "info: gunicorn not detected in .venv, using Flask dev server."
+            )
+        return "flask", messages, False
+    if requested == "gunicorn":
+        if not gunicorn_available:
+            messages.append(
+                "error: gunicorn requested but not available in the selected interpreter."
+            )
+            return "gunicorn", messages, True
+        if not gunicorn_path:
+            messages.append("error: gunicorn binary not found in .venv/bin.")
+            return "gunicorn", messages, True
+        return "gunicorn", messages, False
+    return "flask", messages, False
+
+
 def cmd_install_systemd(args) -> int:
     """
     Installiert systemd units nach /etc/systemd/system.
@@ -1129,6 +1182,15 @@ def cmd_install_systemd(args) -> int:
 
     user = args.user
     db = args.db
+    gunicorn_path = _resolve_gunicorn_path(unit_project)
+    gunicorn_importable = _python_can_import(python_path, "gunicorn")
+    web_server, web_messages, web_error = _decide_web_server(
+        args.web_server, gunicorn_path, gunicorn_importable
+    )
+    for message in web_messages:
+        print(message)
+    if web_error:
+        return 2
 
     working_dir = Path("/var/lib/smolotchi")
     unit_pythonpath = unit_project
@@ -1160,8 +1222,20 @@ RestartSec=2
 WantedBy=multi-user.target
 """
 
+    if web_server == "gunicorn":
+        web_description = "Smolotchi Web UI (Gunicorn)"
+        web_exec_start = (
+            f"{gunicorn_path} --bind 127.0.0.1:8080 --workers 1 --threads 4 "
+            "--access-logfile - --error-logfile - smolotchi.api.web:create_app()"
+        )
+    else:
+        web_description = "Smolotchi Web UI (Flask dev server)"
+        web_exec_start = (
+            f"{python_path} -m smolotchi.cli web --host 127.0.0.1 --port 8080"
+        )
+
     web_unit = f"""[Unit]
-Description=Smolotchi Web UI (Flask)
+Description={web_description}
 After=network.target smolotchi-core.service
 
 [Service]
@@ -1170,7 +1244,7 @@ WorkingDirectory={working_dir}
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH={unit_pythonpath}
 Environment=SMOLOTCHI_DB={db}
-ExecStart={python_path} -m smolotchi.cli web --host 127.0.0.1 --port 8080
+ExecStart={web_exec_start}
 RuntimeDirectory=smolotchi
 RuntimeDirectoryMode=0775
 StateDirectory=smolotchi
@@ -1252,8 +1326,10 @@ WantedBy=multi-user.target
     subprocess.check_call(["systemctl", "daemon-reload"])
     print("ok: installed units. Enable/start with:")
     print(
-        "  sudo systemctl enable --now smolotchi-core smolotchi-web smolotchi-ai-worker smolotchi-display"
+        "  sudo systemctl enable --now smolotchi-core smolotchi-web smolotchi-ai-worker"
     )
+    print("info: display is optional:")
+    print("  sudo systemctl enable --now smolotchi-display")
     return 0
 
 
@@ -1487,6 +1563,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--user", default=os.environ.get("SUDO_USER", "pi"))
     s.add_argument("--db", default=default_db)
+    s.add_argument(
+        "--web-server",
+        choices=["auto", "gunicorn", "flask"],
+        default="auto",
+        help="Web server backend for smolotchi-web (default: auto)",
+    )
     s.set_defaults(fn=cmd_install_systemd)
 
     add_ai_subcommands(sub)
