@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 
 from smolotchi.core.artifacts import ArtifactStore
@@ -30,6 +31,31 @@ def _print_table(headers: list[str], rows: list[list[str]]) -> None:
         print(fmt.format(*row))
 
 
+def _emit_error(
+    *,
+    code: int,
+    message: str,
+    fmt: str,
+    hint: str | None = None,
+    details: dict | None = None,
+) -> None:
+    if fmt == "json":
+        _print_json(
+            {
+                "code": code,
+                "message": message,
+                "hint": hint,
+                "details": details or {},
+            }
+        )
+    else:
+        print(f"error: {message}", file=sys.stderr)
+        if hint:
+            print(f"hint: {hint}", file=sys.stderr)
+        if details:
+            print(f"details: {details}", file=sys.stderr)
+
+
 def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("artifacts", help="Artifact store utilities")
     sub = parser.add_subparsers(dest="artifacts_cmd", required=True)
@@ -45,7 +71,6 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
         default=500,
         help="Scan the newest N artifacts when filtering",
     )
-    find.add_argument("--format", choices=["json", "table"], default="table")
     find.add_argument(
         "--include-payload",
         action="store_true",
@@ -64,18 +89,6 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
         type=int,
         default=200,
         help="Keep newest M lan_report artifacts",
-    )
-    gc.add_argument(
-        "--dry-run",
-        action="store_true",
-        default=True,
-        help="Only print what would be deleted (default)",
-    )
-    gc.add_argument(
-        "--no-dry-run",
-        dest="dry_run",
-        action="store_false",
-        help="Actually delete candidates",
     )
 
     def _run(args: argparse.Namespace) -> int:
@@ -117,6 +130,7 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
 
     def _run_find(args: argparse.Namespace) -> int:
         store = ArtifactStore(args.artifact_root)
+        fmt = getattr(args, "format", "table")
         matches = []
         candidates = store.list(limit=args.scan_limit, kind=args.kind)
         for meta in candidates:
@@ -138,7 +152,7 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
             if len(matches) >= args.limit:
                 break
 
-        if args.format == "json":
+        if fmt == "json":
             if not args.include_payload:
                 for row in matches:
                     row.pop("payload", None)
@@ -161,17 +175,23 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
 
     get = sub.add_parser("get", help="Show an artifact payload")
     get.add_argument("artifact_id", help="Artifact id")
-    get.add_argument("--format", choices=["json", "table"], default="json")
 
     def _run_get(args: argparse.Namespace) -> int:
         store = ArtifactStore(args.artifact_root)
+        fmt = getattr(args, "format", "table")
         meta = store.get_meta(args.artifact_id)
         if not meta:
-            print("error: artifact not found")
+            _emit_error(
+                code=2,
+                message="artifact not found",
+                hint="Verify the artifact id with `smolotchi artifacts find`.",
+                details={"artifact_id": args.artifact_id},
+                fmt=fmt,
+            )
             return 2
         doc = store.get_json(args.artifact_id)
         payload = {"meta": meta, "payload": doc}
-        if args.format == "json":
+        if fmt == "json":
             _print_json(payload)
         else:
             rows = [
@@ -191,10 +211,10 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
         default=200,
         help="Limit number of artifacts scanned (use 0 for all)",
     )
-    verify.add_argument("--format", choices=["json", "table"], default="table")
 
     def _run_verify(args: argparse.Namespace) -> int:
         store = ArtifactStore(args.artifact_root)
+        fmt = getattr(args, "format", "table")
         limit = None if args.limit <= 0 else args.limit
         candidates = store.list(limit=limit, kind=args.kind)
         failed = []
@@ -219,7 +239,7 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
             "failed": failed,
         }
 
-        if args.format == "json":
+        if fmt == "json":
             _print_json(payload)
             return 0 if not failed else 2
 

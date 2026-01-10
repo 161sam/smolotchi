@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from smolotchi.core.locks import list_locks, prune_locks
@@ -25,6 +26,31 @@ def _print_table(headers: list[str], rows: list[list[str]]) -> None:
     print(fmt.format(*["-" * w for w in widths]))
     for row in rows:
         print(fmt.format(*row))
+
+
+def _emit_error(
+    *,
+    code: int,
+    message: str,
+    fmt: str,
+    hint: str | None = None,
+    details: dict | None = None,
+) -> None:
+    if fmt == "json":
+        _print_json(
+            {
+                "code": code,
+                "message": message,
+                "hint": hint,
+                "details": details or {},
+            }
+        )
+    else:
+        print(f"error: {message}", file=sys.stderr)
+        if hint:
+            print(f"hint: {hint}", file=sys.stderr)
+        if details:
+            print(f"details: {details}", file=sys.stderr)
 
 
 def _format_age_minutes(age_seconds: int | None) -> str:
@@ -56,38 +82,28 @@ def add_locks_subcommands(subparsers: argparse._SubParsersAction) -> None:
     check_cmd = sub.add_parser("check", help="Check lock files and stale candidates")
     check_cmd.add_argument("--lock-root", default=resolve_lock_root())
     check_cmd.add_argument("--ttl-min", type=int, default=30)
-    check_cmd.add_argument("--format", choices=["json", "table"], default="table")
 
     clean_cmd = sub.add_parser("clean", help="Clean stale locks safely")
     clean_cmd.add_argument("--lock-root", default=resolve_lock_root())
     clean_cmd.add_argument("--ttl-min", type=int, default=30)
-    clean_cmd.add_argument(
-        "--dry-run", action="store_true", default=True, help="Preview deletions (default)"
-    )
-    clean_cmd.add_argument(
-        "--no-dry-run", dest="dry_run", action="store_false", help="Delete stale locks"
-    )
     clean_cmd.add_argument("--force", action="store_true", default=False)
-    clean_cmd.add_argument("--format", choices=["json", "table"], default="table")
 
     list_cmd = sub.add_parser("list", help="List lock files and stale candidates")
     list_cmd.add_argument("--lock-root", default=resolve_lock_root())
     list_cmd.add_argument("--ttl-min", type=int, default=30)
-    list_cmd.add_argument("--format", choices=["json", "table"], default="table")
 
     prune_cmd = sub.add_parser("prune", help="Prune stale locks")
     prune_cmd.add_argument("--lock-root", default=resolve_lock_root())
     prune_cmd.add_argument("--ttl-min", type=int, default=30)
-    prune_cmd.add_argument("--dry-run", action="store_true", default=False)
     prune_cmd.add_argument("--force", action="store_true", default=False)
-    prune_cmd.add_argument("--format", choices=["json", "table"], default="table")
 
     def _run_list(args: argparse.Namespace) -> int:
         try:
+            fmt = getattr(args, "format", "table")
             ttl_seconds = args.ttl_min * 60
             records = list_locks(args.lock_root, ttl_seconds)
             summary = _summarize(records)
-            if args.format == "json":
+            if fmt == "json":
                 _print_json({"locks": records, "summary": summary})
             else:
                 rows = []
@@ -108,14 +124,13 @@ def add_locks_subcommands(subparsers: argparse._SubParsersAction) -> None:
             )
             return 20 if stale_count > 0 else 0
         except Exception as exc:
-            if args.format == "json":
-                _print_json({"error": {"code": "runtime_error", "message": str(exc)}})
-            else:
-                print(f"error: {exc}")
+            fmt = getattr(args, "format", "table")
+            _emit_error(code=10, message=str(exc), fmt=fmt)
             return 10
 
     def _run_prune(args: argparse.Namespace) -> int:
         try:
+            fmt = getattr(args, "format", "table")
             ttl_seconds = args.ttl_min * 60
             result = prune_locks(
                 args.lock_root,
@@ -125,7 +140,7 @@ def add_locks_subcommands(subparsers: argparse._SubParsersAction) -> None:
             )
             actions = result.get("actions", [])
             summary = result.get("summary", {})
-            if args.format == "json":
+            if fmt == "json":
                 _print_json({"locks": actions, "summary": summary})
             else:
                 rows = []
@@ -148,10 +163,8 @@ def add_locks_subcommands(subparsers: argparse._SubParsersAction) -> None:
                 return 10
             return 0
         except Exception as exc:
-            if args.format == "json":
-                _print_json({"error": {"code": "runtime_error", "message": str(exc)}})
-            else:
-                print(f"error: {exc}")
+            fmt = getattr(args, "format", "table")
+            _emit_error(code=10, message=str(exc), fmt=fmt)
             return 10
 
     check_cmd.set_defaults(fn=_run_list)
