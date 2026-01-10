@@ -1147,7 +1147,7 @@ WorkingDirectory={working_dir}
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH={unit_pythonpath}
 Environment=SMOLOTCHI_DB={db}
-ExecStart={python_path} -m smolotchi.cli core --db {db} --allowed-tag lab-approved
+ExecStart={python_path} -m smolotchi.cli core --allowed-tag lab-approved
 RuntimeDirectory=smolotchi
 RuntimeDirectoryMode=0775
 StateDirectory=smolotchi

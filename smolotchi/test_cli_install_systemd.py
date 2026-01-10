@@ -134,6 +134,14 @@ def test_install_systemd_writes_prod_layout_units(tmp_path: Path, monkeypatch) -
     assert any("ReadWritePaths=/var/lib/smolotchi /run/smolotchi" in content for _, content in written)
     assert any("ReadOnlyPaths=" in content for _, content in written)
     assert all("/home" not in content for _, content in written)
+    core_unit = next(
+        content for path, content in written if path.name == "smolotchi-core.service"
+    )
+    web_unit = next(
+        content for path, content in written if path.name == "smolotchi-web.service"
+    )
+    assert "--db" not in core_unit
+    assert "--db" not in web_unit
 
 
 def test_install_systemd_disables_legacy_ai_unit(tmp_path: Path, monkeypatch) -> None:
