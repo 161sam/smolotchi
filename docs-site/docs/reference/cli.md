@@ -9,13 +9,13 @@ Code: smolotchi/cli.py:build_parser, smolotchi/cli.py:main
 ```
 usage: smolotchi [-h] [--db DB] [--artifact-root ARTIFACT_ROOT]
                  [--config CONFIG]
-                 {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts}
+                 {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts,locks}
                  ...
 
 Smolotchi (Pi Zero 2 W) – core/web/display CLI
 
 positional arguments:
-  {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts}
+  {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts,locks}
     web                 Run Flask web UI
     display             Run e-paper display daemon
     core                Run core state-machine daemon
@@ -41,6 +41,7 @@ positional arguments:
     ai                  AI tools (planner replay/eval)
     profiles            WiFi profile utilities
     artifacts           Artifact store utilities
+    locks               Lock leak detection utilities
 
 options:
   -h, --help            show this help message and exit
