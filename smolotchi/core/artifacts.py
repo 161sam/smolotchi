@@ -262,7 +262,9 @@ class ArtifactStore:
         self._save_index(idx)
         return meta
 
-    def list(self, limit: int = 50, kind: Optional[str] = None) -> List[ArtifactMeta]:
+    def list(
+        self, limit: Optional[int] = 50, kind: Optional[str] = None
+    ) -> List[ArtifactMeta]:
         idx = self._load_index()
         out: List[ArtifactMeta] = []
         for row in idx:
@@ -277,7 +279,7 @@ class ArtifactStore:
                     path=str(row.get("path")),
                 )
             )
-            if len(out) >= limit:
+            if limit is not None and len(out) >= limit:
                 break
         return out
 

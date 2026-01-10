@@ -17,6 +17,9 @@ class MigrationRunnerTest(unittest.TestCase):
                 row = con.execute("SELECT MAX(version) FROM schema_version").fetchone()
                 self.assertIsNotNone(row)
                 self.assertEqual(row[0], 1)
+                cols = {r[1] for r in con.execute("PRAGMA table_info(schema_version)")}
+                self.assertIn("applied_ts", cols)
+                self.assertIn("note", cols)
 
     def test_db_without_schema_version_is_upgraded(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -42,6 +45,33 @@ class MigrationRunnerTest(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='events'"
                 ).fetchone()
                 self.assertIsNotNone(table)
+
+    def test_legacy_schema_version_table_is_normalized(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = f"{tmpdir}/events.db"
+            with sqlite3.connect(db_path) as con:
+                con.execute(
+                    """
+                    CREATE TABLE schema_version (
+                      version INTEGER NOT NULL,
+                      applied_at TEXT NOT NULL,
+                      app_version TEXT
+                    )
+                    """
+                )
+                con.execute(
+                    "INSERT INTO schema_version(version, applied_at, app_version) VALUES(?,?,?)",
+                    (1, "2024-01-01T00:00:00+00:00", "legacy"),
+                )
+            apply_migrations(db_path)
+
+            with sqlite3.connect(db_path) as con:
+                cols = {r[1] for r in con.execute("PRAGMA table_info(schema_version)")}
+                self.assertIn("applied_ts", cols)
+                self.assertIn("note", cols)
+                row = con.execute("SELECT MAX(version) FROM schema_version").fetchone()
+                self.assertIsNotNone(row)
+                self.assertEqual(row[0], 1)
 
     def test_wal_mode_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

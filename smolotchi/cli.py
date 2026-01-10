@@ -162,6 +162,51 @@ def cmd_db_info(args) -> int:
     return EX_OK
 
 
+def cmd_db_migrate(args) -> int:
+    from smolotchi.core.migrations import apply_migrations_on_connection, plan_migrations_on_connection
+    from smolotchi.core.sqlite import connect
+
+    try:
+        with connect(args.db) as con:
+            if args.dry_run:
+                plan = plan_migrations_on_connection(con)
+                payload = {
+                    "db_path": args.db,
+                    "dry_run": True,
+                    "current_version": plan["current_version"],
+                    "latest_version": plan["latest_version"],
+                    "pending": plan["pending"],
+                    "applied": [],
+                }
+            else:
+                plan = plan_migrations_on_connection(con)
+                current = apply_migrations_on_connection(con)
+                payload = {
+                    "db_path": args.db,
+                    "dry_run": False,
+                    "current_version": current,
+                    "latest_version": plan["latest_version"],
+                    "pending": plan["pending"],
+                    "applied": plan["pending"],
+                }
+        if args.format == "json":
+            _emit_json(payload)
+        else:
+            rows = [
+                ("db_path", payload["db_path"]),
+                ("dry_run", payload["dry_run"]),
+                ("current_version", payload["current_version"]),
+                ("latest_version", payload["latest_version"]),
+                ("pending", ", ".join(str(v) for v in payload["pending"]) or "-"),
+                ("applied", ", ".join(str(v) for v in payload["applied"]) or "-"),
+            ]
+            _print_kv_table(rows)
+        return EX_OK
+    except Exception as exc:
+        err = SmolotchiCliError(EX_RUNTIME, "db migrate failed", details={"error": str(exc)})
+        return _err(err, fmt=args.format)
+
+
 def cmd_core(args) -> int:
     """
     Minimaler Core-Daemon: tickt State-Machine periodisch.
@@ -1801,9 +1846,15 @@ def build_parser() -> argparse.ArgumentParser:
     db = sub.add_parser("db", help="Database utilities")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
     s = db_sub.add_parser("info", help="Show DB path, journal mode, and schema version")
-    s.add_argument("--db", default=default_db)
+    s.add_argument("--db", default=argparse.SUPPRESS)
     s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_db_info)
+
+    s = db_sub.add_parser("migrate", help="Apply database migrations")
+    s.add_argument("--db", default=argparse.SUPPRESS)
+    s.add_argument("--dry-run", action="store_true", default=False)
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_db_migrate)
 
     wifi = sub.add_parser("wifi", help="WiFi utilities")
     wifi_sub = wifi.add_subparsers(dest="wifi_cmd", required=True)

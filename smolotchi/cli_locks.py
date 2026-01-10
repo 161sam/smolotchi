@@ -53,6 +53,23 @@ def add_locks_subcommands(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("locks", help="Lock leak detection utilities")
     sub = parser.add_subparsers(dest="locks_cmd", required=True)
 
+    check_cmd = sub.add_parser("check", help="Check lock files and stale candidates")
+    check_cmd.add_argument("--lock-root", default=resolve_lock_root())
+    check_cmd.add_argument("--ttl-min", type=int, default=30)
+    check_cmd.add_argument("--format", choices=["json", "table"], default="table")
+
+    clean_cmd = sub.add_parser("clean", help="Clean stale locks safely")
+    clean_cmd.add_argument("--lock-root", default=resolve_lock_root())
+    clean_cmd.add_argument("--ttl-min", type=int, default=30)
+    clean_cmd.add_argument(
+        "--dry-run", action="store_true", default=True, help="Preview deletions (default)"
+    )
+    clean_cmd.add_argument(
+        "--no-dry-run", dest="dry_run", action="store_false", help="Delete stale locks"
+    )
+    clean_cmd.add_argument("--force", action="store_true", default=False)
+    clean_cmd.add_argument("--format", choices=["json", "table"], default="table")
+
     list_cmd = sub.add_parser("list", help="List lock files and stale candidates")
     list_cmd.add_argument("--lock-root", default=resolve_lock_root())
     list_cmd.add_argument("--ttl-min", type=int, default=30)
@@ -137,5 +154,7 @@ def add_locks_subcommands(subparsers: argparse._SubParsersAction) -> None:
                 print(f"error: {exc}")
             return 10
 
+    check_cmd.set_defaults(fn=_run_list)
+    clean_cmd.set_defaults(fn=_run_prune)
     list_cmd.set_defaults(fn=_run_list)
     prune_cmd.set_defaults(fn=_run_prune)
