@@ -139,6 +139,12 @@ smolotchi web
 smolotchi core
 ```
 
+CLI output and exit codes:
+
+* `--format {table,json}` toggles human-readable tables vs JSON for automation (default: table).
+* `--dry-run` previews destructive actions without mutating state.
+* Exit codes: `0` success, `2` usage, `10` runtime error, `20` validation error, `30` dependency missing.
+
 Terminal A (web):
 
 ```bash
