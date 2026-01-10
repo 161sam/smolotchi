@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import json
+import os
+import tempfile
 import time
 from typing import Any, Dict, List, Optional
 
 from smolotchi.core.paths import resolve_artifact_root
+
+MANIFEST_SUFFIX = ".manifest.json"
+HASH_CHUNK_SIZE = 1024 * 64
 
 @dataclass
 class ArtifactMeta:
@@ -15,6 +22,15 @@ class ArtifactMeta:
     created_ts: float
     title: str
     path: str
+
+
+@dataclass
+class ArtifactVerifyResult:
+    status: str
+    path: str
+    expected_sha256: Optional[str] = None
+    actual_sha256: Optional[str] = None
+    error: Optional[str] = None
 
 
 class ArtifactStore:
@@ -27,6 +43,86 @@ class ArtifactStore:
     def _ensure_index(self) -> None:
         if not self.index_path.exists():
             self.index_path.write_text("[]", encoding="utf-8")
+
+    def _manifest_path(self, artifact_path: Path) -> Path:
+        return Path(str(artifact_path) + MANIFEST_SUFFIX)
+
+    def _relative_path(self, artifact_path: Path) -> str:
+        try:
+            return str(artifact_path.relative_to(self.root))
+        except ValueError:
+            return str(artifact_path)
+
+    def _artifact_path_from_manifest(
+        self, manifest: Optional[Dict[str, Any]], manifest_path: Path
+    ) -> Path:
+        if manifest and manifest.get("path"):
+            manifest_path_value = Path(str(manifest["path"]))
+            if manifest_path_value.is_absolute():
+                return manifest_path_value
+            return self.root / manifest_path_value
+        if str(manifest_path).endswith(MANIFEST_SUFFIX):
+            return Path(str(manifest_path)[: -len(MANIFEST_SUFFIX)])
+        return manifest_path
+
+    def _write_manifest_atomic(self, manifest_path: Path, payload: Dict[str, Any]) -> None:
+        data = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+        self._write_bytes_atomic(manifest_path, data.encode("utf-8"), include_hash=False)
+
+    def _write_bytes_atomic(
+        self, path: Path, data: bytes, *, include_hash: bool = True
+    ) -> tuple[str, int]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        hasher = hashlib.sha256()
+        size = 0
+        temp_file = tempfile.NamedTemporaryFile(delete=False, dir=str(path.parent))
+        try:
+            mv = memoryview(data)
+            for idx in range(0, len(mv), HASH_CHUNK_SIZE):
+                chunk = mv[idx : idx + HASH_CHUNK_SIZE]
+                temp_file.write(chunk)
+                if include_hash:
+                    hasher.update(chunk)
+                size += len(chunk)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        finally:
+            temp_file.close()
+        os.replace(temp_file.name, path)
+        return hasher.hexdigest(), size
+
+    def _hash_file(self, path: Path) -> tuple[str, int]:
+        hasher = hashlib.sha256()
+        size = 0
+        with path.open("rb") as handle:
+            while True:
+                chunk = handle.read(HASH_CHUNK_SIZE)
+                if not chunk:
+                    break
+                hasher.update(chunk)
+                size += len(chunk)
+        return hasher.hexdigest(), size
+
+    def _load_manifest(self, manifest_path: Path) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return None, f"manifest_read_error: {exc}"
+        if not isinstance(payload, dict):
+            return None, "manifest_invalid: not a dict"
+        return payload, None
+
+    def _write_manifest_for_artifact(
+        self, artifact_path: Path, sha256: str, size_bytes: int, created_at: str
+    ) -> None:
+        payload = {
+            "path": self._relative_path(artifact_path),
+            "sha256": sha256,
+            "size_bytes": size_bytes,
+            "created_at": created_at,
+        }
+        manifest_path = self._manifest_path(artifact_path)
+        self._write_manifest_atomic(manifest_path, payload)
 
     def _load_index(self) -> List[Dict[str, Any]]:
         try:
@@ -48,18 +144,22 @@ class ArtifactStore:
         tags: Optional[List[str]] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> ArtifactMeta:
-        aid = f"{int(time.time())}-{kind}"
+        now_ts = time.time()
+        aid = f"{int(now_ts)}-{kind}"
         path = self.root / f"{aid}.json"
-        path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        content = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+        sha256, size_bytes = self._write_bytes_atomic(path, content)
+        created_at = datetime.fromtimestamp(now_ts, tz=timezone.utc).replace(
+            microsecond=0
+        ).isoformat()
+        self._write_manifest_for_artifact(path, sha256, size_bytes, created_at)
         tags = tags or []
         meta_payload = meta or {}
 
         meta = ArtifactMeta(
             id=aid,
             kind=kind,
-            created_ts=time.time(),
+            created_ts=now_ts,
             title=title,
             path=str(path),
         )
@@ -88,15 +188,21 @@ class ArtifactStore:
         ext: str = ".txt",
         mime: str = "text/plain; charset=utf-8",
     ) -> ArtifactMeta:
-        aid = f"{int(time.time())}-{kind}"
+        now_ts = time.time()
+        aid = f"{int(now_ts)}-{kind}"
         suffix = ext if ext.startswith(".") else f".{ext}"
         path = self.root / f"{aid}{suffix}"
-        path.write_text(text, encoding="utf-8")
+        content = text.encode("utf-8")
+        sha256, size_bytes = self._write_bytes_atomic(path, content)
+        created_at = datetime.fromtimestamp(now_ts, tz=timezone.utc).replace(
+            microsecond=0
+        ).isoformat()
+        self._write_manifest_for_artifact(path, sha256, size_bytes, created_at)
 
         meta = ArtifactMeta(
             id=aid,
             kind=kind,
-            created_ts=time.time(),
+            created_ts=now_ts,
             title=title,
             path=str(path),
         )
@@ -124,14 +230,19 @@ class ArtifactStore:
         content: bytes,
         mimetype: str = "application/octet-stream",
     ) -> ArtifactMeta:
-        aid = f"{int(time.time())}-{kind}"
+        now_ts = time.time()
+        aid = f"{int(now_ts)}-{kind}"
         path = self.root / f"{aid}-{filename}"
-        path.write_bytes(content)
+        sha256, size_bytes = self._write_bytes_atomic(path, content)
+        created_at = datetime.fromtimestamp(now_ts, tz=timezone.utc).replace(
+            microsecond=0
+        ).isoformat()
+        self._write_manifest_for_artifact(path, sha256, size_bytes, created_at)
 
         meta = ArtifactMeta(
             id=aid,
             kind=kind,
-            created_ts=time.time(),
+            created_ts=now_ts,
             title=title,
             path=str(path),
         )
@@ -325,11 +436,16 @@ class ArtifactStore:
             ts = float(row.get("created_ts", 0))
             if ts and ts < cutoff:
                 try:
-                    Path(str(row.get("path"))).unlink(missing_ok=True)
+                    path = Path(str(row.get("path")))
+                    path.unlink(missing_ok=True)
+                    self._manifest_path(path).unlink(missing_ok=True)
                 except TypeError:
                     path = Path(str(row.get("path")))
                     if path.exists():
                         path.unlink()
+                        manifest_path = self._manifest_path(path)
+                        if manifest_path.exists():
+                            manifest_path.unlink()
                 deleted += 1
             else:
                 new_idx.append(row)
@@ -354,11 +470,16 @@ class ArtifactStore:
         if len(idx) > keep_last:
             for row in idx[keep_last:]:
                 try:
-                    Path(str(row.get("path"))).unlink(missing_ok=True)
+                    path = Path(str(row.get("path")))
+                    path.unlink(missing_ok=True)
+                    self._manifest_path(path).unlink(missing_ok=True)
                 except TypeError:
                     path = Path(str(row.get("path")))
                     if path.exists():
                         path.unlink()
+                        manifest_path = self._manifest_path(path)
+                        if manifest_path.exists():
+                            manifest_path.unlink()
                 deleted += 1
             idx = idx[:keep_last]
 
@@ -379,7 +500,93 @@ class ArtifactStore:
             file_path = Path(str(path))
             try:
                 file_path.unlink(missing_ok=True)
+                self._manifest_path(file_path).unlink(missing_ok=True)
             except TypeError:
                 if file_path.exists():
                     file_path.unlink()
+                    manifest_path = self._manifest_path(file_path)
+                    if manifest_path.exists():
+                        manifest_path.unlink()
         self._remove_meta(artifact_id)
+
+    def verify(self, path: str) -> ArtifactVerifyResult:
+        artifact_path = Path(path)
+        if not artifact_path.is_absolute():
+            artifact_path = self.root / artifact_path
+        display_path = self._relative_path(artifact_path)
+        manifest_path = self._manifest_path(artifact_path)
+
+        if not artifact_path.exists():
+            expected_sha = None
+            if manifest_path.exists():
+                manifest, error = self._load_manifest(manifest_path)
+                if error:
+                    return ArtifactVerifyResult(
+                        status="error", path=display_path, error=error
+                    )
+                expected_sha = str(manifest.get("sha256") or "")
+                if not expected_sha:
+                    return ArtifactVerifyResult(
+                        status="error",
+                        path=display_path,
+                        error="manifest_missing_sha256",
+                    )
+            return ArtifactVerifyResult(
+                status="missing_artifact",
+                path=display_path,
+                expected_sha256=expected_sha,
+            )
+
+        if not manifest_path.exists():
+            return ArtifactVerifyResult(status="missing_manifest", path=display_path)
+
+        manifest, error = self._load_manifest(manifest_path)
+        if error:
+            return ArtifactVerifyResult(status="error", path=display_path, error=error)
+
+        expected_sha = str(manifest.get("sha256") or "")
+        if not expected_sha:
+            return ArtifactVerifyResult(
+                status="error", path=display_path, error="manifest_missing_sha256"
+            )
+        try:
+            actual_sha, _ = self._hash_file(artifact_path)
+        except Exception as exc:
+            return ArtifactVerifyResult(
+                status="error", path=display_path, error=f"hash_error: {exc}"
+            )
+
+        if expected_sha and actual_sha != expected_sha:
+            return ArtifactVerifyResult(
+                status="hash_mismatch",
+                path=display_path,
+                expected_sha256=expected_sha,
+                actual_sha256=actual_sha,
+            )
+
+        return ArtifactVerifyResult(
+            status="ok",
+            path=display_path,
+            expected_sha256=expected_sha,
+            actual_sha256=actual_sha,
+        )
+
+    def verify_all(self, limit: Optional[int] = None) -> List[ArtifactVerifyResult]:
+        manifests = sorted(self.root.rglob(f"*{MANIFEST_SUFFIX}"))
+        if limit is not None:
+            manifests = manifests[:limit]
+        results: List[ArtifactVerifyResult] = []
+        for manifest_path in manifests:
+            manifest, error = self._load_manifest(manifest_path)
+            if error:
+                results.append(
+                    ArtifactVerifyResult(
+                        status="error",
+                        path=self._relative_path(manifest_path),
+                        error=error,
+                    )
+                )
+                continue
+            artifact_path = self._artifact_path_from_manifest(manifest, manifest_path)
+            results.append(self.verify(str(artifact_path)))
+        return results
