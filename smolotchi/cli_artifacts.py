@@ -184,50 +184,49 @@ def add_artifacts_subcommands(subparsers: argparse._SubParsersAction) -> None:
     get.set_defaults(fn=_run_get)
 
     verify = sub.add_parser("verify", help="Verify artifact integrity")
-    scope = verify.add_mutually_exclusive_group(required=True)
-    scope.add_argument(
-        "--path",
-        help="Relative or absolute artifact path to verify",
-    )
-    scope.add_argument(
-        "--all",
-        action="store_true",
-        help="Verify all artifacts by scanning manifests",
+    verify.add_argument("--kind", default=None, help="Filter by artifact kind")
+    verify.add_argument(
+        "--limit",
+        type=int,
+        default=200,
+        help="Limit number of artifacts scanned (use 0 for all)",
     )
     verify.add_argument("--format", choices=["json", "table"], default="table")
 
     def _run_verify(args: argparse.Namespace) -> int:
         store = ArtifactStore(args.artifact_root)
-        results = []
-        if args.all:
-            results = store.verify_all()
-        else:
-            results = [store.verify(args.path)]
+        limit = None if args.limit <= 0 else args.limit
+        candidates = store.list(limit=limit, kind=args.kind)
+        failed = []
+        ok_count = 0
+        for meta in candidates:
+            result = store.verify(meta.path)
+            if result.status == "ok":
+                ok_count += 1
+                continue
+            reason = result.error or result.status
+            if result.status == "hash_mismatch":
+                reason = f"expected {result.expected_sha256} got {result.actual_sha256}"
+            elif result.status == "missing_manifest":
+                reason = "manifest missing"
+            elif result.status == "missing_artifact":
+                reason = "artifact missing"
+            failed.append({"id": meta.id, "reason": reason})
+
+        payload = {
+            "total": len(candidates),
+            "ok": ok_count,
+            "failed": failed,
+        }
 
         if args.format == "json":
-            payload = {"results": [result.__dict__ for result in results]}
-            if args.all:
-                summary = {}
-                for result in results:
-                    summary[result.status] = summary.get(result.status, 0) + 1
-                summary["total"] = len(results)
-                payload["summary"] = summary
             _print_json(payload)
-            return 0 if all(r.status == "ok" for r in results) else 2
+            return 0 if not failed else 2
 
-        rows = []
-        for result in results:
-            details = "-"
-            if result.status == "hash_mismatch":
-                details = f"expected {result.expected_sha256} got {result.actual_sha256}"
-            elif result.status == "missing_manifest":
-                details = "manifest missing"
-            elif result.status == "missing_artifact":
-                details = "artifact missing"
-            elif result.status == "error":
-                details = result.error or "error"
-            rows.append([result.status, result.path, details])
-        _print_table(["STATUS", "PATH", "DETAILS"], rows)
-        return 0 if all(r.status == "ok" for r in results) else 2
+        rows = [[str(item["id"]), str(item["reason"])] for item in failed]
+        print(f"Total: {payload['total']}  OK: {payload['ok']}  Failed: {len(failed)}")
+        if rows:
+            _print_table(["ID", "REASON"], rows)
+        return 0 if not failed else 2
 
     verify.set_defaults(fn=_run_verify)

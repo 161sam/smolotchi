@@ -15,6 +15,9 @@ class DatabaseBootstrapTest(unittest.TestCase):
                 row = con.execute("SELECT MAX(version) FROM schema_version").fetchone()
                 self.assertIsNotNone(row)
                 self.assertEqual(row[0], 1)
+                cols = {r[1] for r in con.execute("PRAGMA table_info(schema_version)")}
+                self.assertIn("applied_ts", cols)
+                self.assertIn("note", cols)
                 mode = con.execute("PRAGMA journal_mode").fetchone()
                 self.assertIsNotNone(mode)
                 self.assertEqual(mode[0], "wal")
