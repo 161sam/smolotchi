@@ -16,6 +16,8 @@ Code: smolotchi/core/config.py:ConfigStore
 | `SMOLOTCHI_DEVICE` | `pi_zero` | Device identifier. | `smolotchi/core/paths.py:resolve_device` |
 | `SMOLOTCHI_DISPLAY_DRYRUN` | `` | Display dry-run toggle. | `smolotchi/core/paths.py:resolve_display_dryrun` |
 
+The SQLite database at `SMOLOTCHI_DB` is automatically migrated on startup and tracks applied schema versions in the `schema_version` table.
+
 ## `config.toml` fields
 
 | Name | Type | Default | Description | Code Reference |
