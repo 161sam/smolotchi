@@ -27,10 +27,12 @@ class SystemdWatchdog:
             return 0.0
 
     def start(self) -> None:
+        self._notify("READY=1")
         if self.interval <= 0:
+            self._notify("STATUS=watchdog inactive")
             return
         self._running = True
-        self._notify("READY=1")
+        self._notify(f"STATUS=watchdog active; interval={self.interval:.1f}s")
         threading.Thread(target=self._loop, daemon=True).start()
 
     def ping(self) -> None:
