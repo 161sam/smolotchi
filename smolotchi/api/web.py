@@ -80,8 +80,11 @@ def _atomic_write_text(path: Path, text: str) -> None:
 
 def create_app(config_path: str = "config.toml") -> Flask:
     app = Flask(__name__)
-    db_path = resolve_db_path()
+    db_path = str(Path(resolve_db_path()).expanduser().resolve())
     artifact_root = resolve_artifact_root()
+    from smolotchi.core.db import bootstrap_db
+
+    bootstrap_db(db_path)
 
     bus = SQLiteBus(db_path=db_path)
     store = ConfigStore(config_path)

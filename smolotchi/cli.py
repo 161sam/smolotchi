@@ -75,6 +75,24 @@ def cmd_display(args) -> int:
     return 0
 
 
+def cmd_db_info(args) -> int:
+    from smolotchi.core.db import inspect_db
+
+    info = inspect_db(args.db)
+    if args.format == "json":
+        _print_json(info)
+        return 0
+
+    rows = [
+        ["db_path", str(info.get("db_path", ""))],
+        ["journal_mode", str(info.get("journal_mode", ""))],
+        ["schema_version", str(info.get("schema_version", ""))],
+        ["busy_timeout_ms", str(info.get("busy_timeout_ms", ""))],
+    ]
+    _print_table(["field", "value"], rows)
+    return 0
+
+
 def cmd_core(args) -> int:
     """
     Minimaler Core-Daemon: tickt State-Machine periodisch.
@@ -91,10 +109,25 @@ def cmd_core(args) -> int:
     from smolotchi.engines.tools_engine import ToolsEngine
     from smolotchi.engines.wifi_engine import WifiEngine
 
+    from smolotchi.core.db import bootstrap_db
+
     store = ConfigStore(args.config)
     cfg = store.load()
 
-    bus = SQLiteBus(db_path=args.db)
+    db_path = str(Path(args.db).expanduser().resolve())
+    artifact_root = str(Path(resolve_artifact_root()).expanduser().resolve())
+    lock_root = str(Path(resolve_lock_root()).expanduser().resolve())
+    db_info = bootstrap_db(db_path)
+    print(
+        "DB bootstrap ok: "
+        f"db={db_info['db_path']} "
+        f"journal_mode={db_info['journal_mode']} "
+        f"schema_version={db_info['schema_version']} "
+        f"artifacts={artifact_root} "
+        f"locks={lock_root}"
+    )
+
+    bus = SQLiteBus(db_path=db_path)
     allowed_tags = cfg.policy.allowed_tags
     if args.allowed_tags:
         allowed_tags = args.allowed_tags
@@ -106,12 +139,11 @@ def cmd_core(args) -> int:
         autonomous_categories=cfg.policy.autonomous_categories,
     )
 
-    artifact_root = resolve_artifact_root()
     artifacts = ArtifactStore(artifact_root)
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
-    jobs = JobStore(args.db)
-    resources = ResourceManager(resolve_lock_root())
+    jobs = JobStore(db_path)
+    resources = ResourceManager(lock_root)
     renderer = (
         ReportRenderer(ReportConfig(templates_dir=cfg.reports.templates_dir))
         if cfg.reports.enabled
@@ -1213,6 +1245,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--limit", type=int, default=50)
     s.add_argument("--topic-prefix", default=None)
     s.set_defaults(fn=cmd_events)
+
+    db = sub.add_parser("db", help="Database utilities")
+    db_sub = db.add_subparsers(dest="db_cmd", required=True)
+    s = db_sub.add_parser("info", help="Show DB path, journal mode, and schema version")
+    s.add_argument("--db", default=default_db)
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.set_defaults(fn=cmd_db_info)
 
     wifi = sub.add_parser("wifi", help="WiFi utilities")
     wifi_sub = wifi.add_subparsers(dest="wifi_cmd", required=True)

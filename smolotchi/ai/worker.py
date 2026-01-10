@@ -521,9 +521,11 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    db_path = resolve_db_path()
+    db_path = str(Path(resolve_db_path()).expanduser().resolve())
     artifact_root = resolve_artifact_root()
+    from smolotchi.core.db import bootstrap_db
 
+    bootstrap_db(db_path)
 
     bus = SQLiteBus(db_path=db_path)
     store = ConfigStore(args.config)
