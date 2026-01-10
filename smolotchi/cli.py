@@ -1146,6 +1146,27 @@ def _decide_web_server(
     return "flask", messages, False
 
 
+def _build_web_exec_start(
+    web_server: str,
+    gunicorn_path: Path | None,
+    python_path: Path,
+    web_bind: str,
+    web_port: int,
+) -> tuple[str, str]:
+    if web_server == "gunicorn":
+        web_description = "Smolotchi Web UI (Gunicorn)"
+        web_exec_start = (
+            f"{gunicorn_path} --bind {web_bind}:{web_port} --workers 1 --threads 4 "
+            "--access-logfile - --error-logfile - smolotchi.api.web:create_app()"
+        )
+    else:
+        web_description = "Smolotchi Web UI (Flask dev server)"
+        web_exec_start = (
+            f"{python_path} -m smolotchi.cli web --host {web_bind} --port {web_port}"
+        )
+    return web_description, web_exec_start
+
+
 def cmd_install_systemd(args) -> int:
     """
     Installiert systemd units nach /etc/systemd/system.
@@ -1182,6 +1203,8 @@ def cmd_install_systemd(args) -> int:
 
     user = args.user
     db = args.db
+    web_bind = args.web_bind
+    web_port = args.web_port
     gunicorn_path = _resolve_gunicorn_path(unit_project)
     gunicorn_importable = _python_can_import(python_path, "gunicorn")
     web_server, web_messages, web_error = _decide_web_server(
@@ -1222,17 +1245,13 @@ RestartSec=2
 WantedBy=multi-user.target
 """
 
-    if web_server == "gunicorn":
-        web_description = "Smolotchi Web UI (Gunicorn)"
-        web_exec_start = (
-            f"{gunicorn_path} --bind 127.0.0.1:8080 --workers 1 --threads 4 "
-            "--access-logfile - --error-logfile - smolotchi.api.web:create_app()"
-        )
-    else:
-        web_description = "Smolotchi Web UI (Flask dev server)"
-        web_exec_start = (
-            f"{python_path} -m smolotchi.cli web --host 127.0.0.1 --port 8080"
-        )
+    web_description, web_exec_start = _build_web_exec_start(
+        web_server,
+        gunicorn_path,
+        python_path,
+        web_bind,
+        web_port,
+    )
 
     web_unit = f"""[Unit]
 Description={web_description}
@@ -1568,6 +1587,17 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "gunicorn", "flask"],
         default="auto",
         help="Web server backend for smolotchi-web (default: auto)",
+    )
+    s.add_argument(
+        "--web-bind",
+        default="127.0.0.1",
+        help="Bind address for smolotchi-web (default: 127.0.0.1)",
+    )
+    s.add_argument(
+        "--web-port",
+        type=int,
+        default=8080,
+        help="Bind port for smolotchi-web (default: 8080)",
     )
     s.set_defaults(fn=cmd_install_systemd)
 
