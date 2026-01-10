@@ -9,8 +9,9 @@ User=smolotchi
 Group=smolotchi
 WorkingDirectory=/var/lib/smolotchi
 EnvironmentFile=-/etc/smolotchi/env
-ExecStart=/usr/local/bin/smolotchi ai
+ExecStart=/usr/bin/python3 -m smolotchi.ai.worker --loop --poll-interval 5
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
