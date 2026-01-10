@@ -23,6 +23,7 @@ const sidebars = {
       items: [
         "reference/http-api",
         "reference/cli",
+        "reference/locks",
         "reference/configuration",
         "reference/actions",
         "reference/artifacts-and-reports",

@@ -11,6 +11,7 @@ from smolotchi.ai.replay import (
     metrics_row,
 )
 from smolotchi.cli_artifacts import add_artifacts_subcommands
+from smolotchi.cli_locks import add_locks_subcommands
 from smolotchi.cli_profiles import add_profiles_subcommands
 from smolotchi.core.artifacts import ArtifactStore
 from smolotchi.core.app_state import load_state, save_state, state_path_for_artifacts
@@ -1396,6 +1397,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_ai_subcommands(sub)
     add_profiles_subcommands(sub)
     add_artifacts_subcommands(sub)
+    add_locks_subcommands(sub)
 
     return p
 
