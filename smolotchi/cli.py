@@ -966,6 +966,7 @@ def cmd_ai_replay(args) -> int:
 
 
 def cmd_ai_replay_batch(args) -> int:
+    artifact_root = getattr(args, "artifact_root", None) or "/var/lib/smolotchi/artifacts"
     artifacts = ArtifactStore(artifact_root)
 
     runs = artifacts.list(limit=max(args.last, 1), kind="ai_plan_run")
