@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from smolotchi.core.paths import resolve_db_path
-from smolotchi.core.migrations import apply_migrations
 from smolotchi.core.sqlite import connect
 
 
@@ -47,7 +46,6 @@ class SQLiteBus:
             )
             con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts)")
             con.execute("CREATE INDEX IF NOT EXISTS idx_events_topic ON events(topic)")
-        apply_migrations(self.db_path)
 
     @property
     def db_path_value(self) -> str:

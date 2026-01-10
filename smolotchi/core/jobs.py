@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from smolotchi.core.paths import resolve_db_path
-from smolotchi.core.migrations import apply_migrations
 from smolotchi.core.sqlite import connect
 
 
@@ -54,7 +53,6 @@ class JobStore:
             cols = {row[1] for row in con.execute("PRAGMA table_info(jobs)").fetchall()}
             if "meta" not in cols:
                 con.execute("ALTER TABLE jobs ADD COLUMN meta TEXT NOT NULL DEFAULT '{}'")
-        apply_migrations(self.db_path)
 
     def enqueue(self, job: Dict[str, Any]) -> None:
         now = time.time()

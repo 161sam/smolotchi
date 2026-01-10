@@ -67,6 +67,13 @@ def _run_migrations(con: sqlite3.Connection, app_version: str | None) -> None:
     logger.info("DB schema at version %s", current_version)
 
 
+def apply_migrations_on_connection(
+    con: sqlite3.Connection, app_version: str | None = None
+) -> int:
+    _run_migrations(con, app_version)
+    return get_current_schema_version(con)
+
+
 def _is_busy_error(exc: sqlite3.OperationalError) -> bool:
     message = str(exc).lower()
     return "locked" in message or "busy" in message

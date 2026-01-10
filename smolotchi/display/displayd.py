@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List
@@ -71,8 +72,11 @@ def _dryrun_enabled() -> bool:
 def main() -> None:
     profile = get_device_profile(resolve_device())
 
-    db = resolve_db_path()
+    db = str(Path(resolve_db_path()).expanduser().resolve())
     root = resolve_artifact_root()
+    from smolotchi.core.db import bootstrap_db
+
+    bootstrap_db(db)
 
     bus = SQLiteBus(db_path=db)
     artifacts = ArtifactStore(root=root)
