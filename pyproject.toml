@@ -7,11 +7,20 @@ name = "smolotchi"
 version = "0.0.1"
 requires-python = ">=3.9"
 dependencies = [
-    "flask>=2.3",
-    "jinja2>=3.1",
-    "pillow>=10.0",
-    "pyyaml>=6.0",
     "tomli; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+web = [
+    "flask>=3.1",
+    "gunicorn>=23.0",
+]
+core = [
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+]
+display = [
+    "pillow>=10.0",
 ]
 
 [project.scripts]

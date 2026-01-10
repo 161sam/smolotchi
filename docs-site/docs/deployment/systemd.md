@@ -8,6 +8,17 @@ interpreter (or `/usr/bin/python3` if needed). The default `prod` layout targets
 
 Code: packaging/systemd/smolotchi-core.service, packaging/systemd/smolotchi-web.service, smolotchi/cli.py:cmd_install_systemd
 
+## Python extras
+
+Install the optional dependency groups that match your deployment:
+
+```bash
+pip install -e '.[web,core]'
+```
+
+`web` installs Flask + Gunicorn, `core` installs Jinja2 + PyYAML, and `display` adds Pillow if you enable the
+display daemon.
+
 ## Runtime and state paths
 
 `/run/smolotchi` and `/run/smolotchi/locks` are created via `systemd-tmpfiles` so the CLI can run
@@ -29,7 +40,7 @@ ls -ld /run/smolotchi /run/smolotchi/locks
 
 - `smolotchi-core.service` – core state machine daemon
 - `smolotchi-ai-worker.service` – AI worker
-- `smolotchi-web.service` – Flask web UI
+- `smolotchi-web.service` – web UI (Gunicorn when available, Flask dev server fallback)
 - `smolotchi-display.service` – display daemon
 - `smolotchi-prune.service` / `smolotchi-prune.timer` – retention pruning
 
@@ -52,11 +63,21 @@ directory (still using `/var/lib/smolotchi` as the working directory).
 
 1. Sync new code into `/opt/smolotchi/current` (or update the repo there).
 2. If you ship a venv, recreate it under `/opt/smolotchi/current/.venv` for the new version.
-3. Run `sudo smolotchi install-systemd --project-dir /opt/smolotchi/current --layout prod`.
+3. Run `sudo smolotchi install-systemd --project-dir /opt/smolotchi/current --layout prod --web-server auto`.
 4. Restart services (`sudo systemctl restart smolotchi-core smolotchi-web smolotchi-display smolotchi-ai-worker`).
 
 Rollback:
 
 1. Restore the previous code under `/opt/smolotchi/current` (or point it back to the prior release).
-2. Re-run `sudo smolotchi install-systemd --project-dir /opt/smolotchi/current --layout prod`.
+2. Re-run `sudo smolotchi install-systemd --project-dir /opt/smolotchi/current --layout prod --web-server auto`.
 3. Restart the services to pick up the rollback.
+
+## Troubleshooting Gunicorn
+
+If the web unit falls back to Flask or fails because `gunicorn` is missing, reinstall the web extras and re-run
+the installer:
+
+```bash
+pip install -e '.[web,core]'
+sudo smolotchi install-systemd --project-dir /opt/smolotchi/current --layout prod --web-server auto
+```
