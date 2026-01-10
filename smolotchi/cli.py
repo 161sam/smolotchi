@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -1164,6 +1165,15 @@ WantedBy=multi-user.target
     _write_unit(Path("/etc/systemd/system/smolotchi-web.service"), web_unit)
     _write_unit(Path("/etc/systemd/system/smolotchi-ai-worker.service"), ai_worker_unit)
     _write_unit(Path("/etc/systemd/system/smolotchi-display.service"), disp_unit)
+
+    tmpfiles_src = proj / "packaging" / "systemd" / "tmpfiles.d" / "smolotchi.conf"
+    if not tmpfiles_src.exists():
+        print(f"error: {tmpfiles_src} not found.")
+        return 2
+    tmpfiles_dst = Path("/etc/tmpfiles.d/smolotchi.conf")
+    tmpfiles_dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(tmpfiles_src, tmpfiles_dst)
+    subprocess.check_call(["systemd-tmpfiles", "--create", str(tmpfiles_dst)])
 
     subprocess.check_call(["systemctl", "daemon-reload"])
     print("ok: installed units. Enable/start with:")

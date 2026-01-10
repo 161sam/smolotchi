@@ -69,6 +69,10 @@ install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-ai.service.d/"
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-display.service.d/"*.conf /etc/systemd/system/smolotchi-display.service.d/
 install -m 0644 "$PROJECT_DIR/packaging/systemd/dropins/smolotchi-prune.service.d/"*.conf /etc/systemd/system/smolotchi-prune.service.d/
 
+install -d -m 0755 /etc/tmpfiles.d
+install -m 0644 "$PROJECT_DIR/packaging/systemd/tmpfiles.d/smolotchi.conf" /etc/tmpfiles.d/smolotchi.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/smolotchi.conf
+
 systemctl daemon-reload
 
 cat <<'EOM'
