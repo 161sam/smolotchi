@@ -6,11 +6,12 @@ Code: packaging/systemd/smolotchi-core.service, packaging/systemd/smolotchi-web.
 
 ## Runtime and state paths
 
-All services create `/run/smolotchi` via `RuntimeDirectory=smolotchi` (including `/run/smolotchi/locks`)
-and `/var/lib/smolotchi` via `StateDirectory=smolotchi`. These are the only writable runtime/state
-paths when hardening is enabled. We also add a small `ExecStartPre` drop-in to ensure
-`/var/lib/smolotchi/artifacts` exists before startup. This is operator-proofing for app-managed
-paths without duplicating the base runtime/state directory creation handled by systemd.
+All services create `/run/smolotchi` via `RuntimeDirectory=smolotchi` and `/var/lib/smolotchi` via
+`StateDirectory=smolotchi`. These are the only writable runtime/state paths when hardening is
+enabled. We also add a small `ExecStartPre` drop-in to ensure subdirectories like
+`/run/smolotchi/locks` and `/var/lib/smolotchi/artifacts` exist before startup. This is
+operator-proofing for app-managed paths without duplicating the base runtime/state directory
+creation handled by systemd.
 
 ## Units
 
