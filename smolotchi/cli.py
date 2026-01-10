@@ -147,8 +147,9 @@ def cmd_display(args) -> int:
 def cmd_db_info(args) -> int:
     from smolotchi.core.db import inspect_db
 
+    fmt = getattr(args, "format", "table")
     info = inspect_db(args.db)
-    if args.format == "json":
+    if fmt == "json":
         _emit_json(info)
         return EX_OK
 
@@ -166,6 +167,7 @@ def cmd_db_migrate(args) -> int:
     from smolotchi.core.migrations import apply_migrations_on_connection, plan_migrations_on_connection
     from smolotchi.core.sqlite import connect
 
+    fmt = getattr(args, "format", "table")
     try:
         with connect(args.db) as con:
             if args.dry_run:
@@ -189,7 +191,7 @@ def cmd_db_migrate(args) -> int:
                     "pending": plan["pending"],
                     "applied": plan["pending"],
                 }
-        if args.format == "json":
+        if fmt == "json":
             _emit_json(payload)
         else:
             rows = [
@@ -204,7 +206,7 @@ def cmd_db_migrate(args) -> int:
         return EX_OK
     except Exception as exc:
         err = SmolotchiCliError(EX_RUNTIME, "db migrate failed", details={"error": str(exc)})
-        return _err(err, fmt=args.format)
+        return _err(err, fmt=fmt)
 
 
 def cmd_core(args) -> int:
@@ -514,6 +516,7 @@ def cmd_core(args) -> int:
 
 def cmd_status(args) -> int:
     bus = SQLiteBus(db_path=args.db)
+    fmt = getattr(args, "format", "table")
     evts = bus.tail(limit=50)
     st = None
     for e in evts:
@@ -521,7 +524,7 @@ def cmd_status(args) -> int:
             st = e.payload
             break
     if not st:
-        if args.format == "json":
+        if fmt == "json":
             _emit_json(
                 {
                     "state": None,
@@ -539,7 +542,7 @@ def cmd_status(args) -> int:
         "note": st.get("note", ""),
         "ts": st.get("ts"),
     }
-    if args.format == "json":
+    if fmt == "json":
         _emit_json(payload)
         return EX_OK
     print(f"state: {payload.get('state')}")
@@ -552,8 +555,9 @@ def cmd_status(args) -> int:
 
 def cmd_events(args) -> int:
     bus = SQLiteBus(db_path=args.db)
+    fmt = getattr(args, "format", "table")
     evts = bus.tail(limit=args.limit, topic_prefix=args.topic_prefix)
-    if args.format == "json":
+    if fmt == "json":
         payload = [
             {"ts": evt.ts, "topic": evt.topic, "payload": evt.payload}
             for evt in reversed(evts)
@@ -659,6 +663,7 @@ def cmd_jobs_list(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    fmt = getattr(args, "format", "table")
     statuses = args.status or []
     rows = []
     if statuses:
@@ -676,7 +681,7 @@ def cmd_jobs_list(args) -> int:
         rows = [row for row in rows if args.note_contains in (row.note or "")]
     rows = rows[: args.limit]
 
-    if args.format == "json":
+    if fmt == "json":
         payload = [
             {
                 "id": row.id,
@@ -710,6 +715,7 @@ def cmd_jobs_get(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    fmt = getattr(args, "format", "table")
     row = js.get(args.job_id)
     if not row:
         raise SmolotchiCliError(
@@ -728,7 +734,7 @@ def cmd_jobs_get(args) -> int:
         "updated_ts": row.updated_ts,
         "meta": row.meta,
     }
-    if args.format == "json":
+    if fmt == "json":
         _emit_json(payload)
     else:
         _print_table(
@@ -740,6 +746,7 @@ def cmd_jobs_get(args) -> int:
 
 def cmd_jobs_tail(args) -> int:
     bus = SQLiteBus(db_path=args.db)
+    fmt = getattr(args, "format", "table")
     events = bus.tail(limit=args.limit, topic_prefix=args.topic_prefix)
     if args.job_id:
         events = [
@@ -748,7 +755,7 @@ def cmd_jobs_tail(args) -> int:
             if str((evt.payload or {}).get("job_id")) == str(args.job_id)
         ]
 
-    if args.format == "json":
+    if fmt == "json":
         payload = [
             {
                 "ts": evt.ts,
@@ -780,6 +787,7 @@ def _stage_approval_index(store: ArtifactStore) -> dict[str, dict]:
 
 def cmd_stages_list(args) -> int:
     store = ArtifactStore(args.artifact_root)
+    fmt = getattr(args, "format", "table")
     approvals = _stage_approval_index(store)
     requests = store.list(limit=args.limit, kind="ai_stage_request")
     rows = []
@@ -799,7 +807,7 @@ def cmd_stages_list(args) -> int:
             }
         )
 
-    if args.format == "json":
+    if fmt == "json":
         _emit_json(rows)
         return EX_OK
 
@@ -822,6 +830,7 @@ def cmd_stages_approve(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     store = ArtifactStore(args.artifact_root)
+    fmt = getattr(args, "format", "table")
     approvals = _stage_approval_index(store)
     if str(args.request_id) in approvals:
         print("ok: already approved")
@@ -853,7 +862,7 @@ def cmd_stages_approve(args) -> int:
         note = f"approval granted resume_from:{int(step_index)} stage_req:{args.request_id}"
         JobStore(args.db).mark_queued(str(job_id), note=note)
 
-    if args.format == "json":
+    if fmt == "json":
         _emit_json({"approval_id": meta.id, "request_id": args.request_id})
     else:
         print(f"approved: {args.request_id} ({meta.id})")
@@ -862,6 +871,7 @@ def cmd_stages_approve(args) -> int:
 
 def cmd_health(args) -> int:
     store = ArtifactStore(args.artifact_root)
+    fmt = getattr(args, "format", "table")
     latest = store.list(limit=1, kind="worker_health")
     if not latest:
         raise SmolotchiCliError(
@@ -878,7 +888,7 @@ def cmd_health(args) -> int:
         "worker_pid": doc.get("pid"),
         "job_id": doc.get("job_id"),
     }
-    if args.format == "json":
+    if fmt == "json":
         _emit_json(payload)
     else:
         _print_table(
@@ -904,6 +914,7 @@ def cmd_job_cancel(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    fmt = getattr(args, "format", "table")
     row = _require_job(js, args.job_id)
     if row.status not in {"queued", "running", "blocked"}:
         raise SmolotchiCliError(
@@ -921,7 +932,7 @@ def cmd_job_cancel(args) -> int:
     }
     if args.dry_run:
         payload["applied"] = False
-        return _ok(payload, fmt=args.format)
+        return _ok(payload, fmt=fmt)
     ok = js.cancel(args.job_id)
     if not ok:
         raise SmolotchiCliError(
@@ -930,13 +941,14 @@ def cmd_job_cancel(args) -> int:
             details={"job_id": row.id},
         )
     payload["applied"] = True
-    return _ok(payload, fmt=args.format)
+    return _ok(payload, fmt=fmt)
 
 
 def cmd_job_reset(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    fmt = getattr(args, "format", "table")
     row = _require_job(js, args.job_id)
     if row.status != "running":
         raise SmolotchiCliError(
@@ -954,7 +966,7 @@ def cmd_job_reset(args) -> int:
     }
     if args.dry_run:
         payload["applied"] = False
-        return _ok(payload, fmt=args.format)
+        return _ok(payload, fmt=fmt)
     ok = js.reset_running(args.job_id)
     if not ok:
         raise SmolotchiCliError(
@@ -963,13 +975,14 @@ def cmd_job_reset(args) -> int:
             details={"job_id": row.id},
         )
     payload["applied"] = True
-    return _ok(payload, fmt=args.format)
+    return _ok(payload, fmt=fmt)
 
 
 def cmd_job_delete(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    fmt = getattr(args, "format", "table")
     row = _require_job(js, args.job_id)
     payload = {
         "job_id": row.id,
@@ -979,7 +992,7 @@ def cmd_job_delete(args) -> int:
     }
     if args.dry_run:
         payload["applied"] = False
-        return _ok(payload, fmt=args.format)
+        return _ok(payload, fmt=fmt)
     ok = js.delete(args.job_id)
     if not ok:
         raise SmolotchiCliError(
@@ -988,7 +1001,7 @@ def cmd_job_delete(args) -> int:
             details={"job_id": row.id},
         )
     payload["applied"] = True
-    return _ok(payload, fmt=args.format)
+    return _ok(payload, fmt=fmt)
 
 
 def _plan_bus_prune(
@@ -1102,6 +1115,7 @@ def cmd_prune(args) -> int:
     from smolotchi.core.jobs import JobStore
     from smolotchi.core.artifacts import ArtifactStore
 
+    fmt = getattr(args, "format", "table")
     store = ConfigStore(args.config)
     cfg = store.load()
     bus = SQLiteBus(db_path=args.db)
@@ -1132,7 +1146,7 @@ def cmd_prune(args) -> int:
             "jobs": jobs_plan,
             "artifacts": artifacts_plan,
         }
-        if args.format == "json":
+        if fmt == "json":
             _emit_json(payload)
         else:
             _print_kv_table(
@@ -1166,7 +1180,7 @@ def cmd_prune(args) -> int:
         "jobs_deleted": deleted_jobs,
         "artifacts_deleted": deleted_artifacts,
     }
-    if args.format == "json":
+    if fmt == "json":
         _emit_json(payload)
     else:
         _print_kv_table(payload)
@@ -1834,26 +1848,21 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_core)
 
     s = sub.add_parser("status", help="Show current state")
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_status)
 
     s = sub.add_parser("events", help="Print recent events")
     s.add_argument("--limit", type=int, default=50)
     s.add_argument("--topic-prefix", default=None)
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_events)
 
     db = sub.add_parser("db", help="Database utilities")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
     s = db_sub.add_parser("info", help="Show DB path, journal mode, and schema version")
     s.add_argument("--db", default=argparse.SUPPRESS)
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_db_info)
 
     s = db_sub.add_parser("migrate", help="Apply database migrations")
     s.add_argument("--db", default=argparse.SUPPRESS)
-    s.add_argument("--dry-run", action="store_true", default=False)
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_db_migrate)
 
     wifi = sub.add_parser("wifi", help="WiFi utilities")
@@ -1895,58 +1904,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filter by note substring",
     )
     s.add_argument("--limit", type=int, default=50)
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_jobs_list)
 
     s = jobs_sub.add_parser("get", help="Get job details")
     s.add_argument("job_id")
-    s.add_argument("--format", choices=["json", "table"], default="json")
     s.set_defaults(fn=cmd_jobs_get)
 
     s = jobs_sub.add_parser("tail", help="Tail job-related events")
     s.add_argument("--job-id", default=None, help="Filter by job id")
     s.add_argument("--topic-prefix", default=None)
     s.add_argument("--limit", type=int, default=50)
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_jobs_tail)
 
     s = sub.add_parser("job-cancel", help="Cancel queued job")
     s.add_argument("job_id")
-    s.add_argument("--format", choices=["json", "table"], default="table")
-    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_job_cancel)
 
     s = sub.add_parser("job-reset", help="Reset running job to queued")
     s.add_argument("job_id")
-    s.add_argument("--format", choices=["json", "table"], default="table")
-    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_job_reset)
 
     s = sub.add_parser("job-delete", help="Delete job")
     s.add_argument("job_id")
-    s.add_argument("--format", choices=["json", "table"], default="table")
-    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_job_delete)
 
     stages = sub.add_parser("stages", help="Stage approvals")
     stages_sub = stages.add_subparsers(dest="stages_cmd", required=True)
     s = stages_sub.add_parser("list", help="List stage requests")
     s.add_argument("--limit", type=int, default=50)
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_stages_list)
     s = stages_sub.add_parser("approve", help="Approve a stage request")
     s.add_argument("request_id")
     s.add_argument("--approved-by", default="cli")
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_stages_approve)
 
     s = sub.add_parser("health", help="Show worker health")
-    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_health)
 
     s = sub.add_parser("prune", help="Run retention prune once")
-    s.add_argument("--format", choices=["json", "table"], default="table")
-    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("handoff", help="Request handoff to LAN_OPS (publishes event)")

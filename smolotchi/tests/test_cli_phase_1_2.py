@@ -25,7 +25,7 @@ def test_db_migrate_applies_schema_version(tmp_path, capsys) -> None:
             """
         )
 
-    exit_code = cli.main(["--db", str(db_path), "db", "migrate", "--format", "json"])
+    exit_code = cli.main(["--format", "json", "--db", str(db_path), "db", "migrate"])
     assert exit_code == cli.EX_OK
     payload = json.loads(capsys.readouterr().out)
     assert payload["current_version"] == 1
@@ -39,7 +39,7 @@ def test_db_migrate_applies_schema_version(tmp_path, capsys) -> None:
 def test_db_migrate_dry_run_reports_pending(tmp_path, capsys) -> None:
     db_path = tmp_path / "events.db"
     exit_code = cli.main(
-        ["--db", str(db_path), "db", "migrate", "--dry-run", "--format", "json"]
+        ["--dry-run", "--format", "json", "--db", str(db_path), "db", "migrate"]
     )
     assert exit_code == cli.EX_OK
     payload = json.loads(capsys.readouterr().out)
@@ -56,14 +56,14 @@ def test_artifacts_verify_reports_failures(tmp_path, capsys) -> None:
 
     exit_code = cli.main(
         [
+            "--format",
+            "json",
             "--artifact-root",
             str(artifact_root),
             "artifacts",
             "verify",
             "--kind",
             "note",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == 2
@@ -85,14 +85,14 @@ def test_locks_check_and_clean(tmp_path, capsys) -> None:
 
     exit_code = cli.main(
         [
+            "--format",
+            "json",
             "locks",
             "check",
             "--lock-root",
             str(lock_root),
             "--ttl-min",
             "1",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_VALIDATION
@@ -101,15 +101,15 @@ def test_locks_check_and_clean(tmp_path, capsys) -> None:
 
     exit_code = cli.main(
         [
+            "--dry-run",
+            "--format",
+            "json",
             "locks",
             "clean",
             "--lock-root",
             str(lock_root),
             "--ttl-min",
             "1",
-            "--dry-run",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK
@@ -117,15 +117,14 @@ def test_locks_check_and_clean(tmp_path, capsys) -> None:
 
     exit_code = cli.main(
         [
+            "--format",
+            "json",
             "locks",
             "clean",
             "--lock-root",
             str(lock_root),
             "--ttl-min",
             "1",
-            "--no-dry-run",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK

@@ -10,14 +10,14 @@ import smolotchi.cli as cli
 def test_global_flags_parse_for_common_subcommands() -> None:
     parser = cli.build_parser()
 
-    args = parser.parse_args(["health", "--format", "json"])
+    args = parser.parse_args(["--format", "json", "health"])
     assert args.format == "json"
 
-    args = parser.parse_args(["prune", "--dry-run", "--format", "json"])
+    args = parser.parse_args(["--dry-run", "--format", "json", "prune"])
     assert args.dry_run is True
     assert args.format == "json"
 
-    args = parser.parse_args(["job-delete", "job-123", "--dry-run", "--format", "json"])
+    args = parser.parse_args(["--dry-run", "--format", "json", "job-delete", "job-123"])
     assert args.dry_run is True
     assert args.format == "json"
 
@@ -33,11 +33,11 @@ def test_health_json_output(tmp_path, capsys) -> None:
 
     exit_code = cli.main(
         [
+            "--format",
+            "json",
             "--artifact-root",
             str(artifact_root),
             "health",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK
@@ -52,12 +52,12 @@ def test_job_delete_unknown_id_reports_validation_error(tmp_path, capsys) -> Non
     db_path = tmp_path / "jobs.db"
     exit_code = cli.main(
         [
+            "--format",
+            "json",
             "--db",
             str(db_path),
             "job-delete",
             "999999",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_VALIDATION
@@ -76,13 +76,13 @@ def test_job_actions_dry_run_does_not_mutate(tmp_path, capsys) -> None:
     store.enqueue({"id": job_id, "kind": "test", "scope": "scope", "note": "", "meta": {}})
     exit_code = cli.main(
         [
+            "--dry-run",
+            "--format",
+            "json",
             "--db",
             str(db_path),
             "job-delete",
             job_id,
-            "--dry-run",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK
@@ -95,13 +95,13 @@ def test_job_actions_dry_run_does_not_mutate(tmp_path, capsys) -> None:
     )
     exit_code = cli.main(
         [
+            "--dry-run",
+            "--format",
+            "json",
             "--db",
             str(db_path),
             "job-cancel",
             cancel_id,
-            "--dry-run",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK
@@ -115,13 +115,13 @@ def test_job_actions_dry_run_does_not_mutate(tmp_path, capsys) -> None:
     store.mark_running(reset_id)
     exit_code = cli.main(
         [
+            "--dry-run",
+            "--format",
+            "json",
             "--db",
             str(db_path),
             "job-reset",
             reset_id,
-            "--dry-run",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK
@@ -144,6 +144,9 @@ def test_prune_dry_run_keeps_artifacts(tmp_path, capsys) -> None:
 
     exit_code = cli.main(
         [
+            "--dry-run",
+            "--format",
+            "json",
             "--artifact-root",
             str(artifact_root),
             "--db",
@@ -151,9 +154,6 @@ def test_prune_dry_run_keeps_artifacts(tmp_path, capsys) -> None:
             "--config",
             "config.toml",
             "prune",
-            "--dry-run",
-            "--format",
-            "json",
         ]
     )
     assert exit_code == cli.EX_OK
