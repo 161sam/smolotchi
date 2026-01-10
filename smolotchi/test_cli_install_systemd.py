@@ -48,6 +48,9 @@ def _run_install(
         install_dir=str(install_root),
         user="smolotchi",
         db="/var/lib/smolotchi/events.db",
+        web_server="auto",
+        web_bind="127.0.0.1",
+        web_port=8080,
     )
 
     written: list[tuple[Path, str]] = []
@@ -56,6 +59,7 @@ def _run_install(
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(cli, "_write_unit", lambda dst, content: written.append((dst, content)))
     monkeypatch.setattr(cli, "_sync_project_tree", _fake_sync_project)
+    monkeypatch.setattr(cli, "_python_can_import", lambda *_args, **_kwargs: False)
     def _copyfile(src, dst, **_kwargs) -> None:
         calls.append(("copyfile", src, dst))
 
@@ -103,12 +107,16 @@ def test_install_systemd_prefers_venv_python(tmp_path: Path, monkeypatch, capsys
         install_dir=str(install_root),
         user="smolotchi",
         db="/var/lib/smolotchi/events.db",
+        web_server="auto",
+        web_bind="127.0.0.1",
+        web_port=8080,
     )
 
     written: list[tuple[Path, str]] = []
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(cli, "_write_unit", lambda dst, content: written.append((dst, content)))
     monkeypatch.setattr(cli, "_sync_project_tree", _fake_sync_project)
+    monkeypatch.setattr(cli, "_python_can_import", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(shutil, "copyfile", lambda src, dst, **_kwargs: None)
     monkeypatch.setattr(subprocess, "check_call", lambda cmd: None)
 

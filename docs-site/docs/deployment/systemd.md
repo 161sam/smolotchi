@@ -46,6 +46,19 @@ ls -ld /run/smolotchi /run/smolotchi/locks
 
 Code: packaging/systemd/smolotchi-core.service, packaging/systemd/smolotchi-ai-worker.service, packaging/systemd/smolotchi-web.service, packaging/systemd/smolotchi-display.service, packaging/systemd/smolotchi-prune.service, packaging/systemd/smolotchi-prune.timer
 
+## Web bind and port
+
+By default the web unit binds to `127.0.0.1:8080`. Override it at install time if you need
+LAN access:
+
+```bash
+sudo smolotchi install-systemd --project-dir /opt/smolotchi/current --layout prod \
+  --web-server auto --web-bind 0.0.0.0 --web-port 8080
+```
+
+Security note: only bind to `0.0.0.0` when you explicitly want the UI reachable on the LAN.
+Otherwise keep the loopback default or put the service behind a reverse proxy/firewall.
+
 ## Prod-like layout (default)
 
 The installer syncs the project into `/opt/smolotchi/current` and writes units that use:
