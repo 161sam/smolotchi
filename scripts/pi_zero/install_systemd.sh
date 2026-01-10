@@ -53,6 +53,12 @@ install_dropin smolotchi-web.service 15-runtime-dirs.conf
 install_dropin smolotchi-ai.service 15-runtime-dirs.conf
 install_dropin smolotchi-display.service 15-runtime-dirs.conf
 install_dropin smolotchi-prune.service 15-runtime-dirs.conf
+install_dropin smolotchi-core.service 16-execstartpre-runtime.conf
+install_dropin smolotchi-core-net.service 16-execstartpre-runtime.conf
+install_dropin smolotchi-web.service 16-execstartpre-runtime.conf
+install_dropin smolotchi-ai.service 16-execstartpre-runtime.conf
+install_dropin smolotchi-display.service 16-execstartpre-runtime.conf
+install_dropin smolotchi-prune.service 16-execstartpre-runtime.conf
 install_dropin smolotchi-web.service 20-cap-defaults.conf
 install_dropin smolotchi-ai.service 20-cap-defaults.conf
 install_dropin smolotchi-display.service 20-cap-defaults.conf
