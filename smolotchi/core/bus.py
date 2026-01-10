@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from smolotchi.core.paths import resolve_db_path
 from smolotchi.core.migrations import apply_migrations
+from smolotchi.core.sqlite import connect
 
 
 @dataclass
@@ -30,7 +31,7 @@ class SQLiteBus:
         self._init_db()
 
     def _conn(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+        return connect(self.db_path)
 
     def _init_db(self) -> None:
         with self._conn() as con:

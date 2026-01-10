@@ -17,6 +17,8 @@ Code: smolotchi/core/config.py:ConfigStore
 | `SMOLOTCHI_DISPLAY_DRYRUN` | `` | Display dry-run toggle. | `smolotchi/core/paths.py:resolve_display_dryrun` |
 
 The SQLite database at `SMOLOTCHI_DB` is automatically migrated on startup and tracks applied schema versions in the `schema_version` table.
+Connections are configured with WAL mode and a busy timeout so operator reads can proceed while services run.
+This keeps writer locks short and improves concurrent access to the events database.
 
 ## `config.toml` fields
 
