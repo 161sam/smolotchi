@@ -194,6 +194,10 @@ if [[ "$WITH_DISPLAY" -eq 1 ]]; then
   install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/dropins/smolotchi-display.service.d/*.conf /etc/systemd/system/smolotchi-display.service.d/
 fi
 
+install -d -m 0755 /etc/tmpfiles.d
+install -m 0644 /home/$USER_NAME/smolotchi/packaging/systemd/tmpfiles.d/smolotchi.conf /etc/tmpfiles.d/smolotchi.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/smolotchi.conf
+
 systemctl daemon-reload
 
 echo "[9/9] enable + start"
