@@ -1,6 +1,8 @@
 # systemd Deployment
 
 Systemd unit files are stored in `packaging/systemd/` and are installed by the CLI's `install-systemd` command.
+The installer uses the project's `.venv/bin/python` when available, otherwise it falls back to the currently running
+interpreter (or `/usr/bin/python3` if needed).
 
 Code: packaging/systemd/smolotchi-core.service, packaging/systemd/smolotchi-web.service, smolotchi/cli.py:cmd_install_systemd
 
@@ -14,6 +16,7 @@ Troubleshooting:
 
 ```bash
 systemd-tmpfiles --cat-config | grep smolotchi
+systemd-tmpfiles --create /etc/tmpfiles.d/smolotchi.conf
 systemd-tmpfiles --create --prefix=/run/smolotchi
 ls -ld /run/smolotchi /run/smolotchi/locks
 ```

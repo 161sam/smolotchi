@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -1086,9 +1087,22 @@ def cmd_install_systemd(args) -> int:
 
     proj = Path(args.project_dir).resolve()
     venv_python = proj / ".venv" / "bin" / "python"
-    if not venv_python.exists():
-        print(f"error: {venv_python} not found. Create venv first.")
-        return 2
+    python_path = None
+    if venv_python.exists() and os.access(venv_python, os.X_OK):
+        python_path = venv_python
+    else:
+        sys_python = Path(sys.executable) if sys.executable else None
+        if sys_python and sys_python.exists() and os.access(sys_python, os.X_OK):
+            python_path = sys_python
+        else:
+            python_path = Path("/usr/bin/python3")
+            if not (python_path.exists() and os.access(python_path, os.X_OK)):
+                print(
+                    f"error: no usable python interpreter found (checked {venv_python}, "
+                    f"{sys_python}, {python_path})."
+                )
+                return 2
+        print(f"info: {venv_python} not usable, using {python_path}.")
 
     user = args.user
     db = args.db
@@ -1102,7 +1116,7 @@ User={user}
 WorkingDirectory={proj}
 Environment=PYTHONUNBUFFERED=1
 Environment=SMOLOTCHI_DB={db}
-ExecStart={venv_python} -m smolotchi.cli core --db {db} --allowed-tag lab-approved
+ExecStart={python_path} -m smolotchi.cli core --db {db} --allowed-tag lab-approved
 Restart=always
 RestartSec=2
 
@@ -1119,7 +1133,7 @@ User={user}
 WorkingDirectory={proj}
 Environment=PYTHONUNBUFFERED=1
 Environment=SMOLOTCHI_DB={db}
-ExecStart={venv_python} -m smolotchi.cli web --host 127.0.0.1 --port 8080
+ExecStart={python_path} -m smolotchi.cli web --host 127.0.0.1 --port 8080
 Restart=always
 RestartSec=2
 
@@ -1136,7 +1150,7 @@ User={user}
 WorkingDirectory={proj}
 Environment=PYTHONUNBUFFERED=1
 Environment=SMOLOTCHI_DB={db}
-ExecStart={venv_python} -m smolotchi.ai.worker --loop --log-level INFO
+ExecStart={python_path} -m smolotchi.ai.worker --loop --log-level INFO
 Restart=always
 RestartSec=2
 
@@ -1153,7 +1167,7 @@ User={user}
 WorkingDirectory={proj}
 Environment=PYTHONUNBUFFERED=1
 Environment=SMOLOTCHI_DB={db}
-ExecStart={venv_python} -m smolotchi.cli display
+ExecStart={python_path} -m smolotchi.cli display
 Restart=always
 RestartSec=2
 
@@ -1174,6 +1188,8 @@ WantedBy=multi-user.target
     tmpfiles_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(tmpfiles_src, tmpfiles_dst)
     subprocess.check_call(["systemd-tmpfiles", "--create", str(tmpfiles_dst)])
+    print("info: if runtime dirs are missing, run:")
+    print("  systemd-tmpfiles --create --prefix=/run/smolotchi")
 
     subprocess.check_call(["systemctl", "daemon-reload"])
     print("ok: installed units. Enable/start with:")
