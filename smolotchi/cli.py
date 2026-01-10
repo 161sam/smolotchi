@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 
 from smolotchi.ai.replay import (
@@ -30,14 +31,52 @@ from smolotchi.core.policy import Policy
 from smolotchi.core.state import SmolotchiCore
 
 
+EX_OK = 0
+EX_USAGE = 2
+EX_RUNTIME = 10
+EX_VALIDATION = 20
+EX_DEPENDENCY = 30
+
+
+class SmolotchiCliError(Exception):
+    def __init__(
+        self,
+        code: int,
+        message: str,
+        hint: str | None = None,
+        details: dict | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.hint = hint
+        self.details = details or {}
+
+
 def _format_ts(ts: float | None) -> str:
     if not ts:
         return "-"
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(ts)))
 
 
-def _print_json(payload) -> None:
+def _emit_json(payload) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _print_kv_table(rows: dict[str, object] | list[tuple[str, object]]) -> None:
+    if isinstance(rows, dict):
+        items = list(rows.items())
+    else:
+        items = rows
+    widths = [len("FIELD"), len("VALUE")]
+    for key, value in items:
+        widths[0] = max(widths[0], len(str(key)))
+        widths[1] = max(widths[1], len(str(value)))
+    fmt = "  ".join(f"{{:{w}}}" for w in widths)
+    print(fmt.format("FIELD", "VALUE"))
+    print(fmt.format(*["-" * w for w in widths]))
+    for key, value in items:
+        print(fmt.format(str(key), str(value)))
 
 
 def _print_table(headers: list[str], rows: list[list[str]]) -> None:
@@ -50,6 +89,33 @@ def _print_table(headers: list[str], rows: list[list[str]]) -> None:
     print(fmt.format(*["-" * w for w in widths]))
     for row in rows:
         print(fmt.format(*row))
+
+
+def _ok(payload: dict, *, fmt: str) -> int:
+    if fmt == "json":
+        _emit_json(payload)
+    else:
+        _print_kv_table(payload)
+    return EX_OK
+
+
+def _err(err: SmolotchiCliError, *, fmt: str) -> int:
+    if fmt == "json":
+        _emit_json(
+            {
+                "code": err.code,
+                "message": err.message,
+                "hint": err.hint,
+                "details": err.details,
+            }
+        )
+    else:
+        print(f"error: {err.message}", file=sys.stderr)
+        if err.hint:
+            print(f"hint: {err.hint}", file=sys.stderr)
+        if err.details:
+            print(f"details: {err.details}", file=sys.stderr)
+    return err.code
 
 
 def cmd_web(args) -> int:
@@ -65,7 +131,7 @@ def cmd_web(args) -> int:
     host = args.host or env_host or cfg.ui.host
     port = args.port or (int(env_port) if env_port else None) or cfg.ui.port
     app.run(host=host, port=port, debug=False)
-    return 0
+    return EX_OK
 
 
 def cmd_display(args) -> int:
@@ -75,7 +141,7 @@ def cmd_display(args) -> int:
     from smolotchi.display.displayd import main
 
     main()
-    return 0
+    return EX_OK
 
 
 def cmd_db_info(args) -> int:
@@ -83,8 +149,8 @@ def cmd_db_info(args) -> int:
 
     info = inspect_db(args.db)
     if args.format == "json":
-        _print_json(info)
-        return 0
+        _emit_json(info)
+        return EX_OK
 
     rows = [
         ["db_path", str(info.get("db_path", ""))],
@@ -93,7 +159,7 @@ def cmd_db_info(args) -> int:
         ["busy_timeout_ms", str(info.get("busy_timeout_ms", ""))],
     ]
     _print_table(["field", "value"], rows)
-    return 0
+    return EX_OK
 
 
 def cmd_core(args) -> int:
@@ -398,7 +464,7 @@ def cmd_core(args) -> int:
             time.sleep(interval)
     except KeyboardInterrupt:
         bus.publish("core.stopped", {"pid": os.getpid()})
-        return 0
+        return EX_OK
 
 
 def cmd_status(args) -> int:
@@ -410,23 +476,48 @@ def cmd_status(args) -> int:
             st = e.payload
             break
     if not st:
+        if args.format == "json":
+            _emit_json(
+                {
+                    "state": None,
+                    "note": None,
+                    "ts": None,
+                    "message": "state: <unknown> (no core.state.changed yet)",
+                }
+            )
+            return EX_OK
         print("state: <unknown> (no core.state.changed yet)")
-        return 0
+        return EX_OK
 
-    print(f"state: {st.get('state')}")
-    note = st.get("note", "")
+    payload = {
+        "state": st.get("state"),
+        "note": st.get("note", ""),
+        "ts": st.get("ts"),
+    }
+    if args.format == "json":
+        _emit_json(payload)
+        return EX_OK
+    print(f"state: {payload.get('state')}")
+    note = payload.get("note", "")
     if note:
         print(f"note:  {note}")
-    print(f"ts:    {st.get('ts')}")
-    return 0
+    print(f"ts:    {payload.get('ts')}")
+    return EX_OK
 
 
 def cmd_events(args) -> int:
     bus = SQLiteBus(db_path=args.db)
     evts = bus.tail(limit=args.limit, topic_prefix=args.topic_prefix)
+    if args.format == "json":
+        payload = [
+            {"ts": evt.ts, "topic": evt.topic, "payload": evt.payload}
+            for evt in reversed(evts)
+        ]
+        _emit_json({"events": payload})
+        return EX_OK
     for e in reversed(evts):
         print(f"{e.ts:.0f}  {e.topic}  {e.payload}")
-    return 0
+    return EX_OK
 
 
 def cmd_wifi_scan(args) -> int:
@@ -444,7 +535,7 @@ def cmd_wifi_scan(args) -> int:
             f"{ap.ssid[:32]:32} {ap.bssid:18} "
             f"{ap.freq_mhz or '-':6} {ap.signal_dbm or '-':7} {ap.security or '-':8}"
         )
-    return 0
+    return EX_OK
 
 
 def cmd_wifi_connect(args) -> int:
@@ -458,11 +549,17 @@ def cmd_wifi_connect(args) -> int:
     creds = cfg.wifi.credentials or {}
     allow = set(cfg.wifi.allow_ssids or [])
     if allow and args.ssid not in allow:
-        print(f"error: ssid '{args.ssid}' not in allowlist")
-        return 2
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            f"ssid '{args.ssid}' not in allowlist",
+            hint="Update wifi.allow_ssids in config.toml or choose an allowed SSID.",
+        )
     if args.ssid not in creds:
-        print(f"error: no credential for ssid '{args.ssid}'")
-        return 2
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            f"no credential for ssid '{args.ssid}'",
+            hint="Add credentials for the SSID under wifi.credentials in config.toml.",
+        )
     ok, out = connect_wpa_psk(iface, args.ssid, creds[args.ssid])
     print(out.strip())
     if ok:
@@ -472,7 +569,14 @@ def cmd_wifi_connect(args) -> int:
             print(f"cidr={cidr}")
         if scope:
             print(f"scope={scope}")
-    return 0 if ok else 1
+    if not ok:
+        raise SmolotchiCliError(
+            EX_RUNTIME,
+            "wifi connection failed",
+            hint="Check SSID/password and ensure the interface is up.",
+            details={"iface": iface, "ssid": args.ssid},
+        )
+    return EX_OK
 
 
 def cmd_wifi_status(args) -> int:
@@ -485,7 +589,7 @@ def cmd_wifi_status(args) -> int:
     cidr = detect_ipv4_cidr(iface)
     scope = detect_scope_for_iface(iface)
     print(f"iface={iface} cidr={cidr or '-'} scope={scope or '-'}")
-    return 0
+    return EX_OK
 
 
 def cmd_jobs_enqueue(args) -> int:
@@ -503,7 +607,7 @@ def cmd_jobs_enqueue(args) -> int:
         }
     )
     print(job_id)
-    return 0
+    return EX_OK
 
 
 def cmd_jobs_list(args) -> int:
@@ -540,8 +644,8 @@ def cmd_jobs_list(args) -> int:
             }
             for row in rows
         ]
-        _print_json(payload)
-        return 0
+        _emit_json(payload)
+        return EX_OK
 
     table_rows = [
         [
@@ -554,7 +658,7 @@ def cmd_jobs_list(args) -> int:
         for row in rows
     ]
     _print_table(["ID", "STATUS", "KIND", "CREATED", "SCOPE"], table_rows)
-    return 0
+    return EX_OK
 
 
 def cmd_jobs_get(args) -> int:
@@ -563,8 +667,12 @@ def cmd_jobs_get(args) -> int:
     js = JobStore(args.db)
     row = js.get(args.job_id)
     if not row:
-        print("error: job not found")
-        return 2
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "job not found",
+            hint="Verify the job id with `smolotchi jobs list`.",
+            details={"job_id": args.job_id},
+        )
     payload = {
         "id": row.id,
         "kind": row.kind,
@@ -576,13 +684,13 @@ def cmd_jobs_get(args) -> int:
         "meta": row.meta,
     }
     if args.format == "json":
-        _print_json(payload)
+        _emit_json(payload)
     else:
         _print_table(
             ["FIELD", "VALUE"],
             [[key, str(value)] for key, value in payload.items()],
         )
-    return 0
+    return EX_OK
 
 
 def cmd_jobs_tail(args) -> int:
@@ -604,15 +712,15 @@ def cmd_jobs_tail(args) -> int:
             }
             for evt in events
         ]
-        _print_json(payload)
-        return 0
+        _emit_json(payload)
+        return EX_OK
 
     rows = [
         [_format_ts(evt.ts), evt.topic, json.dumps(evt.payload, ensure_ascii=False)]
         for evt in events
     ]
     _print_table(["TS", "TOPIC", "PAYLOAD"], rows)
-    return 0
+    return EX_OK
 
 
 def _stage_approval_index(store: ArtifactStore) -> dict[str, dict]:
@@ -647,8 +755,8 @@ def cmd_stages_list(args) -> int:
         )
 
     if args.format == "json":
-        _print_json(rows)
-        return 0
+        _emit_json(rows)
+        return EX_OK
 
     table_rows = [
         [
@@ -662,7 +770,7 @@ def cmd_stages_list(args) -> int:
         for row in rows
     ]
     _print_table(["REQUEST", "JOB", "STEP", "ACTION", "RISK", "APPROVED"], table_rows)
-    return 0
+    return EX_OK
 
 
 def cmd_stages_approve(args) -> int:
@@ -672,11 +780,15 @@ def cmd_stages_approve(args) -> int:
     approvals = _stage_approval_index(store)
     if str(args.request_id) in approvals:
         print("ok: already approved")
-        return 0
+        return EX_OK
     stage_req = store.get_json(args.request_id)
     if not stage_req:
-        print("error: stage request not found")
-        return 2
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "stage request not found",
+            hint="Check the request id with `smolotchi stages list`.",
+            details={"request_id": args.request_id},
+        )
     payload = {
         "request_id": args.request_id,
         "approved_by": args.approved_by,
@@ -697,18 +809,21 @@ def cmd_stages_approve(args) -> int:
         JobStore(args.db).mark_queued(str(job_id), note=note)
 
     if args.format == "json":
-        _print_json({"approval_id": meta.id, "request_id": args.request_id})
+        _emit_json({"approval_id": meta.id, "request_id": args.request_id})
     else:
         print(f"approved: {args.request_id} ({meta.id})")
-    return 0
+    return EX_OK
 
 
 def cmd_health(args) -> int:
     store = ArtifactStore(args.artifact_root)
     latest = store.list(limit=1, kind="worker_health")
     if not latest:
-        print("worker: no health artifacts")
-        return 1
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "worker health artifact not found",
+            hint="Ensure the worker is running and writing health artifacts.",
+        )
     meta = latest[0]
     doc = store.get_json(meta.id) or {}
     ts = doc.get("ts") or meta.created_ts
@@ -719,38 +834,222 @@ def cmd_health(args) -> int:
         "job_id": doc.get("job_id"),
     }
     if args.format == "json":
-        _print_json(payload)
+        _emit_json(payload)
     else:
         _print_table(
             ["FIELD", "VALUE"],
             [[key, str(value)] for key, value in payload.items()],
         )
-    return 0
+    return EX_OK
+
+
+def _require_job(js, job_id: str):
+    row = js.get(job_id)
+    if not row:
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "job not found",
+            hint="Verify the job id with `smolotchi jobs list`.",
+            details={"job_id": job_id},
+        )
+    return row
+
+
 def cmd_job_cancel(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    row = _require_job(js, args.job_id)
+    if row.status not in {"queued", "running", "blocked"}:
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            f"job cannot be cancelled from status '{row.status}'",
+            hint="Only queued, running, or blocked jobs can be cancelled.",
+            details={"job_id": row.id, "status": row.status},
+        )
+    payload = {
+        "job_id": row.id,
+        "action": "cancel",
+        "from_status": row.status,
+        "to_status": "cancelled",
+        "dry_run": args.dry_run,
+    }
+    if args.dry_run:
+        payload["applied"] = False
+        return _ok(payload, fmt=args.format)
     ok = js.cancel(args.job_id)
-    print("ok" if ok else "no-op")
-    return 0 if ok else 1
+    if not ok:
+        raise SmolotchiCliError(
+            EX_RUNTIME,
+            "failed to cancel job",
+            details={"job_id": row.id},
+        )
+    payload["applied"] = True
+    return _ok(payload, fmt=args.format)
 
 
 def cmd_job_reset(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    row = _require_job(js, args.job_id)
+    if row.status != "running":
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            f"job is not running (status '{row.status}')",
+            hint="Only running jobs can be reset to queued.",
+            details={"job_id": row.id, "status": row.status},
+        )
+    payload = {
+        "job_id": row.id,
+        "action": "reset",
+        "from_status": row.status,
+        "to_status": "queued",
+        "dry_run": args.dry_run,
+    }
+    if args.dry_run:
+        payload["applied"] = False
+        return _ok(payload, fmt=args.format)
     ok = js.reset_running(args.job_id)
-    print("ok" if ok else "no-op")
-    return 0 if ok else 1
+    if not ok:
+        raise SmolotchiCliError(
+            EX_RUNTIME,
+            "failed to reset job",
+            details={"job_id": row.id},
+        )
+    payload["applied"] = True
+    return _ok(payload, fmt=args.format)
 
 
 def cmd_job_delete(args) -> int:
     from smolotchi.core.jobs import JobStore
 
     js = JobStore(args.db)
+    row = _require_job(js, args.job_id)
+    payload = {
+        "job_id": row.id,
+        "action": "delete",
+        "from_status": row.status,
+        "dry_run": args.dry_run,
+    }
+    if args.dry_run:
+        payload["applied"] = False
+        return _ok(payload, fmt=args.format)
     ok = js.delete(args.job_id)
-    print("ok" if ok else "no-op")
-    return 0 if ok else 1
+    if not ok:
+        raise SmolotchiCliError(
+            EX_RUNTIME,
+            "failed to delete job",
+            details={"job_id": row.id},
+        )
+    payload["applied"] = True
+    return _ok(payload, fmt=args.format)
+
+
+def _plan_bus_prune(
+    bus: SQLiteBus, *, keep_last: int, older_than_days: int
+) -> dict[str, int]:
+    cutoff = time.time() - (older_than_days * 86400)
+    with bus._conn() as con:
+        total = con.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        older = con.execute(
+            "SELECT COUNT(*) FROM events WHERE ts < ?", (cutoff,)
+        ).fetchone()[0]
+    remaining = max(total - older, 0)
+    over_keep_last = max(remaining - keep_last, 0)
+    return {
+        "total": int(total),
+        "older_than_cutoff": int(older),
+        "over_keep_last": int(over_keep_last),
+        "would_delete": int(older + over_keep_last),
+    }
+
+
+def _plan_jobs_prune(
+    jobs, *, keep_last: int, older_than_days: int
+) -> dict[str, int]:
+    cutoff = time.time() - (older_than_days * 86400)
+    with jobs._conn() as con:
+        total = con.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+        older = con.execute(
+            "SELECT COUNT(*) FROM jobs WHERE (status='done' OR status='failed') AND updated_ts < ?",
+            (cutoff,),
+        ).fetchone()[0]
+    remaining = max(total - older, 0)
+    over_keep_last = max(remaining - keep_last, 0)
+    return {
+        "total": int(total),
+        "older_than_cutoff": int(older),
+        "over_keep_last": int(over_keep_last),
+        "would_delete": int(older + over_keep_last),
+    }
+
+
+def _plan_artifacts_prune(
+    artifacts: ArtifactStore,
+    *,
+    keep_last: int,
+    older_than_days: int,
+    kinds_keep_last: list[str] | None,
+) -> dict[str, object]:
+    kinds_keep_last = kinds_keep_last or []
+    idx = artifacts._load_index()
+    total = len(idx)
+    cutoff = time.time() - (older_than_days * 86400)
+    older_than_cutoff = sum(
+        1
+        for row in idx
+        if float(row.get("created_ts", 0)) and float(row.get("created_ts", 0)) < cutoff
+    )
+    delete_rows = []
+    kept = []
+    for row in idx:
+        ts = float(row.get("created_ts", 0))
+        if ts and ts < cutoff:
+            delete_rows.append(row)
+        else:
+            kept.append(row)
+    idx = kept
+
+    if kinds_keep_last:
+        by_kind: dict[str, list[dict]] = {}
+        for row in idx:
+            by_kind.setdefault(str(row.get("kind")), []).append(row)
+        kept = []
+        for kind, rows in by_kind.items():
+            if kind in kinds_keep_last:
+                kept.extend(rows[:keep_last])
+            else:
+                kept.extend(rows)
+        keep_set = {r.get("id") for r in kept}
+        delete_rows.extend([r for r in idx if r.get("id") not in keep_set])
+        idx = [r for r in idx if r.get("id") in keep_set]
+
+    if len(idx) > keep_last:
+        delete_rows.extend(idx[keep_last:])
+
+    seen: set[str] = set()
+    candidates: list[dict[str, object]] = []
+    for row in delete_rows:
+        aid = str(row.get("id"))
+        if aid in seen:
+            continue
+        seen.add(aid)
+        candidates.append(
+            {
+                "id": aid,
+                "kind": row.get("kind"),
+                "path": row.get("path"),
+                "created_ts": row.get("created_ts"),
+            }
+        )
+
+    return {
+        "total": total,
+        "older_than_cutoff": older_than_cutoff,
+        "would_delete": len(candidates),
+        "delete_candidates": candidates,
+    }
 
 
 def cmd_prune(args) -> int:
@@ -765,6 +1064,42 @@ def cmd_prune(args) -> int:
     artifacts = ArtifactStore(args.artifact_root)
 
     r = cfg.retention
+    if args.dry_run:
+        events_plan = _plan_bus_prune(
+            bus,
+            keep_last=r.events_keep_last,
+            older_than_days=r.events_older_than_days,
+        )
+        jobs_plan = _plan_jobs_prune(
+            jobs,
+            keep_last=r.jobs_keep_last,
+            older_than_days=r.jobs_done_failed_older_than_days,
+        )
+        artifacts_plan = _plan_artifacts_prune(
+            artifacts,
+            keep_last=r.artifacts_keep_last,
+            older_than_days=r.artifacts_older_than_days,
+            kinds_keep_last=list(r.artifact_kinds_keep_last or []),
+        )
+        payload = {
+            "dry_run": True,
+            "events": events_plan,
+            "jobs": jobs_plan,
+            "artifacts": artifacts_plan,
+        }
+        if args.format == "json":
+            _emit_json(payload)
+        else:
+            _print_kv_table(
+                {
+                    "dry_run": True,
+                    "events_would_delete": events_plan.get("would_delete"),
+                    "jobs_would_delete": jobs_plan.get("would_delete"),
+                    "artifacts_would_delete": artifacts_plan.get("would_delete"),
+                }
+            )
+        return EX_OK
+
     deleted_events = bus.prune(
         keep_last=r.events_keep_last,
         older_than_days=r.events_older_than_days,
@@ -780,24 +1115,31 @@ def cmd_prune(args) -> int:
         kinds_keep_last=r.artifact_kinds_keep_last,
     )
 
-    print(
-        f"events_deleted={deleted_events} jobs_deleted={deleted_jobs} artifacts_deleted={deleted_artifacts}"
-    )
-    return 0
+    payload = {
+        "dry_run": False,
+        "events_deleted": deleted_events,
+        "jobs_deleted": deleted_jobs,
+        "artifacts_deleted": deleted_artifacts,
+    }
+    if args.format == "json":
+        _emit_json(payload)
+    else:
+        _print_kv_table(payload)
+    return EX_OK
 
 
 def cmd_handoff(args) -> int:
     bus = SQLiteBus(db_path=args.db)
     bus.publish("ui.handoff.request", {"tag": args.tag, "note": args.note})
     print("ok: published ui.handoff.request")
-    return 0
+    return EX_OK
 
 
 def cmd_lan_done(args) -> int:
     bus = SQLiteBus(db_path=args.db)
     bus.publish("lan.done", {"note": args.note})
     print("ok: published lan.done")
-    return 0
+    return EX_OK
 
 
 def cmd_diff_baseline_set(args) -> int:
@@ -807,7 +1149,7 @@ def cmd_diff_baseline_set(args) -> int:
     state.baseline_host_summary_id = str(args.artifact_id or "").strip()
     save_state(state_path, state)
     print(f"baseline_host_summary_id={state.baseline_host_summary_id}")
-    return 0
+    return EX_OK
 
 
 def cmd_diff_baseline_show(args) -> int:
@@ -815,7 +1157,7 @@ def cmd_diff_baseline_show(args) -> int:
     state_path = state_path_for_artifacts(artifacts.root)
     state = load_state(state_path)
     print(state.baseline_host_summary_id or "")
-    return 0
+    return EX_OK
 
 
 def _resolve_profile_key(cfg, ssid_or_key: str, profile_hash_hint: str | None) -> str:
@@ -845,7 +1187,7 @@ def cmd_profile_timeline(args) -> int:
         payload["artifact_id"] = meta.id
         items.append(payload)
     print(json.dumps(items, ensure_ascii=False, indent=2))
-    return 0
+    return EX_OK
 
 
 def cmd_baseline_show(args) -> int:
@@ -857,7 +1199,7 @@ def cmd_baseline_show(args) -> int:
     profile_key = _resolve_profile_key(cfg, args.profile, args.hash)
     expected = sorted(expected_findings_for_profile(cfg, profile_key))
     print(json.dumps({"profile": profile_key, "expected_findings": expected}, indent=2))
-    return 0
+    return EX_OK
 
 
 def cmd_baseline_diff(args) -> int:
@@ -883,7 +1225,7 @@ def cmd_baseline_diff(args) -> int:
             indent=2,
         )
     )
-    return 0
+    return EX_OK
 
 
 def cmd_finding_history(args) -> int:
@@ -923,7 +1265,7 @@ def cmd_finding_history(args) -> int:
         )
     history.sort(key=lambda x: x.get("ts") or 0)
     print(json.dumps(history, indent=2))
-    return 0
+    return EX_OK
 
 
 def cmd_dossier_build(args) -> int:
@@ -945,7 +1287,7 @@ def cmd_dossier_build(args) -> int:
         resolve_result_by_job_id=resolve_result_by_job_id,
     )
     print(f"OK: stored lan_dossier artifact_id={dossier_id}")
-    return 0
+    return EX_OK
 
 
 def _write_text(out_path: str | None, text: str) -> None:
@@ -981,7 +1323,7 @@ def cmd_ai_replay(args) -> int:
 
     if args.format == "json":
         _write_json(args.out, res)
-        return 0
+        return EX_OK
 
     m = res["metrics"]
     md = []
@@ -997,7 +1339,7 @@ def cmd_ai_replay(args) -> int:
         md.append(f"- error: `{m['error']}`")
     md.append("")
     _write_text(args.out, "\n".join(md))
-    return 0
+    return EX_OK
 
 
 def cmd_ai_replay_batch(args) -> int:
@@ -1040,12 +1382,12 @@ def cmd_ai_replay_batch(args) -> int:
 
     if args.format == "json":
         _write_json(args.out, {"rows": rows, "results": full})
-        return 0
+        return EX_OK
 
     if args.format == "jsonl":
         lines = [json.dumps(r, ensure_ascii=False) for r in rows]
         _write_text(args.out, "\n".join(lines))
-        return 0
+        return EX_OK
 
     header = list(rows[0].keys()) if rows else [
         "plan_id",
@@ -1069,7 +1411,7 @@ def cmd_ai_replay_batch(args) -> int:
     for row in rows:
         out_lines.append(",".join([str(row.get(k, "")).replace(",", ";") for k in header]))
     _write_text(args.out, "\n".join(out_lines))
-    return 0
+    return EX_OK
 
 
 def _write_unit(dst: Path, content: str) -> None:
@@ -1172,8 +1514,11 @@ def cmd_install_systemd(args) -> int:
     Installiert systemd units nach /etc/systemd/system.
     """
     if os.geteuid() != 0:
-        print("error: run as root (sudo).")
-        return 2
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "run as root (sudo)",
+            hint="Re-run with sudo to install systemd units.",
+        )
 
     proj = Path(args.project_dir).resolve()
     layout = args.layout
@@ -1194,11 +1539,16 @@ def cmd_install_systemd(args) -> int:
         else:
             python_path = Path("/usr/bin/python3")
             if not (python_path.exists() and os.access(python_path, os.X_OK)):
-                print(
-                    f"error: no usable python interpreter found (checked {venv_python}, "
-                    f"{sys_python}, {python_path})."
+                raise SmolotchiCliError(
+                    EX_DEPENDENCY,
+                    "no usable python interpreter found",
+                    hint="Install Python 3 or provide a .venv/bin/python.",
+                    details={
+                        "venv_python": str(venv_python),
+                        "sys_python": str(sys_python),
+                        "fallback_python": str(python_path),
+                    },
                 )
-                return 2
         print(f"info: {venv_python} not usable, using {python_path}.")
 
     user = args.user
@@ -1213,7 +1563,11 @@ def cmd_install_systemd(args) -> int:
     for message in web_messages:
         print(message)
     if web_error:
-        return 2
+        raise SmolotchiCliError(
+            EX_DEPENDENCY,
+            "web server dependency missing",
+            hint="Install gunicorn or use --web-server=flask.",
+        )
 
     working_dir = Path("/var/lib/smolotchi")
     unit_pythonpath = unit_project
@@ -1329,8 +1683,12 @@ WantedBy=multi-user.target
 
     tmpfiles_src = unit_project / "packaging" / "systemd" / "tmpfiles.d" / "smolotchi.conf"
     if not tmpfiles_src.exists():
-        print(f"error: {tmpfiles_src} not found.")
-        return 2
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "tmpfiles config missing",
+            hint="Ensure packaging/systemd/tmpfiles.d/smolotchi.conf exists.",
+            details={"path": str(tmpfiles_src)},
+        )
     tmpfiles_dst = Path("/etc/tmpfiles.d/smolotchi.conf")
     tmpfiles_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(tmpfiles_src, tmpfiles_dst)
@@ -1349,7 +1707,7 @@ WantedBy=multi-user.target
     )
     print("info: display is optional:")
     print("  sudo systemctl enable --now smolotchi-display")
-    return 0
+    return EX_OK
 
 
 def add_ai_subcommands(subparsers) -> None:
@@ -1377,6 +1735,18 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="smolotchi",
         description="Smolotchi (Pi Zero 2 W) – core/web/display CLI",
+    )
+    p.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Preview changes without mutating state",
     )
     p.add_argument(
         "--db",
@@ -1419,11 +1789,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_core)
 
     s = sub.add_parser("status", help="Show current state")
+    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_status)
 
     s = sub.add_parser("events", help="Print recent events")
     s.add_argument("--limit", type=int, default=50)
     s.add_argument("--topic-prefix", default=None)
+    s.add_argument("--format", choices=["json", "table"], default="table")
     s.set_defaults(fn=cmd_events)
 
     db = sub.add_parser("db", help="Database utilities")
@@ -1489,14 +1861,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("job-cancel", help="Cancel queued job")
     s.add_argument("job_id")
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_job_cancel)
 
     s = sub.add_parser("job-reset", help="Reset running job to queued")
     s.add_argument("job_id")
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_job_reset)
 
     s = sub.add_parser("job-delete", help="Delete job")
     s.add_argument("job_id")
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_job_delete)
 
     stages = sub.add_parser("stages", help="Stage approvals")
@@ -1516,6 +1894,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_health)
 
     s = sub.add_parser("prune", help="Run retention prune once")
+    s.add_argument("--format", choices=["json", "table"], default="table")
+    s.add_argument("--dry-run", action="store_true", default=False)
     s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("handoff", help="Request handoff to LAN_OPS (publishes event)")
@@ -1611,7 +1991,28 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    return int(args.fn(args))
+    fmt = getattr(args, "format", "table")
+    try:
+        return int(args.fn(args))
+    except SmolotchiCliError as exc:
+        return _err(exc, fmt=fmt)
+    except (FileNotFoundError, ModuleNotFoundError, ImportError) as exc:
+        err = SmolotchiCliError(
+            EX_DEPENDENCY,
+            str(exc),
+            hint="Install the missing dependency and retry.",
+        )
+        return _err(err, fmt=fmt)
+    except Exception as exc:
+        if os.environ.get("SMOLOTCHI_DEBUG") == "1":
+            traceback.print_exc()
+        err = SmolotchiCliError(
+            EX_RUNTIME,
+            "runtime error",
+            hint="Set SMOLOTCHI_DEBUG=1 to see a traceback.",
+            details={"error": str(exc)},
+        )
+        return _err(err, fmt=fmt)
 
 
 if __name__ == "__main__":
