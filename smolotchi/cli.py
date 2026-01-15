@@ -1195,13 +1195,15 @@ def cmd_uninstall(args) -> int:
             hint="Re-run with sudo.",
         )
 
-    script_path = Path("/opt/smolotchi/current/scripts/uninstall_smolotchi.sh")
+    canonical_script = Path("/opt/smolotchi/current/scripts/uninstall_smolotchi.sh")
+    fallback_script = Path(__file__).resolve().parents[1] / "scripts" / "uninstall_smolotchi.sh"
+    script_path = canonical_script if canonical_script.exists() else fallback_script
     if not script_path.exists():
         raise SmolotchiCliError(
             EX_VALIDATION,
             "uninstall script not found",
             hint="Ensure Smolotchi is installed under /opt/smolotchi/current.",
-            details={"path": str(script_path)},
+            details={"path": str(canonical_script), "fallback": str(fallback_script)},
         )
 
     args_list = [str(script_path)]
@@ -1214,7 +1216,7 @@ def cmd_uninstall(args) -> int:
 
     mode = "APPLY" if args.apply else "DRY-RUN"
     print(f"warning: invoking uninstall script in {mode} mode: {script_path}")
-    subprocess.check_call(args_list)
+    subprocess.run(args_list, check=True)
     return EX_OK
 
 

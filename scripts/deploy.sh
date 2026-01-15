@@ -17,6 +17,7 @@ set -euo pipefail
 # Flags:
 #   --repo <git-url>      (optional if running inside repo; required for curl|bash)
 #   --branch <name>       (default: main)
+#   --root <path>         (default: /opt/smolotchi/current)
 #   --user <name>         (default: smolotchi)
 #   --with-display        (install+enable display service)
 #   --enable-sudo         (adds user to sudo group, only if created)
@@ -35,6 +36,7 @@ ENABLE_CORE_NET=0
 SKIP_APT=0
 APPLY=0
 FORCE=0
+DEPLOY_ROOT="/opt/smolotchi/current"
 
 MODE="PREVIEW"
 
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo) REPO_URL="$2"; shift 2;;
     --branch) BRANCH="$2"; shift 2;;
+    --root) DEPLOY_ROOT="$2"; shift 2;;
     --user) USER_NAME="$2"; shift 2;;
     --with-display) WITH_DISPLAY=1; shift;;
     --enable-sudo) ENABLE_SUDO=1; shift;;
@@ -62,8 +65,7 @@ done
 
 [[ $EUID -eq 0 ]] || die "run as root (sudo)."
 
-DEPLOY_ROOT="/opt/smolotchi"
-DEPLOY_DIR="${DEPLOY_ROOT}/current"
+DEPLOY_DIR="${DEPLOY_ROOT}"
 VENV_DIR="${DEPLOY_DIR}/.venv"
 ETC_DIR="/etc/smolotchi"
 ENV_FILE="${ETC_DIR}/env"
@@ -157,9 +159,13 @@ detect_project_dir() {
 
 checkout_or_update_repo() {
   local project_dir="$1"
-  if [[ -n "$project_dir" ]]; then
+  if [[ -n "$project_dir" && -z "$REPO_URL" ]]; then
     log "Using local repo at: $project_dir"
     return 0
+  fi
+
+  if [[ -z "$REPO_URL" ]]; then
+    die "not running inside repo and --repo not provided (required for curl|bash)."
   fi
 
   require_cmd git
@@ -242,10 +248,11 @@ install_wrapper_bin() {
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Always run from the canonical /opt deploy venv.
-VENV="/opt/smolotchi/current/.venv"
+# Always run from the canonical deploy venv.
+VENV="__DEPLOY_VENV__"
 exec "${VENV}/bin/python" -m smolotchi.cli "$@"
 EOF
+    sed -i "s|__DEPLOY_VENV__|${VENV_DIR}|g" "$wrapper"
     chmod 0755 "$wrapper"
     chown root:root "$wrapper"
   else
@@ -284,7 +291,7 @@ install_systemd_units_and_dropins() {
       cat >"${d}/05-venv-execstart.conf" <<EOF
 [Service]
 ExecStart=
-ExecStart=/opt/smolotchi/current/.venv/bin/python -m smolotchi.cli ${cmd}
+ExecStart=${VENV_DIR}/bin/python -m smolotchi.cli ${cmd}
 EOF
       chmod 0644 "${d}/05-venv-execstart.conf"
     else
@@ -348,6 +355,15 @@ enable_services() {
   if [[ "$WITH_DISPLAY" -eq 1 ]]; then
     run systemctl enable --now smolotchi-display.service
   fi
+
+  run systemctl try-restart smolotchi-prune.timer || true
+  run systemctl try-restart smolotchi-ai.service || true
+  run systemctl try-restart smolotchi-web.service || true
+  run systemctl try-restart smolotchi-core.service || true
+  run systemctl try-restart smolotchi-core-net.service || true
+  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
+    run systemctl try-restart smolotchi-display.service || true
+  fi
 }
 
 post_checks() {
@@ -359,8 +375,8 @@ Check:
   systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
   journalctl -u smolotchi-core -n 50 --no-pager
 
-Verify install is pinned to /opt:
-  /opt/smolotchi/current/.venv/bin/python -c "import smolotchi; import smolotchi.cli as c; print('smolotchi:', getattr(smolotchi,'__file__',None)); print('cli:', c.__file__)"
+Verify install is pinned to deploy root:
+  ${VENV_DIR}/bin/python -c "import smolotchi; import smolotchi.cli as c; print('smolotchi:', getattr(smolotchi,'__file__',None)); print('cli:', c.__file__)"
 
 If you used PREVIEW, rerun with:
   sudo $0 --apply [same flags...]
@@ -378,9 +394,14 @@ main() {
   checkout_or_update_repo "$project_dir"
 
   # If running inside repo, still deploy it into /opt so runtime is canonical
-  if [[ -n "$project_dir" ]]; then
-    log "Sync local repo -> /opt deploy dir"
-    run rsync -a --delete --exclude '.git' "$project_dir/" "$DEPLOY_DIR/"
+  if [[ -n "$project_dir" && -z "$REPO_URL" ]]; then
+    log "Sync local repo -> deploy dir"
+    require_cmd rsync
+    run rsync -a --delete \
+      --exclude '.git' \
+      --exclude '.venv' \
+      --exclude 'node_modules' \
+      "$project_dir/" "$DEPLOY_DIR/"
   fi
 
   install_venv_and_package
