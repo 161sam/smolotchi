@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Smolotchi: single canonical bootstrap + deploy script
+# Smolotchi canonical bootstrap + deploy (Pi)
 # - root-only
-# - deploys repo checkout to: /opt/smolotchi/current
+# - deploy checkout to:      /opt/smolotchi/current
 # - venv lives in:           /opt/smolotchi/current/.venv
 # - config/env live in:      /etc/smolotchi/{config.toml,env}
 # - state/runtime live in:   /var/lib/smolotchi + /run/smolotchi
 #
 # Usage (curl|bash):
-#   curl -sfL https://raw.githubusercontent.com/161sam/smolotchi/main/scripts/deploy.sh | sudo bash -s -- --repo https://github.com/161sam/smolotchi.git --branch main --apply
+#   curl -sfL https://raw.githubusercontent.com/161sam/smolotchi/main/scripts/deploy.sh | sudo bash -s -- \
+#     --repo https://github.com/161sam/smolotchi.git --branch main --apply
 #
 # Usage (local repo):
 #   sudo ./scripts/deploy.sh --apply
@@ -20,7 +21,6 @@ set -euo pipefail
 #   --root <path>         (default: /opt/smolotchi/current)
 #   --user <name>         (default: smolotchi)
 #   --with-display        (install+enable display service)
-#   --enable-sudo         (adds user to sudo group, only if created)
 #   --enable-core-net     (enables smolotchi-core-net and disables smolotchi-core)
 #   --skip-apt            (skip apt install step)
 #   --apply               (actually perform changes; default is PREVIEW)
@@ -31,12 +31,11 @@ REPO_URL=""
 BRANCH="main"
 USER_NAME="smolotchi"
 WITH_DISPLAY=0
-ENABLE_SUDO=0
 ENABLE_CORE_NET=0
 SKIP_APT=0
 APPLY=0
 FORCE=0
-DEPLOY_ROOT="/opt/smolotchi/current"
+DEPLOY_DIR="/opt/smolotchi/current"
 
 MODE="PREVIEW"
 
@@ -47,16 +46,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo) REPO_URL="$2"; shift 2;;
     --branch) BRANCH="$2"; shift 2;;
-    --root) DEPLOY_ROOT="$2"; shift 2;;
+    --root) DEPLOY_DIR="$2"; shift 2;;
     --user) USER_NAME="$2"; shift 2;;
     --with-display) WITH_DISPLAY=1; shift;;
-    --enable-sudo) ENABLE_SUDO=1; shift;;
     --enable-core-net) ENABLE_CORE_NET=1; shift;;
     --skip-apt) SKIP_APT=1; shift;;
     --apply) APPLY=1; MODE="APPLY"; shift;;
     --force) FORCE=1; shift;;
     -h|--help)
-      sed -n '1,80p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '1,120p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) die "Unknown arg: $1";;
@@ -65,7 +63,6 @@ done
 
 [[ $EUID -eq 0 ]] || die "run as root (sudo)."
 
-DEPLOY_DIR="${DEPLOY_ROOT}"
 VENV_DIR="${DEPLOY_DIR}/.venv"
 ETC_DIR="/etc/smolotchi"
 ENV_FILE="${ETC_DIR}/env"
@@ -73,9 +70,8 @@ CFG_FILE="${ETC_DIR}/config.toml"
 
 SYSTEMD_DIR="/etc/systemd/system"
 TMPFILES_DIR="/etc/tmpfiles.d"
-TMPFILES_FILE="${TMPFILES_DIR}/smolotchi.conf"
 
-# Units (expected to exist in repo under packaging/systemd)
+# Units expected in repo under packaging/systemd
 UNITS=(
   "smolotchi-core.service"
   "smolotchi-core-net.service"
@@ -86,7 +82,6 @@ UNITS=(
 )
 DISPLAY_UNIT="smolotchi-display.service"
 
-# --- helpers
 run() {
   if [[ "$APPLY" -eq 1 ]]; then
     "$@"
@@ -109,28 +104,20 @@ ensure_apt() {
   log "apt update + base packages"
   run apt-get update
   run apt-get install -y --no-install-recommends \
-    build-essential \
     git ca-certificates curl \
     python3 python3-venv python3-pip \
     sqlite3 \
     iw wireless-tools rfkill iproute2 \
-    systemd procps \
-    openssh-server
+    systemd procps
 
-  # optional tools (best-effort)
+  # optional tools best-effort
   run bash -lc 'apt-get install -y --no-install-recommends jq nmap tcpdump || true'
-  run bash -lc 'apt-get install -y --no-install-recommends bettercap || true'
-
-  run systemctl enable --now ssh || true
 }
 
 ensure_user() {
   log "ensure user: ${USER_NAME}"
   if ! id "$USER_NAME" >/dev/null 2>&1; then
     run useradd -m -s /bin/bash "$USER_NAME"
-    if [[ "$ENABLE_SUDO" -eq 1 ]]; then
-      run usermod -aG sudo "$USER_NAME"
-    fi
   fi
 }
 
@@ -141,29 +128,34 @@ ensure_dirs() {
   run install -d -m 0775 -o "$USER_NAME" -g "$USER_NAME" /run/smolotchi
   run install -d -m 0775 -o "$USER_NAME" -g "$USER_NAME" /run/smolotchi/locks
   run install -d -m 0755 "$ETC_DIR"
-  run install -d -m 0755 "$DEPLOY_ROOT"
+  run install -d -m 0755 "$DEPLOY_DIR"
 }
 
 detect_project_dir() {
   # If running inside repo: PROJECT_DIR is repo root (contains pyproject.toml)
-  # Else (curl|bash): we will clone into /opt/smolotchi/current
   if [[ -f "./pyproject.toml" && -d "./smolotchi" && -d "./packaging" ]]; then
     echo "$(pwd)"
     return
-  fi
-  if [[ -z "$REPO_URL" ]]; then
-    die "not running inside repo and --repo not provided (required for curl|bash)."
   fi
   echo ""
 }
 
 checkout_or_update_repo() {
   local project_dir="$1"
+
+  # local repo mode
   if [[ -n "$project_dir" && -z "$REPO_URL" ]]; then
     log "Using local repo at: $project_dir"
+    require_cmd rsync
+    run rsync -a --delete \
+      --exclude '.git' \
+      --exclude '.venv' \
+      --exclude 'node_modules' \
+      "$project_dir/" "$DEPLOY_DIR/"
     return 0
   fi
 
+  # curl|bash mode
   if [[ -z "$REPO_URL" ]]; then
     die "not running inside repo and --repo not provided (required for curl|bash)."
   fi
@@ -182,8 +174,6 @@ install_venv_and_package() {
   log "create venv + pip install (requirements + editable)"
   run python3 -m venv "$VENV_DIR"
   run "$VENV_DIR/bin/pip" install -U pip wheel
-
-  # requirements from repo layout
   run "$VENV_DIR/bin/pip" install -r "$DEPLOY_DIR/requirements/base.txt" -r "$DEPLOY_DIR/requirements/pi_zero.txt"
   run "$VENV_DIR/bin/pip" install -e "$DEPLOY_DIR"
 }
@@ -193,18 +183,13 @@ install_config_and_env() {
 
   # config.toml: copy from repo if missing
   if [[ ! -f "$CFG_FILE" ]]; then
-    if [[ -f "$DEPLOY_DIR/contrib/pi_zero/config.toml" ]]; then
-      run install -m 0644 "$DEPLOY_DIR/contrib/pi_zero/config.toml" "$CFG_FILE"
-    else
-      run install -m 0644 "$DEPLOY_DIR/config.toml" "$CFG_FILE"
-    fi
+    run install -m 0644 "$DEPLOY_DIR/config.toml" "$CFG_FILE"
     run chown root:root "$CFG_FILE"
   else
     log "config exists: $CFG_FILE (keeping)"
   fi
 
-  # env: create/update canonical env file
-  # Always enforce SMOLOTCHI_CONFIG -> /etc/smolotchi/config.toml to avoid ProtectHome issues
+  # env: enforce SMOLOTCHI_CONFIG -> /etc/smolotchi/config.toml (ProtectHome-safe)
   local tmp_env
   tmp_env="$(mktemp)"
   cat >"$tmp_env" <<EOF
@@ -213,15 +198,11 @@ SMOLOTCHI_ARTIFACT_ROOT=/var/lib/smolotchi/artifacts
 SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml
 SMOLOTCHI_DEVICE=pi_zero
 SMOLOTCHI_LOCK_ROOT=/run/smolotchi/locks
-SMOLOTCHI_DEFAULT_TAG=lab-approved
-SMOLOTCHI_DISPLAY_DRYRUN=0
 EOF
 
   if [[ ! -f "$ENV_FILE" ]]; then
     run install -m 0644 "$tmp_env" "$ENV_FILE"
   else
-    # merge strategy: keep existing extra lines, but enforce keys above
-    # simple approach: replace matching keys, append missing keys
     run bash -lc "
       set -euo pipefail
       cp '$ENV_FILE' '${ENV_FILE}.bak'
@@ -241,98 +222,171 @@ EOF
 }
 
 install_wrapper_bin() {
-  log "install /usr/local/bin/smolotchi wrapper pinned to /opt venv"
+  log "install /usr/local/bin/smolotchi wrapper pinned to deploy venv"
   local wrapper="/usr/local/bin/smolotchi"
   if [[ "$APPLY" -eq 1 ]]; then
-    cat >"$wrapper" <<'EOF'
+    cat >"$wrapper" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Always run from the canonical deploy venv.
-VENV="__DEPLOY_VENV__"
-exec "${VENV}/bin/python" -m smolotchi.cli "$@"
+exec "${VENV_DIR}/bin/python" -m smolotchi.cli "\$@"
 EOF
-    sed -i "s|__DEPLOY_VENV__|${VENV_DIR}|g" "$wrapper"
     chmod 0755 "$wrapper"
     chown root:root "$wrapper"
   else
-    log "PREVIEW: write wrapper to /usr/local/bin/smolotchi"
+    log "PREVIEW: write wrapper to ${wrapper}"
   fi
 }
 
-install_systemd_units_and_dropins() {
-  log "install systemd units + dropins"
+install_unit_file() {
+  local unit="$1"
+  local src="$DEPLOY_DIR/packaging/systemd/$unit"
+  local dst="$SYSTEMD_DIR/$unit"
+  [[ -f "$src" ]] || die "missing unit file: $src"
+  run install -m 0644 "$src" "$dst"
+}
 
-  # Units
-  for u in "${UNITS[@]}"; do
-    run install -m 0644 "$DEPLOY_DIR/packaging/systemd/$u" "$SYSTEMD_DIR/$u"
-  done
-  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
-    run install -m 0644 "$DEPLOY_DIR/packaging/systemd/$DISPLAY_UNIT" "$SYSTEMD_DIR/$DISPLAY_UNIT"
-  fi
+ensure_dropin_dir() {
+  local unit="$1"  # e.g. smolotchi-core.service
+  run install -d -m 0755 "${SYSTEMD_DIR}/${unit}.d"
+}
 
-  # Drop-in dirs
-  local unit
-  for unit in smolotchi-core smolotchi-core-net smolotchi-web smolotchi-ai smolotchi-prune; do
-    run install -d -m 0755 "${SYSTEMD_DIR}/${unit}.service.d"
-  done
-  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
-    run install -d -m 0755 "${SYSTEMD_DIR}/smolotchi-display.service.d"
-  fi
+write_execstart_dropin() {
+  local unit="$1"     # e.g. smolotchi-core.service
+  local cmd="$2"      # e.g. core / web / ai / prune / display
+  local d="${SYSTEMD_DIR}/${unit}.d"
+  local f="${d}/05-venv-execstart.conf"
 
-  # IMPORTANT: ExecStart override to venv python in /opt (05-venv-execstart.conf)
-  # This prevents drifting to any home install.
-  local mk_execstart_dropin
-  mk_execstart_dropin() {
-    local svc="$1"  # e.g. smolotchi-core.service
-    local cmd="$2"  # e.g. core
-    local d="${SYSTEMD_DIR}/${svc}.d"
-    if [[ "$APPLY" -eq 1 ]]; then
-      cat >"${d}/05-venv-execstart.conf" <<EOF
+  if [[ "$APPLY" -eq 1 ]]; then
+    cat >"$f" <<EOF
 [Service]
 ExecStart=
 ExecStart=${VENV_DIR}/bin/python -m smolotchi.cli ${cmd}
 EOF
-      chmod 0644 "${d}/05-venv-execstart.conf"
-    else
-      log "PREVIEW: write ${d}/05-venv-execstart.conf (cmd=${cmd})"
-    fi
-  }
-
-  mk_execstart_dropin "smolotchi-core.service" "core"
-  mk_execstart_dropin "smolotchi-core-net.service" "core"
-  mk_execstart_dropin "smolotchi-web.service" "web"
-  mk_execstart_dropin "smolotchi-ai.service" "ai"
-  mk_execstart_dropin "smolotchi-prune.service" "prune"
-  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
-    mk_execstart_dropin "smolotchi-display.service" "display"
+    chmod 0644 "$f"
+    chown root:root "$f"
+  else
+    log "PREVIEW: write ${f} (cmd=${cmd})"
   fi
+}
 
-  # Copy packaged hardening dropins
-  # (baseline + per-unit dirs already in repo)
-  run bash -lc "install -m 0644 '$DEPLOY_DIR/packaging/systemd/dropins/'*.conf '$SYSTEMD_DIR/smolotchi-core.service.d/'"
-  run bash -lc "install -m 0644 '$DEPLOY_DIR/packaging/systemd/dropins/'*.conf '$SYSTEMD_DIR/smolotchi-core-net.service.d/'"
-  run bash -lc "install -m 0644 '$DEPLOY_DIR/packaging/systemd/dropins/'*.conf '$SYSTEMD_DIR/smolotchi-web.service.d/'"
-  run bash -lc "install -m 0644 '$DEPLOY_DIR/packaging/systemd/dropins/'*.conf '$SYSTEMD_DIR/smolotchi-ai.service.d/'"
-  run bash -lc "install -m 0644 '$DEPLOY_DIR/packaging/systemd/dropins/'*.conf '$SYSTEMD_DIR/smolotchi-prune.service.d/'"
-  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
-    run bash -lc "install -m 0644 '$DEPLOY_DIR/packaging/systemd/dropins/'*.conf '$SYSTEMD_DIR/smolotchi-display.service.d/'"
+copy_if_exists() {
+  local src="$1"
+  local dst_dir="$2"
+  if [[ -f "$src" ]]; then
+    run install -m 0644 "$src" "$dst_dir/"
+  else
+    log "skip (missing): $src"
   fi
+}
 
-  # Per-unit dropin dirs (if present)
-  run bash -lc "if compgen -G '$DEPLOY_DIR/packaging/systemd/dropins/smolotchi-core.service.d/*.conf' >/dev/null; then install -m 0644 $DEPLOY_DIR/packaging/systemd/dropins/smolotchi-core.service.d/*.conf '$SYSTEMD_DIR/smolotchi-core.service.d/'; fi"
-  run bash -lc "if compgen -G '$DEPLOY_DIR/packaging/systemd/dropins/smolotchi-core-net.service.d/*.conf' >/dev/null; then install -m 0644 $DEPLOY_DIR/packaging/systemd/dropins/smolotchi-core-net.service.d/*.conf '$SYSTEMD_DIR/smolotchi-core-net.service.d/'; fi"
-  run bash -lc "if compgen -G '$DEPLOY_DIR/packaging/systemd/dropins/smolotchi-web.service.d/*.conf' >/dev/null; then install -m 0644 $DEPLOY_DIR/packaging/systemd/dropins/smolotchi-web.service.d/*.conf '$SYSTEMD_DIR/smolotchi-web.service.d/'; fi"
-  run bash -lc "if compgen -G '$DEPLOY_DIR/packaging/systemd/dropins/smolotchi-ai.service.d/*.conf' >/dev/null; then install -m 0644 $DEPLOY_DIR/packaging/systemd/dropins/smolotchi-ai.service.d/*.conf '$SYSTEMD_DIR/smolotchi-ai.service.d/'; fi"
-  run bash -lc "if compgen -G '$DEPLOY_DIR/packaging/systemd/dropins/smolotchi-prune.service.d/*.conf' >/dev/null; then install -m 0644 $DEPLOY_DIR/packaging/systemd/dropins/smolotchi-prune.service.d/*.conf '$SYSTEMD_DIR/smolotchi-prune.service.d/'; fi"
-  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
-    run bash -lc "if compgen -G '$DEPLOY_DIR/packaging/systemd/dropins/smolotchi-display.service.d/*.conf' >/dev/null; then install -m 0644 $DEPLOY_DIR/packaging/systemd/dropins/smolotchi-display.service.d/*.conf '$SYSTEMD_DIR/smolotchi-display.service.d/'; fi"
+install_baseline_dropins_for_unit() {
+  local unit="$1"  # e.g. smolotchi-core.service
+  local d="${SYSTEMD_DIR}/${unit}.d"
+
+  # Baseline dropins are in packaging/systemd/dropins/*.conf
+  local dropins_root="$DEPLOY_DIR/packaging/systemd/dropins"
+
+  # --- Whitelist per unit (SAFE)
+  case "$unit" in
+    smolotchi-core.service|smolotchi-core-net.service)
+      copy_if_exists "$dropins_root/10-hardening.conf" "$d"
+      copy_if_exists "$dropins_root/11-protect-home.conf" "$d"
+      copy_if_exists "$dropins_root/12-restart-protection.conf" "$d"
+      copy_if_exists "$dropins_root/15-runtime-dirs.conf" "$d"
+      copy_if_exists "$dropins_root/40-notify.conf" "$d"
+      ;;
+    smolotchi-web.service)
+      copy_if_exists "$dropins_root/10-hardening.conf" "$d"
+      copy_if_exists "$dropins_root/11-protect-home.conf" "$d"
+      copy_if_exists "$dropins_root/12-restart-protection.conf" "$d"
+      copy_if_exists "$dropins_root/15-runtime-dirs.conf" "$d"
+      copy_if_exists "$dropins_root/20-cap-defaults.conf" "$d"
+      ;;
+    smolotchi-ai.service)
+      copy_if_exists "$dropins_root/10-hardening.conf" "$d"
+      copy_if_exists "$dropins_root/11-protect-home.conf" "$d"
+      copy_if_exists "$dropins_root/12-restart-protection.conf" "$d"
+      copy_if_exists "$dropins_root/15-runtime-dirs.conf" "$d"
+      ;;
+    smolotchi-prune.service)
+      # prune has its own hardening dropin in your tree
+      copy_if_exists "$dropins_root/10-hardening-prune.conf" "$d"
+      copy_if_exists "$dropins_root/12-restart-protection.conf" "$d"
+      copy_if_exists "$dropins_root/15-runtime-dirs.conf" "$d"
+      ;;
+    smolotchi-display.service)
+      copy_if_exists "$dropins_root/10-hardening.conf" "$d"
+      copy_if_exists "$dropins_root/11-protect-home.conf" "$d"
+      copy_if_exists "$dropins_root/12-restart-protection.conf" "$d"
+      copy_if_exists "$dropins_root/15-runtime-dirs.conf" "$d"
+      ;;
+    *)
+      die "unknown unit for baseline dropins: $unit"
+      ;;
+  esac
+}
+
+install_per_unit_dropins() {
+  local unit="$1"
+  local d="${SYSTEMD_DIR}/${unit}.d"
+  local src_dir="$DEPLOY_DIR/packaging/systemd/dropins/${unit}.d"
+  if compgen -G "${src_dir}/*.conf" >/dev/null 2>&1; then
+    run install -m 0644 "${src_dir}"/*.conf "$d/"
   fi
+}
 
-  # tmpfiles
+install_tmpfiles() {
+  local src="$DEPLOY_DIR/packaging/systemd/tmpfiles.d/smolotchi.conf"
+  [[ -f "$src" ]] || die "missing tmpfiles: $src"
   run install -d -m 0755 "$TMPFILES_DIR"
-  run install -m 0644 "$DEPLOY_DIR/packaging/systemd/tmpfiles.d/smolotchi.conf" "$TMPFILES_FILE"
-  run systemd-tmpfiles --create "$TMPFILES_FILE" || true
+  run install -m 0644 "$src" "$TMPFILES_DIR/smolotchi.conf"
+  run systemd-tmpfiles --create "$TMPFILES_DIR/smolotchi.conf" || true
+}
+
+install_systemd_all() {
+  log "install systemd units + dropins (whitelist)"
+  # units
+  for u in "${UNITS[@]}"; do
+    install_unit_file "$u"
+    ensure_dropin_dir "$u"
+  done
+  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
+    install_unit_file "$DISPLAY_UNIT"
+    ensure_dropin_dir "$DISPLAY_UNIT"
+  fi
+
+  # execstart pinned dropins
+  write_execstart_dropin "smolotchi-core.service" "core"
+  write_execstart_dropin "smolotchi-core-net.service" "core"
+  write_execstart_dropin "smolotchi-web.service" "web"
+  write_execstart_dropin "smolotchi-ai.service" "ai"
+  write_execstart_dropin "smolotchi-prune.service" "prune"
+  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
+    write_execstart_dropin "smolotchi-display.service" "display"
+  fi
+
+  # baseline dropins (whitelist) + per-unit dropins
+  install_baseline_dropins_for_unit "smolotchi-core.service"
+  install_per_unit_dropins "smolotchi-core.service"
+
+  install_baseline_dropins_for_unit "smolotchi-core-net.service"
+  install_per_unit_dropins "smolotchi-core-net.service"
+
+  install_baseline_dropins_for_unit "smolotchi-web.service"
+  install_per_unit_dropins "smolotchi-web.service"
+
+  install_baseline_dropins_for_unit "smolotchi-ai.service"
+  install_per_unit_dropins "smolotchi-ai.service"
+
+  install_baseline_dropins_for_unit "smolotchi-prune.service"
+  install_per_unit_dropins "smolotchi-prune.service"
+
+  if [[ "$WITH_DISPLAY" -eq 1 ]]; then
+    install_baseline_dropins_for_unit "smolotchi-display.service"
+    install_per_unit_dropins "smolotchi-display.service"
+  fi
+
+  install_tmpfiles
 
   run systemctl daemon-reload
 }
@@ -340,7 +394,6 @@ EOF
 enable_services() {
   log "enable/start services"
   run systemctl enable --now smolotchi-prune.timer
-
   run systemctl enable --now smolotchi-ai.service
   run systemctl enable --now smolotchi-web.service
 
@@ -356,6 +409,7 @@ enable_services() {
     run systemctl enable --now smolotchi-display.service
   fi
 
+  # restart best-effort to apply changes
   run systemctl try-restart smolotchi-prune.timer || true
   run systemctl try-restart smolotchi-ai.service || true
   run systemctl try-restart smolotchi-web.service || true
@@ -372,13 +426,14 @@ post_checks() {
 Mode: $MODE
 
 Check:
-  systemctl status smolotchi-core smolotchi-web smolotchi-ai --no-pager
-  journalctl -u smolotchi-core -n 50 --no-pager
+  systemctl --no-pager --full status smolotchi-core smolotchi-web smolotchi-ai | sed -n '1,140p'
+  journalctl -u smolotchi-core -n 60 --no-pager
 
-Verify install is pinned to deploy root:
-  ${VENV_DIR}/bin/python -c "import smolotchi; import smolotchi.cli as c; print('smolotchi:', getattr(smolotchi,'__file__',None)); print('cli:', c.__file__)"
+Verify install pinned to deploy root:
+  ${VENV_DIR}/bin/pip show -f smolotchi | sed -n '1,120p'
+  ${VENV_DIR}/bin/python -c "import smolotchi, smolotchi.cli as c; print('pkg:', getattr(smolotchi,'__file__',None)); print('cli:', c.__file__)"
 
-If you used PREVIEW, rerun with:
+If PREVIEW was used, re-run with:
   sudo $0 --apply [same flags...]
 EOF
 }
@@ -393,21 +448,10 @@ main() {
   project_dir="$(detect_project_dir || true)"
   checkout_or_update_repo "$project_dir"
 
-  # If running inside repo, still deploy it into /opt so runtime is canonical
-  if [[ -n "$project_dir" && -z "$REPO_URL" ]]; then
-    log "Sync local repo -> deploy dir"
-    require_cmd rsync
-    run rsync -a --delete \
-      --exclude '.git' \
-      --exclude '.venv' \
-      --exclude 'node_modules' \
-      "$project_dir/" "$DEPLOY_DIR/"
-  fi
-
   install_venv_and_package
   install_config_and_env
   install_wrapper_bin
-  install_systemd_units_and_dropins
+  install_systemd_all
   enable_services
   post_checks
 }
