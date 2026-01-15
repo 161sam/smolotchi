@@ -9,7 +9,7 @@ set -euo pipefail
 # - state/runtime live in:   /var/lib/smolotchi + /run/smolotchi
 #
 # Usage (curl|bash):
-#   curl -sfL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/deploy.sh | sudo bash -s -- --repo https://github.com/<owner>/<repo>.git --branch main --apply
+#   curl -sfL https://raw.githubusercontent.com/161sam/smolotchi/main/scripts/deploy.sh | sudo bash -s -- --repo https://github.com/161sam/smolotchi.git --branch main --apply
 #
 # Usage (local repo):
 #   sudo ./scripts/deploy.sh --apply
