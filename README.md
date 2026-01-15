@@ -184,8 +184,8 @@ Use the canonical deploy script to avoid `/opt` vs `/home` drift and to keep sys
 **curl | bash**
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/deploy.sh | \
-  sudo bash -s -- --repo "https://github.com/<owner>/<repo>.git" --branch main --apply
+curl -sfL https://raw.githubusercontent.com/161sam/smolotchi/main/scripts/deploy.sh | \
+  sudo bash -s -- --repo "https://github.com/161sam/smolotchi.git" --branch main --apply
 ```
 
 **Local repo**
