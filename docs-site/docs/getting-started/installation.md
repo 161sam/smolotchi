@@ -11,38 +11,29 @@ Code: requirements/base.txt, requirements/pi_zero.txt
 
 ## Config file location
 
-Runtime config is loaded from `config.toml` by default. Both the CLI and web app accept a `--config`/`config_path` argument to override this path.
+Runtime config is loaded from `config.toml` by default. For systemd installs, the deploy script enforces
+`/etc/smolotchi/config.toml` and writes `SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml` to `/etc/smolotchi/env`.
 
 Code: smolotchi/core/paths.py:resolve_config_path, smolotchi/core/config.py:ConfigStore, smolotchi/ai/worker.py:main, smolotchi/api/web.py:create_app
 
 ## Pi Zero / systemd installation (recommended)
 
-For systemd on-device installs, **avoid editable installs** (`pip install -e .`). Editable installs reference repo paths under `/home/...`, which can be blocked by systemd hardening (e.g. `ProtectHome`), causing `ModuleNotFoundError` or `PermissionError`.
-
-### Option A: system-wide non-editable install
+Use the canonical deploy script (pins `/opt/smolotchi/current` and `/opt/smolotchi/current/.venv`):
 
 ```bash
-sudo python3 -m pip uninstall -y smolotchi --break-system-packages || true
-sudo python3 -m pip install . --break-system-packages
+curl -sfL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/deploy.sh | \
+  sudo bash -s -- --repo "https://github.com/<owner>/<repo>.git" --branch main --apply
 ```
 
-### Option B: dedicated venv under /var/lib/smolotchi/venv
+Local repo usage:
 
 ```bash
-sudo python3 -m venv /var/lib/smolotchi/venv
-sudo /var/lib/smolotchi/venv/bin/python -m pip install --upgrade pip
-sudo /var/lib/smolotchi/venv/bin/python -m pip install .
+sudo ./scripts/deploy.sh --apply
 ```
 
-If you use a venv, point systemd to it via `/etc/smolotchi/env`:
+### Drift checks
 
 ```bash
-SMOLOTCHI_PY=/var/lib/smolotchi/venv/bin/python
+/opt/smolotchi/current/.venv/bin/python -c "import smolotchi, smolotchi.cli as c; print('smolotchi:', smolotchi.__file__); print('cli:', c.__file__)"
+/opt/smolotchi/current/.venv/bin/pip show -f smolotchi
 ```
-
-### Troubleshooting
-
-- `ModuleNotFoundError: No module named 'smolotchi'` usually means systemd is using a different Python context than your install.
-- `PermissionError` pointing at `__editable__..._finder.py` means the service is running an editable install and is blocked from reading repo paths under `/home`.
-
-Fix: remove the editable install and install non-editable (Option A or B above).

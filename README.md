@@ -176,116 +176,52 @@ pnpm start
 
 ---
 
-## Systemd units (web + AI worker)
+## Pi Zero / systemd install (canonical)
 
-Sample units live in `packaging/systemd/`:
+Use the canonical deploy script to avoid `/opt` vs `/home` drift and to keep systemd pinned to
+`/opt/smolotchi/current/.venv` with `SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml`.
 
-* `smolotchi-web.service`
-* `smolotchi-ai-worker.service`
-
-Optional overrides can be placed in `/etc/smolotchi/env`:
+**curl | bash**
 
 ```bash
-SMOLOTCHI_DB=/var/lib/smolotchi/events.db
-SMOLOTCHI_ARTIFACT_ROOT=/var/lib/smolotchi/artifacts
+curl -sfL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/deploy.sh | \
+  sudo bash -s -- --repo "https://github.com/<owner>/<repo>.git" --branch main --apply
+```
+
+**Local repo**
+
+```bash
+sudo ./scripts/deploy.sh --apply
+```
+
+Optional flags:
+
+* `--with-display` (enable display service)
+* `--enable-core-net` (enable CAP_NET_ADMIN unit, disables core)
+
+Environment overrides live in `/etc/smolotchi/env`. The deploy script enforces:
+
+```bash
 SMOLOTCHI_CONFIG=/etc/smolotchi/config.toml
-SMOLOTCHI_PY=/var/lib/smolotchi/venv/bin/python
-SMOLOTCHI_REPO=/home/smolotchi/smolotchi
 ```
 
-Enable services:
+### Drift checks
+
+Verify the interpreter and package location are pinned to `/opt`:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now smolotchi-web smolotchi-ai-worker
+/opt/smolotchi/current/.venv/bin/python -c "import smolotchi, smolotchi.cli as c; print('smolotchi:', smolotchi.__file__); print('cli:', c.__file__)"
+/opt/smolotchi/current/.venv/bin/pip show -f smolotchi
 ```
 
-Install wrapper + units:
+### Uninstall
+
+Use the CLI wrapper (dry-run by default):
 
 ```bash
-sudo ./scripts/pi_zero/install_systemd.sh
-sudo systemctl restart smolotchi-core smolotchi-ai-worker smolotchi-web
-sudo systemctl --no-pager --full status smolotchi-core smolotchi-ai-worker smolotchi-web smolotchi-prune.timer
+sudo smolotchi uninstall
+sudo smolotchi uninstall --apply
 ```
-
-### Wichtig: systemd ≠ editable install
-
-Für systemd/Produktivbetrieb auf dem Pi Zero **kein** `pip install -e .` verwenden. Editable installs nutzen einen Finder, der Repo-Pfade unter `/home/...` referenziert. Mit Hardening (z. B. `ProtectHome`) kann das zu `ModuleNotFoundError` oder `PermissionError` führen.
-
-**Empfohlen (non-editable):**
-
-```bash
-sudo python3 -m pip uninstall -y smolotchi --break-system-packages || true
-sudo python3 -m pip install . --break-system-packages
-sudo systemctl daemon-reload
-sudo systemctl reset-failed smolotchi-core || true
-sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai-worker || true
-```
-
-**Mini-Checkliste:**
-
-```bash
-sudo -u smolotchi -H python3 -c "import smolotchi; print(smolotchi.__file__)"
-systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager
-```
-
-Erwartung: `smolotchi.__file__` zeigt auf `/usr/local/lib/python3.11/dist-packages/...` (oder eine definierte venv).
-
-**Troubleshooting:** Wenn `journalctl` Einträge wie `__editable__..._finder.py` oder `PermissionError` zeigen, entferne den editable install und installiere non-editable (Befehle oben).
-
-**Dev-Hinweis:** Lokal für Entwicklung ist `python3 -m venv .venv && pip install -e .` weiterhin ok. Für systemd auf dem Gerät **nicht**.
-
-Display is opt-in:
-
-```bash
-ENABLE_DISPLAY=1 sudo ./scripts/pi_zero/install_systemd.sh
-```
-
-Smoke-test:
-
-```bash
-bash scripts/smoke_ai_run.sh
-```
-
-Artifacts are stored under `/var/lib/smolotchi/artifacts`.
-
----
-
-## Pi Zero Setup (Raspberry Pi OS Lite)
-
-Bootstrap a fresh Raspberry Pi OS Lite installation with the provided script.
-
-**Option A: curl | bash (example)**
-
-```bash
-curl -sfL https://raw.githubusercontent.com/161sam/smolotchi/main/scripts/pi_zero/bootstrap.sh | \
-  sudo bash -s -- --repo "https://github.com/161sam/smolotchi.git" --branch main --enable-sudo
-```
-
-**Option B: clone the repo and run locally**
-
-```bash
-git clone https://github.com/161sam/smolotchi.git
-cd smolotchi
-sudo ./scripts/pi_zero/bootstrap.sh --repo "https://github.com/161sam/smolotchi.git" --branch main --enable-sudo
-```
-
-Services are installed to `/etc/systemd/system` and enabled on boot. Check status:
-
-```bash
-sudo systemctl status smolotchi-core smolotchi-web smolotchi-ai-worker --no-pager
-sudo journalctl -u smolotchi-core -n 50 --no-pager
-```
-
-Start/stop/restart:
-
-```bash
-sudo systemctl start smolotchi-core smolotchi-web smolotchi-ai-worker
-sudo systemctl stop smolotchi-core smolotchi-web smolotchi-ai-worker
-sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai-worker
-```
-
-See `scripts/pi_zero/README.md` for a smoke checklist.
 
 ---
 
