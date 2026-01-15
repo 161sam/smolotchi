@@ -36,12 +36,10 @@ Code: smolotchi/cli.py:main, smolotchi/__main__.py
 
 ## systemd quickstart (Pi Zero)
 
-Install systemd units and use a non-editable install for systemd:
+Use the canonical deploy script:
 
 ```bash
-sudo ./scripts/pi_zero/install_systemd.sh
-sudo python3 -m pip install . --break-system-packages
-sudo systemctl restart smolotchi-core smolotchi-web smolotchi-ai
+sudo ./scripts/deploy.sh --apply
 ```
 
 Check status and logs:

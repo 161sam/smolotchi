@@ -7,15 +7,15 @@ Code: smolotchi/cli.py:build_parser, smolotchi/cli.py:main
 ## Top-level help (`python -m smolotchi.cli --help`)
 
 ```
-usage: smolotchi [-h] [--db DB] [--artifact-root ARTIFACT_ROOT]
-                 [--config CONFIG]
-                 {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts,locks}
+usage: smolotchi [-h] [--format {table,json}] [--dry-run] [--db DB]
+                 [--artifact-root ARTIFACT_ROOT] [--config CONFIG]
+                 {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,uninstall,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts,locks}
                  ...
 
 Smolotchi (Pi Zero 2 W) – core/web/display CLI
 
 positional arguments:
-  {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts,locks}
+  {web,display,core,status,events,wifi,jobs,job-cancel,job-reset,job-delete,stages,health,prune,uninstall,handoff,lan-done,diff-baseline-set,diff-baseline-show,profile,dossier,baseline,finding,install-systemd,ai,profiles,artifacts,locks}
     web                 Run Flask web UI
     display             Run e-paper display daemon
     core                Run core state-machine daemon
@@ -29,6 +29,7 @@ positional arguments:
     stages              Stage approvals
     health              Show worker health
     prune               Run retention prune once
+    uninstall           Run uninstall script (dry-run by default)
     handoff             Request handoff to LAN_OPS (publishes event)
     lan-done            Mark LAN ops done (publishes event)
     diff-baseline-set   Set baseline host_summary artifact id
@@ -45,6 +46,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  --format {table,json}
+                        Output format (default: table)
+  --dry-run             Preview changes without mutating state
   --db DB               SQLite DB path (default: /var/lib/smolotchi/events.db)
   --artifact-root ARTIFACT_ROOT
                         Artifact store root path

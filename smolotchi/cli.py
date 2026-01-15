@@ -1187,6 +1187,37 @@ def cmd_prune(args) -> int:
     return EX_OK
 
 
+def cmd_uninstall(args) -> int:
+    if os.geteuid() != 0:
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "uninstall requires root privileges",
+            hint="Re-run with sudo.",
+        )
+
+    script_path = Path("/opt/smolotchi/current/scripts/uninstall_smolotchi.sh")
+    if not script_path.exists():
+        raise SmolotchiCliError(
+            EX_VALIDATION,
+            "uninstall script not found",
+            hint="Ensure Smolotchi is installed under /opt/smolotchi/current.",
+            details={"path": str(script_path)},
+        )
+
+    args_list = [str(script_path)]
+    if args.apply:
+        args_list.append("--apply")
+    else:
+        args_list.append("--dry-run")
+    if args.remove_user:
+        args_list.append("--remove-user")
+
+    mode = "APPLY" if args.apply else "DRY-RUN"
+    print(f"warning: invoking uninstall script in {mode} mode: {script_path}")
+    subprocess.check_call(args_list)
+    return EX_OK
+
+
 def cmd_handoff(args) -> int:
     bus = SQLiteBus(db_path=args.db)
     bus.publish("ui.handoff.request", {"tag": args.tag, "note": args.note})
@@ -1943,6 +1974,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("prune", help="Run retention prune once")
     s.set_defaults(fn=cmd_prune)
+
+    s = sub.add_parser("uninstall", help="Run uninstall script (dry-run by default)")
+    s.add_argument(
+        "--apply",
+        action="store_true",
+        default=False,
+        help="Actually uninstall (default: dry-run)",
+    )
+    s.add_argument(
+        "--remove-user",
+        action="store_true",
+        default=False,
+        help="Also remove the smolotchi user/group",
+    )
+    s.set_defaults(fn=cmd_uninstall)
 
     s = sub.add_parser("handoff", help="Request handoff to LAN_OPS (publishes event)")
     s.add_argument("--tag", default=default_tag)
