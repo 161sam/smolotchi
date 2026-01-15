@@ -17,7 +17,12 @@ def test_cli_uninstall_defaults_to_dry_run(monkeypatch) -> None:
         return str(self) == "/opt/smolotchi/current/scripts/uninstall_smolotchi.sh"
 
     monkeypatch.setattr(Path, "exists", _exists)
-    monkeypatch.setattr(subprocess, "check_call", lambda cmd: calls.append(cmd))
+
+    def _run(cmd, check: bool) -> None:
+        assert check is True
+        calls.append(cmd)
+
+    monkeypatch.setattr(subprocess, "run", _run)
 
     args = SimpleNamespace(apply=False, remove_user=False)
     result = cli.cmd_uninstall(args)
